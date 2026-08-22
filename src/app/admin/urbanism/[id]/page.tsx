@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { forbidden, notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, canAccessArrondissement } from "@/lib/rbac";
@@ -25,7 +25,7 @@ export default async function UrbanCaseDetailPage({ params }: { params: Promise<
     include: { parcel: true, applicant: true, arrondissement: true, certificates: true },
   });
   if (!record) notFound();
-  if (!canAccessArrondissement(user, record.arrondissementId)) notFound();
+  if (!canAccessArrondissement(user, record.arrondissementId)) forbidden();
 
   const activeCertificate = record.certificates.find((c) => c.status === "VALID");
 

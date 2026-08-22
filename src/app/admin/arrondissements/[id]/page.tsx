@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { forbidden, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, canAccessArrondissement } from "@/lib/rbac";
@@ -11,10 +11,12 @@ export default async function ArrondissementDetailPage({ params }: { params: Pro
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!canAccessArrondissement(user, id)) notFound();
 
   const arrondissement = await prisma.arrondissement.findUnique({ where: { id }, include: { city: true } });
   if (!arrondissement) notFound();
+  // L'arrondissement existe bien : un acces hors perimetre est un refus
+  // d'autorisation (403), pas une absence de ressource (404).
+  if (!canAccessArrondissement(user, id)) forbidden();
 
   const quartiers = await listQuartiers(user, id);
 

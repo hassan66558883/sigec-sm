@@ -19,6 +19,7 @@ export function UserForm({
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [organizationLevel, setOrganizationLevel] = useState<"ARRONDISSEMENT" | "CENTRAL">("ARRONDISSEMENT");
@@ -42,6 +43,7 @@ export function UserForm({
       body: JSON.stringify({
         name,
         email,
+        phone: phone.trim() || null,
         password,
         roleIds,
         organizationLevel,
@@ -57,6 +59,7 @@ export function UserForm({
     }
     setName("");
     setEmail("");
+    setPhone("");
     setPassword("");
     setRoleIds([]);
     setArrondissementIds([]);
@@ -92,6 +95,10 @@ export function UserForm({
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Mot de passe initial</label>
           <input required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Telephone (optionnel)</label>
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
         </div>
       </div>
 

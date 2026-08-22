@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, recordScopeWhere } from "@/lib/rbac";
+import { listAuditLogs } from "@/lib/audit";
 import { redirect } from "next/navigation";
 
 export default async function AuditPage({
@@ -15,21 +16,27 @@ export default async function AuditPage({
   const { module } = await searchParams;
 
   const [logs, modules] = await Promise.all([
-    prisma.auditLog.findMany({
-      where: module ? { module } : undefined,
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-    prisma.auditLog.findMany({ distinct: ["module"], select: { module: true } }),
+    listAuditLogs(user, module),
+    prisma.auditLog.findMany({ where: recordScopeWhere(user), distinct: ["module"], select: { module: true } }),
   ]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Journal d&apos;audit</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Historique complet des actions sensibles. Lecture seule — non modifiable par les agents.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-[var(--color-text)]">Journal d&apos;audit</h1>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Historique complet des actions sensibles. Lecture seule — non modifiable par les agents.
+          </p>
+        </div>
+        {can(user, "audit", "export") && (
+          <a
+            href={module ? `/api/audit/export?module=${module}` : "/api/audit/export"}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+          >
+            Exporter (CSV)
+          </a>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

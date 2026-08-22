@@ -34,6 +34,21 @@ export default async function FinancesDashboardPage() {
         <div className="mt-1 text-3xl font-semibold text-[var(--color-text)]">{formatFcfa(summary.total)}</div>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center shadow-sm">
+          <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Aujourd&apos;hui</div>
+          <div className="mt-1 text-lg font-semibold text-[var(--color-text)]">{formatFcfa(summary.byPeriod.today)}</div>
+        </div>
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center shadow-sm">
+          <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Ce mois-ci</div>
+          <div className="mt-1 text-lg font-semibold text-[var(--color-text)]">{formatFcfa(summary.byPeriod.month)}</div>
+        </div>
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center shadow-sm">
+          <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Cette annee</div>
+          <div className="mt-1 text-lg font-semibold text-[var(--color-text)]">{formatFcfa(summary.byPeriod.year)}</div>
+        </div>
+      </div>
+
       {user.hasGlobalScope && (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
           <div className="border-b border-[var(--color-border)] px-5 py-3">
@@ -85,9 +100,9 @@ export default async function FinancesDashboardPage() {
       </div>
 
       <p className="text-xs text-[var(--color-text-muted)]">
-        Le suivi des impayes (factures emises non reglees) et les rapports periodiques (mensuel,
-        trimestriel, annuel) necessitent un module de facturation qui n&apos;est pas encore
-        implemente — seules les recettes effectivement collectees sont comptabilisees ici.
+        Le suivi des impayes (factures emises non reglees) necessite un module de facturation qui
+        n&apos;est pas encore implemente — seules les recettes effectivement collectees sont
+        comptabilisees ici.
       </p>
     </div>
   );

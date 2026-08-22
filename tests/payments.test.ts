@@ -87,4 +87,15 @@ describe("paiements et recettes", () => {
     expect(summary.arrondissementBreakdown).toEqual([]); // pas de vision globale pour un compte local
     expect(summary.total).toBeGreaterThanOrEqual(5_000);
   });
+
+  it("le decoupage jour/mois/annee inclut les recettes du jour et reste borne par le meme perimetre", async () => {
+    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["payments:create", "payments:view"] });
+    const payer = await createTestCitizen(arrA);
+    await recordPayment(agent, { payerId: payer.id, amount: 12_000, paymentMethod: "ESPECES", arrondissementId: arrA });
+
+    const summary = await getFinanceSummary(agent);
+    expect(summary.byPeriod.today).toBeGreaterThanOrEqual(12_000);
+    expect(summary.byPeriod.month).toBeGreaterThanOrEqual(summary.byPeriod.today);
+    expect(summary.byPeriod.year).toBeGreaterThanOrEqual(summary.byPeriod.month);
+  });
 });

@@ -118,6 +118,7 @@ export async function approveApplication(actor: CurrentUser, id: string) {
     module: "applications",
     entityType: "Application",
     entityId: id,
+    arrondissementId: application.arrondissementId,
     newValue: { status: "COMPLETED", certificateId: certificate.id },
   });
 
@@ -152,6 +153,7 @@ export async function rejectApplication(actor: CurrentUser, id: string, reason: 
     module: "applications",
     entityType: "Application",
     entityId: id,
+    arrondissementId: application.arrondissementId,
     newValue: { status: "REJECTED", reason },
   });
 

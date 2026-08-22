@@ -65,6 +65,7 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
     module: "payments",
     entityType: "Payment",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { receiptNumber: created.receiptNumber, amount: created.amount },
   });
 
@@ -81,12 +82,22 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
 export async function getFinanceSummary(user: CurrentUser) {
   const scopeWhere = { ...recordScopeWhere(user), status: "PAID" as const };
 
-  const [totalAgg, byArrondissement, byTaxType] = await Promise.all([
+  // Bornes de periode toujours recalculees a partir de l'heure serveur
+  // actuelle (jamais codees en dur), pour le decoupage jour/mois/annee.
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+  const [totalAgg, byArrondissement, byTaxType, todayAgg, monthAgg, yearAgg] = await Promise.all([
     prisma.payment.aggregate({ where: scopeWhere, _sum: { amount: true } }),
     user.hasGlobalScope
       ? prisma.payment.groupBy({ by: ["arrondissementId"], where: scopeWhere, _sum: { amount: true } })
       : Promise.resolve([]),
     prisma.payment.groupBy({ by: ["taxTypeId"], where: scopeWhere, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfDay } }, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfMonth } }, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfYear } }, _sum: { amount: true } }),
   ]);
 
   let arrondissementBreakdown: { arrondissementId: string | null; name: string; total: number }[] = [];
@@ -113,6 +124,11 @@ export async function getFinanceSummary(user: CurrentUser) {
 
   return {
     total: totalAgg._sum.amount ?? 0,
+    byPeriod: {
+      today: todayAgg._sum.amount ?? 0,
+      month: monthAgg._sum.amount ?? 0,
+      year: yearAgg._sum.amount ?? 0,
+    },
     arrondissementBreakdown,
     taxTypeBreakdown,
   };

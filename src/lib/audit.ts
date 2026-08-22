@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import type { CurrentUser } from "@/lib/auth";
+import { recordScopeWhere } from "@/lib/rbac";
 
 // Un simple {id, name} suffit (ex: juste apres authentification, avant que
 // les roles/permissions ne soient charges) ; CurrentUser satisfait aussi ce type.
@@ -10,6 +12,12 @@ type LogAuditInput = {
   module: string;
   entityType?: string;
   entityId?: string;
+  // Arrondissement de l'ENTITE concernee (pas celui de l'acteur) — ex. le
+  // dossier de naissance valide, le paiement enregistre... Omettre (ou null)
+  // pour une action de portee centrale/systeme (auth, gestion des comptes,
+  // roles), qui reste visible uniquement depuis la Mairie Centrale. Meme
+  // convention que recordScopeWhere() (voir rbac.ts).
+  arrondissementId?: string | null;
   oldValue?: unknown;
   newValue?: unknown;
   ipAddress?: string | null;
@@ -28,12 +36,25 @@ export async function logAudit(input: LogAuditInput) {
       module: input.module,
       entityType: input.entityType,
       entityId: input.entityId,
+      arrondissementId: input.arrondissementId ?? null,
       oldValue: input.oldValue === undefined ? undefined : (input.oldValue as object),
       newValue: input.newValue === undefined ? undefined : (input.newValue as object),
       ipAddress: input.ipAddress ?? undefined,
       userAgent: input.userAgent ?? undefined,
       result: input.result ?? "SUCCESS",
     },
+  });
+}
+
+// Lecture du journal d'audit (section 20 / gap audit), meme convention de
+// perimetre que tous les autres modules : Mairie Centrale voit tout, un
+// arrondissement ne voit que les entrees rattachees a son propre perimetre
+// (jamais les actions de portee centrale/systeme, arrondissementId = null).
+export async function listAuditLogs(user: CurrentUser | null, moduleFilter?: string, take = 100) {
+  return prisma.auditLog.findMany({
+    where: { ...recordScopeWhere(user), ...(moduleFilter ? { module: moduleFilter } : {}) },
+    orderBy: { createdAt: "desc" },
+    take,
   });
 }
 

@@ -62,6 +62,7 @@ async function createCertificateRecord(actor: CurrentUser, params: IssueParams) 
     module: "certificates",
     entityType: "Certificate",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { documentNumber: created.documentNumber, type: type.code },
   });
 
@@ -154,6 +155,7 @@ export async function revokeCertificate(actor: CurrentUser, id: string, reason: 
     module: "certificates",
     entityType: "Certificate",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status, reason },
   });

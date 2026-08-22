@@ -19,11 +19,21 @@ export default async function ArrondissementsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Arrondissements & quartiers</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Structure territoriale : ville → arrondissements → quartiers → secteurs/zones.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-[var(--color-text)]">Arrondissements & quartiers</h1>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Structure territoriale : ville → arrondissements → quartiers → secteurs/zones.
+          </p>
+        </div>
+        {can(user, "territorial", "export") && (
+          <a
+            href="/api/arrondissements/export"
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+          >
+            Exporter (CSV)
+          </a>
+        )}
       </div>
 
       {can(user, "territorial", "create") && cities[0] && (

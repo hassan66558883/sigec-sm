@@ -32,9 +32,19 @@ export default async function CitizensPage({
           <h1 className="text-xl font-semibold text-[var(--color-text)]">Citoyens</h1>
           <p className="text-sm text-[var(--color-text-muted)]">Dossier numerique unique par citoyen/resident.</p>
         </div>
-        {can(user, "citizens", "create") && (
-          <CitizenForm arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))} quartiers={quartiers} />
-        )}
+        <div className="flex items-center gap-2">
+          {can(user, "citizens", "export") && (
+            <a
+              href={search ? `/api/citizens/export?search=${encodeURIComponent(search)}` : "/api/citizens/export"}
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+            >
+              Exporter (CSV)
+            </a>
+          )}
+          {can(user, "citizens", "create") && (
+            <CitizenForm arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))} quartiers={quartiers} />
+          )}
+        </div>
       </div>
 
       <form className="flex gap-2">

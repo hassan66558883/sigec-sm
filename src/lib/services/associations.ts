@@ -32,7 +32,7 @@ export async function createAssociation(
       arrondissementId: input.arrondissementId,
     },
   });
-  await logAudit({ user: actor, action: "CREATE", module: "associations", entityType: "Association", entityId: created.id, newValue: { name: created.name } });
+  await logAudit({ user: actor, action: "CREATE", module: "associations", entityType: "Association", entityId: created.id, arrondissementId: created.arrondissementId, newValue: { name: created.name } });
   return created;
 }
 
@@ -46,6 +46,6 @@ export async function setAssociationStatus(actor: CurrentUser, id: string, statu
     throw new ApiError(403, "Association hors de votre perimetre.");
   }
   const updated = await prisma.association.update({ where: { id }, data: { status } });
-  await logAudit({ user: actor, action: "UPDATE", module: "associations", entityType: "Association", entityId: id, oldValue: { status: before.status }, newValue: { status } });
+  await logAudit({ user: actor, action: "UPDATE", module: "associations", entityType: "Association", entityId: id, arrondissementId: before.arrondissementId, oldValue: { status: before.status }, newValue: { status } });
   return updated;
 }

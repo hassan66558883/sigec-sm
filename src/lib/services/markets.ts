@@ -22,7 +22,7 @@ export async function createMarket(actor: CurrentUser, input: { name: string; ar
   const created = await prisma.market.create({
     data: { name: input.name.trim(), arrondissementId: input.arrondissementId, quartierId: input.quartierId || null },
   });
-  await logAudit({ user: actor, action: "CREATE", module: "markets", entityType: "Market", entityId: created.id, newValue: { name: created.name } });
+  await logAudit({ user: actor, action: "CREATE", module: "markets", entityType: "Market", entityId: created.id, arrondissementId: created.arrondissementId, newValue: { name: created.name } });
   return created;
 }
 
@@ -35,7 +35,7 @@ export async function createStall(actor: CurrentUser, input: { marketId: string;
   }
   if (!input.code?.trim()) throw new ApiError(400, "Code de l'emplacement requis.");
   const created = await prisma.marketStall.create({ data: { marketId: input.marketId, code: input.code.trim() } });
-  await logAudit({ user: actor, action: "CREATE", module: "markets", entityType: "MarketStall", entityId: created.id, newValue: { code: created.code } });
+  await logAudit({ user: actor, action: "CREATE", module: "markets", entityType: "MarketStall", entityId: created.id, arrondissementId: market.arrondissementId, newValue: { code: created.code } });
   return created;
 }
 
@@ -53,6 +53,6 @@ export async function setStallStatus(actor: CurrentUser, id: string, status: str
     where: { id },
     data: { status, occupantId: status === "OCCUPIED" ? occupantId : null },
   });
-  await logAudit({ user: actor, action: "UPDATE", module: "markets", entityType: "MarketStall", entityId: id, newValue: { status } });
+  await logAudit({ user: actor, action: "UPDATE", module: "markets", entityType: "MarketStall", entityId: id, arrondissementId: stall.market.arrondissementId, newValue: { status } });
   return updated;
 }

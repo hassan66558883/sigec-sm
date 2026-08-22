@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // Active forbidden() (403 explicite pour "authentifie mais hors
+    // perimetre territorial") — voir node_modules/next/dist/docs/.../forbidden.md
+    authInterrupts: true,
+  },
   async headers() {
     return [
       {

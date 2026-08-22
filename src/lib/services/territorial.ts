@@ -37,6 +37,7 @@ export async function createArrondissement(
     module: "territorial",
     entityType: "Arrondissement",
     entityId: created.id,
+    arrondissementId: created.id,
     newValue: created,
   });
   return created;
@@ -54,6 +55,7 @@ export async function setArrondissementActive(user: CurrentUser, id: string, isA
     module: "territorial",
     entityType: "Arrondissement",
     entityId: id,
+    arrondissementId: id,
     oldValue: { isActive: before.isActive },
     newValue: { isActive: updated.isActive },
   });
@@ -95,6 +97,7 @@ export async function createQuartier(
     module: "territorial",
     entityType: "Quartier",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: created,
   });
   return created;
@@ -114,6 +117,7 @@ export async function setQuartierActive(user: CurrentUser, id: string, isActive:
     module: "territorial",
     entityType: "Quartier",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { isActive: before.isActive },
     newValue: { isActive: updated.isActive },
   });
@@ -152,6 +156,7 @@ export async function createSector(user: CurrentUser, input: { quartierId: strin
     module: "territorial",
     entityType: "Sector",
     entityId: created.id,
+    arrondissementId: quartier.arrondissementId,
     newValue: created,
   });
   return created;

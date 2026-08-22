@@ -31,6 +31,6 @@ export async function createBusiness(
       quartierId: input.quartierId || null,
     },
   });
-  await logAudit({ user: actor, action: "CREATE", module: "businesses", entityType: "Business", entityId: created.id, newValue: { name: created.name } });
+  await logAudit({ user: actor, action: "CREATE", module: "businesses", entityType: "Business", entityId: created.id, arrondissementId: created.arrondissementId, newValue: { name: created.name } });
   return created;
 }

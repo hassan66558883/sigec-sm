@@ -31,7 +31,7 @@ export async function createSubdivision(
       arrondissementId: input.arrondissementId,
     },
   });
-  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "Subdivision", entityId: created.id, newValue: created });
+  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "Subdivision", entityId: created.id, arrondissementId: created.arrondissementId, newValue: created });
   return created;
 }
 
@@ -73,7 +73,7 @@ export async function createParcel(actor: CurrentUser, input: CreateParcelInput)
       status: input.ownerCitizenId ? "OCCUPIED" : "AVAILABLE",
     },
   });
-  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "LandParcel", entityId: created.id, newValue: { parcelNumber: created.parcelNumber } });
+  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "LandParcel", entityId: created.id, arrondissementId: created.arrondissementId, newValue: { parcelNumber: created.parcelNumber } });
   return created;
 }
 
@@ -95,6 +95,6 @@ export async function issueLandTitle(actor: CurrentUser, input: { parcelId: stri
     prisma.landParcel.update({ where: { id: input.parcelId }, data: { status: "TITLED", ownerCitizenId: input.holderId } }),
   ]);
 
-  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "LandTitle", entityId: title.id, newValue: { titleNumber: title.titleNumber } });
+  await logAudit({ user: actor, action: "CREATE", module: "land", entityType: "LandTitle", entityId: title.id, arrondissementId: parcel.arrondissementId, newValue: { titleNumber: title.titleNumber } });
   return title;
 }

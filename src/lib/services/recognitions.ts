@@ -50,6 +50,7 @@ export async function declareRecognition(actor: CurrentUser, input: DeclareRecog
     module: "recognitions",
     entityType: "Recognition",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { recordNumber: created.recordNumber },
   });
 
@@ -78,6 +79,7 @@ export async function validateRecognition(actor: CurrentUser, id: string) {
     module: "recognitions",
     entityType: "Recognition",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });

@@ -53,6 +53,6 @@ export async function updateInfrastructureStatus(actor: CurrentUser, id: string,
     where: { id },
     data: { status, resolvedAt: status === "COMPLETED" ? new Date() : before.resolvedAt },
   });
-  await logAudit({ user: actor, action: "UPDATE", module: "infrastructure", entityType: "Infrastructure", entityId: id, oldValue: { status: before.status }, newValue: { status } });
+  await logAudit({ user: actor, action: "UPDATE", module: "infrastructure", entityType: "Infrastructure", entityId: id, arrondissementId: before.arrondissementId, oldValue: { status: before.status }, newValue: { status } });
   return updated;
 }

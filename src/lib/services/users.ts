@@ -28,6 +28,7 @@ export async function createUser(
     name: string;
     email: string;
     password: string;
+    phone?: string | null;
     roleIds: string[];
     organizationLevel: string;
     departmentId?: string | null;
@@ -37,6 +38,7 @@ export async function createUser(
   if (!can(actor, "users", "create")) throw new ApiError(403, "Permission insuffisante.");
   const name = input.name?.trim();
   const email = input.email?.trim().toLowerCase();
+  const phone = input.phone?.trim() || null;
   if (!name || !email || !EMAIL_RE.test(email)) throw new ApiError(400, "Nom et email valides requis.");
   if (!input.password || input.password.length < 8) {
     throw new ApiError(400, "Mot de passe d'au moins 8 caracteres requis.");
@@ -78,6 +80,7 @@ export async function createUser(
     data: {
       name,
       email,
+      phone,
       password: hashed,
       mustResetPwd: true,
       organizationLevel,

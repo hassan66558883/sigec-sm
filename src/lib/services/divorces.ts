@@ -48,6 +48,7 @@ export async function declareDivorce(actor: CurrentUser, input: DeclareDivorceIn
     module: "divorces",
     entityType: "Divorce",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { recordNumber: created.recordNumber },
   });
 
@@ -79,6 +80,7 @@ export async function validateDivorce(actor: CurrentUser, id: string) {
     module: "divorces",
     entityType: "Divorce",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });

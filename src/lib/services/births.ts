@@ -95,6 +95,7 @@ export async function declareBirth(actor: CurrentUser, input: DeclareBirthInput)
     module: "births",
     entityType: "BirthRecord",
     entityId: record.id,
+    arrondissementId: record.arrondissementId,
     newValue: { recordNumber: record.recordNumber, child: `${childFirstName} ${childLastName}` },
   });
 
@@ -123,6 +124,7 @@ export async function validateBirthRecord(actor: CurrentUser, id: string) {
     module: "births",
     entityType: "BirthRecord",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });
@@ -147,6 +149,7 @@ export async function annulBirthRecord(actor: CurrentUser, id: string, reason: s
     module: "births",
     entityType: "BirthRecord",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status, reason },
   });

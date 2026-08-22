@@ -191,6 +191,7 @@ model Arrondissement {
   associations       Association[]
   complaints         Complaint[]
   infrastructures    Infrastructure[]
+  auditLogs          AuditLog[]
 
   @@unique([cityId, number])
   @@index([cityId])
@@ -888,25 +889,33 @@ model Infrastructure {
 // n'est exposee ; ecriture uniquement depuis le serveur via logAudit()).
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  userName   String // capture au moment de l'action, resiste a la suppression du compte
-  action     String // ex: CREATE, UPDATE, DELETE, VALIDATE, APPROVE, REJECT, SIGN, REVOKE, LOGIN, LOGIN_FAILED
-  module     String // ex: auth, territorial, users, civil_status...
-  entityType String? // ex: Arrondissement, User, Role
-  entityId   String?
-  oldValue   Json?
-  newValue   Json?
-  ipAddress  String?
-  userAgent  String?
-  result     String   @default("SUCCESS") // SUCCESS | FAILURE
-  createdAt  DateTime @default(now())
+  id               String   @id @default(cuid())
+  userId           String?
+  userName         String // capture au moment de l'action, resiste a la suppression du compte
+  action           String // ex: CREATE, UPDATE, DELETE, VALIDATE, APPROVE, REJECT, SIGN, REVOKE, LOGIN, LOGIN_FAILED
+  module           String // ex: auth, territorial, users, civil_status...
+  entityType       String? // ex: Arrondissement, User, Role
+  entityId         String?
+  // Arrondissement de l'ENTITE concernee par l'action (pas forcement celui de
+  // l'acteur : un admin central peut agir sur un dossier d'arrondissement).
+  // null = action de portee centrale/systeme (auth, gestion des comptes,
+  // roles...), visible uniquement depuis la Mairie Centrale. Meme convention
+  // que recordScopeWhere() (voir rbac.ts) pour tous les modules operationnels.
+  arrondissementId String?
+  oldValue         Json?
+  newValue         Json?
+  ipAddress        String?
+  userAgent        String?
+  result           String   @default("SUCCESS") // SUCCESS | FAILURE
+  createdAt        DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  arrondissement Arrondissement? @relation(fields: [arrondissementId], references: [id], onDelete: SetNull)
 
   @@index([module, createdAt])
   @@index([userId])
   @@index([entityType, entityId])
+  @@index([arrondissementId, createdAt])
 }
 
 // --- Parametres systeme -----------------------------------------------------

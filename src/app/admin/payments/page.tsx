@@ -30,15 +30,25 @@ export default async function PaymentsPage() {
             Quittances emises. Vue consolidee : <Link href="/admin/finances" className="text-[var(--color-primary)] hover:underline">Tableau de bord des finances →</Link>
           </p>
         </div>
-        {can(user, "payments", "create") && (
-          <PaymentForm
-            citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }))}
-            taxTypes={taxTypes.map((t) => ({ id: t.id, label: t.name }))}
-            businesses={businesses.map((b) => ({ id: b.id, label: b.name }))}
-            arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-            canCollectCentral={user.hasGlobalScope}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {can(user, "payments", "export") && (
+            <a
+              href="/api/payments/export"
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+            >
+              Exporter (CSV)
+            </a>
+          )}
+          {can(user, "payments", "create") && (
+            <PaymentForm
+              citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }))}
+              taxTypes={taxTypes.map((t) => ({ id: t.id, label: t.name }))}
+              businesses={businesses.map((b) => ({ id: b.id, label: b.name }))}
+              arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
+              canCollectCentral={user.hasGlobalScope}
+            />
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">

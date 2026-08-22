@@ -48,7 +48,7 @@ export async function submitUrbanCase(actor: CurrentUser, input: SubmitUrbanCase
     },
   });
 
-  await logAudit({ user: actor, action: "CREATE", module: "urbanism", entityType: "UrbanPlanningCase", entityId: created.id, newValue: { caseNumber: created.caseNumber } });
+  await logAudit({ user: actor, action: "CREATE", module: "urbanism", entityType: "UrbanPlanningCase", entityId: created.id, arrondissementId: created.arrondissementId, newValue: { caseNumber: created.caseNumber } });
   return created;
 }
 
@@ -75,6 +75,7 @@ async function transition(
     module: "urbanism",
     entityType: "UrbanPlanningCase",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });

@@ -86,7 +86,7 @@ export async function updateComplaintStatus(actor: CurrentUser, id: string, stat
     return c;
   });
 
-  await logAudit({ user: actor, action: "UPDATE", module: "complaints", entityType: "Complaint", entityId: id, oldValue: { status: before.status }, newValue: { status } });
+  await logAudit({ user: actor, action: "UPDATE", module: "complaints", entityType: "Complaint", entityId: id, arrondissementId: before.arrondissementId, oldValue: { status: before.status }, newValue: { status } });
   return updated;
 }
 
@@ -102,6 +102,6 @@ export async function assignComplaint(actor: CurrentUser, id: string, assignedTo
     return c;
   });
 
-  await logAudit({ user: actor, action: "ASSIGN", module: "complaints", entityType: "Complaint", entityId: id, newValue: { assignedToId } });
+  await logAudit({ user: actor, action: "ASSIGN", module: "complaints", entityType: "Complaint", entityId: id, arrondissementId: before.arrondissementId, newValue: { assignedToId } });
   return updated;
 }

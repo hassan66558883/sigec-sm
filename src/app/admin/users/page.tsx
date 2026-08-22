@@ -28,14 +28,24 @@ export default async function UsersPage() {
             (Mairie Centrale ou arrondissement).
           </p>
         </div>
-        {can(user, "users", "create") && (
-          <UserForm
-            roles={roles.map((r) => ({ id: r.id, label: r.name }))}
-            arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-            departments={departments.map((d) => ({ id: d.id, label: d.name }))}
-            canCreateCentral={user.hasGlobalScope}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {can(user, "users", "export") && (
+            <a
+              href="/api/users/export"
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+            >
+              Exporter (CSV)
+            </a>
+          )}
+          {can(user, "users", "create") && (
+            <UserForm
+              roles={roles.map((r) => ({ id: r.id, label: r.name }))}
+              arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
+              departments={departments.map((d) => ({ id: d.id, label: d.name }))}
+              canCreateCentral={user.hasGlobalScope}
+            />
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
@@ -54,7 +64,10 @@ export default async function UsersPage() {
             {users.map((u) => (
               <tr key={u.id}>
                 <td className="px-4 py-2.5 font-medium">{u.name}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{u.email}</td>
+                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">
+                  <div>{u.email}</div>
+                  {u.phone && <div className="text-xs">{u.phone}</div>}
+                </td>
                 <td className="px-4 py-2.5">{u.roles.map((r) => r.role.name).join(", ") || "—"}</td>
                 <td className="px-4 py-2.5 text-[var(--color-text-muted)]">
                   {u.organizationLevel === "CENTRAL" ? (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { arrondissementScopeWhere, can } from "@/lib/rbac";
+import { listAuditLogs } from "@/lib/audit";
 
 function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
@@ -29,7 +30,7 @@ export default async function AdminDashboardPage() {
     }),
     prisma.role.count(),
     prisma.department.count({ where: { isActive: true } }),
-    canViewAudit ? prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 }) : Promise.resolve([]),
+    canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
   ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);

@@ -46,6 +46,7 @@ export async function createHousehold(actor: CurrentUser, input: CreateHousehold
     module: "households",
     entityType: "Household",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { code: created.code },
   });
 

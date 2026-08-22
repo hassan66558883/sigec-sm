@@ -102,6 +102,7 @@ export async function createCitizen(actor: CurrentUser, input: CreateCitizenInpu
     module: "citizens",
     entityType: "Citizen",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { uniqueNumber: created.uniqueNumber, firstName, lastName },
   });
 

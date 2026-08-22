@@ -63,6 +63,7 @@ export async function declareMarriage(actor: CurrentUser, input: DeclareMarriage
     module: "marriages",
     entityType: "Marriage",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { recordNumber: created.recordNumber },
   });
 
@@ -94,6 +95,7 @@ export async function validateMarriage(actor: CurrentUser, id: string) {
     module: "marriages",
     entityType: "Marriage",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });

@@ -145,7 +145,7 @@ const ROLES: {
     name: "Responsable d'arrondissement",
     description: "Dashboard, supervision et pouvoir de validation limites a son/ses arrondissement(s).",
     permissions: [
-      "territorial:view", "users:view",
+      "territorial:view", "users:view", "audit:view",
       "citizens:view", "households:view",
       "births:view", "births:validate", "births:revoke",
       "recognitions:view", "recognitions:validate",

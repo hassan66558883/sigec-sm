@@ -63,6 +63,7 @@ export async function declareDeath(actor: CurrentUser, input: DeclareDeathInput)
     module: "deaths",
     entityType: "DeathRecord",
     entityId: created.id,
+    arrondissementId: created.arrondissementId,
     newValue: { recordNumber: created.recordNumber },
   });
 
@@ -91,6 +92,7 @@ export async function validateDeathRecord(actor: CurrentUser, id: string) {
     module: "deaths",
     entityType: "DeathRecord",
     entityId: id,
+    arrondissementId: before.arrondissementId,
     oldValue: { status: before.status },
     newValue: { status: updated.status },
   });
