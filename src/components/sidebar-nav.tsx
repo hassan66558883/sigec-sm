@@ -33,12 +33,19 @@ const NAV_SECTIONS: { title: string | null; items: { href: string; label: string
     ],
   },
   {
-    title: "Finances municipales",
+    title: "Recettes municipales",
     items: [
       { href: "/admin/finances", label: "Tableau de bord recettes", module: "payments" },
-      { href: "/admin/businesses", label: "Commercants", module: "businesses" },
-      { href: "/admin/markets", label: "Marches", module: "markets" },
+      { href: "/admin/citizens", label: "Contribuables", module: "citizens" },
+      { href: "/admin/activities", label: "Activites economiques", module: "tariffs" },
+      { href: "/admin/businesses", label: "Boutiques & commercants", module: "businesses" },
+      { href: "/admin/markets", label: "Marches & emplacements", module: "markets" },
+      { href: "/admin/tariffs", label: "Tarification", module: "tariffs" },
+      { href: "/admin/obligations", label: "Obligations", module: "obligations" },
+      { href: "/admin/collectors", label: "Agents collecteurs", module: "collectors" },
+      { href: "/admin/collecte", label: "Collecte (terrain)", module: "payments" },
       { href: "/admin/payments", label: "Paiements", module: "payments" },
+      { href: "/admin/receipts", label: "Recus", module: "receipts" },
     ],
   },
   {

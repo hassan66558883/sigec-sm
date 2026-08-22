@@ -108,3 +108,47 @@ export async function createCitizen(actor: CurrentUser, input: CreateCitizenInpu
 
   return created;
 }
+
+export type UpdateCitizenInput = Partial<{
+  phone: string;
+  address: string;
+  placeOfBirth: string;
+  photoUrl: string;
+}>;
+
+// Modification d'une fiche contribuable/citoyen deja recensee (module
+// recensement, section 4 : "modifier contribuable selon permissions").
+// Ne touche jamais a uniqueNumber, arrondissement/quartier/secteur de
+// rattachement ni au lien de filiation — une reaffectation territoriale est
+// une operation distincte, hors scope de cette simple mise a jour de fiche.
+export async function updateCitizen(actor: CurrentUser, id: string, input: UpdateCitizenInput) {
+  if (!can(actor, "citizens", "edit")) throw new ApiError(403, "Permission insuffisante.");
+  const before = await prisma.citizen.findUnique({ where: { id } });
+  if (!before) throw new ApiError(404, "Citoyen introuvable.");
+  if (!canAccessArrondissement(actor, before.arrondissementId)) {
+    throw new ApiError(403, "Citoyen hors de votre perimetre.");
+  }
+
+  const updated = await prisma.citizen.update({
+    where: { id },
+    data: {
+      phone: input.phone?.trim(),
+      address: input.address?.trim(),
+      placeOfBirth: input.placeOfBirth?.trim(),
+      photoUrl: input.photoUrl?.trim(),
+    },
+  });
+
+  await logAudit({
+    user: actor,
+    action: "UPDATE",
+    module: "citizens",
+    entityType: "Citizen",
+    entityId: id,
+    arrondissementId: before.arrondissementId,
+    oldValue: { phone: before.phone, address: before.address },
+    newValue: { phone: updated.phone, address: updated.address },
+  });
+
+  return updated;
+}

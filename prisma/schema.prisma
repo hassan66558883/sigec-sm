@@ -46,11 +46,12 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  department         Department?          @relation(fields: [departmentId], references: [id])
-  roles              UserRole[]
-  arrondissements    UserArrondissement[]
-  quartiers          UserQuartier[]
-  auditLogs          AuditLog[]
+  department      Department?          @relation(fields: [departmentId], references: [id])
+  roles           UserRole[]
+  arrondissements UserArrondissement[]
+  quartiers       UserQuartier[]
+  auditLogs       AuditLog[]
+  agentCollecteur AgentCollecteur?
 
   @@index([isActive])
   @@index([organizationLevel])
@@ -89,10 +90,10 @@ model Role {
 // Actions possibles: view, create, edit, validate, approve, reject, sign,
 // print, download, revoke, delete, export.
 model Permission {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   module      String // ex: civil_status, citizens, land, taxes, complaints...
   action      String // ex: view, create, edit, validate, approve, reject, sign, print, download, revoke, delete, export
-  code        String   @unique // "<module>:<action>", genere a l'ecriture
+  code        String  @unique // "<module>:<action>", genere a l'ecriture
   description String?
 
   roles RolePermission[]
@@ -124,10 +125,10 @@ model UserRole {
 // MAYOR), voit les 10 arrondissements. Un agent restreint est rattache a un
 // ou plusieurs arrondissements precis.
 model UserArrondissement {
-  userId          String
+  userId           String
   arrondissementId String
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  arrondissement  Arrondissement  @relation(fields: [arrondissementId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id], onDelete: Cascade)
 
   @@id([userId, arrondissementId])
 }
@@ -169,19 +170,19 @@ model Arrondissement {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  city      City       @relation(fields: [cityId], references: [id])
+  city      City                 @relation(fields: [cityId], references: [id])
   quartiers Quartier[]
   users     UserArrondissement[]
 
-  citizens      Citizen[]
-  households    Household[]
-  birthRecords  BirthRecord[]
-  recognitions  Recognition[]
-  marriages     Marriage[]
-  divorces      Divorce[]
-  deathRecords  DeathRecord[]
-  certificates  Certificate[]
-  applications  Application[]
+  citizens           Citizen[]
+  households         Household[]
+  birthRecords       BirthRecord[]
+  recognitions       Recognition[]
+  marriages          Marriage[]
+  divorces           Divorce[]
+  deathRecords       DeathRecord[]
+  certificates       Certificate[]
+  applications       Application[]
   subdivisions       Subdivision[]
   landParcels        LandParcel[]
   urbanPlanningCases UrbanPlanningCase[]
@@ -192,6 +193,8 @@ model Arrondissement {
   complaints         Complaint[]
   infrastructures    Infrastructure[]
   auditLogs          AuditLog[]
+  obligations        ObligationPaiement[]
+  agentsCollecteurs  AgentCollecteur[]
 
   @@unique([cityId, number])
   @@index([cityId])
@@ -210,11 +213,12 @@ model Quartier {
   sectors        Sector[]
   users          UserQuartier[]
 
-  citizens   Citizen[]
-  households Household[]
-  landParcels LandParcel[]
-  businesses  Business[]
-  markets     Market[]
+  citizens          Citizen[]
+  households        Household[]
+  landParcels       LandParcel[]
+  businesses        Business[]
+  markets           Market[]
+  agentAffectations AgentAffectation[]
 
   @@index([arrondissementId])
 }
@@ -230,8 +234,8 @@ model Sector {
 
   quartier Quartier @relation(fields: [quartierId], references: [id])
 
-  citizens   Citizen[]
-  households Household[]
+  citizens    Citizen[]
+  households  Household[]
   landParcels LandParcel[]
 
   @@index([quartierId])
@@ -247,54 +251,55 @@ model Sector {
 
 // Dossier numerique unique par citoyen/resident.
 model Citizen {
-  id             String    @id @default(cuid())
-  uniqueNumber   String    @unique // numero de dossier citoyen, genere a la creation
-  firstName      String
-  lastName       String
-  sex            String // M | F
-  dateOfBirth    DateTime?
-  placeOfBirth   String?
-  nationality    String    @default("Tchadienne")
-  maritalStatus  String    @default("SINGLE") // SINGLE | MARRIED | DIVORCED | WIDOWED — mis a jour par les modules mariage/divorce/deces
-  phone          String?
-  address        String?
-  photoUrl       String?
-  isDeceased     Boolean   @default(false)
+  id               String    @id @default(cuid())
+  uniqueNumber     String    @unique // numero de dossier citoyen, genere a la creation
+  firstName        String
+  lastName         String
+  sex              String // M | F
+  dateOfBirth      DateTime?
+  placeOfBirth     String?
+  nationality      String    @default("Tchadienne")
+  maritalStatus    String    @default("SINGLE") // SINGLE | MARRIED | DIVORCED | WIDOWED — mis a jour par les modules mariage/divorce/deces
+  phone            String?
+  address          String?
+  photoUrl         String?
+  isDeceased       Boolean   @default(false)
   arrondissementId String
-  quartierId     String?
-  sectorId       String?
-  householdId    String?
-  fatherId       String?
-  motherId       String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  quartierId       String?
+  sectorId         String?
+  householdId      String?
+  fatherId         String?
+  motherId         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
-  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
-  sector         Sector?        @relation(fields: [sectorId], references: [id])
-  household      Household?     @relation(fields: [householdId], references: [id])
-  father         Citizen?       @relation("ParentChildFather", fields: [fatherId], references: [id])
-  mother         Citizen?       @relation("ParentChildMother", fields: [motherId], references: [id])
-  childrenAsFather Citizen[]    @relation("ParentChildFather")
-  childrenAsMother Citizen[]    @relation("ParentChildMother")
-  householdsHeaded Household[]  @relation("HouseholdHead")
-  familiesHeaded   Family[]     @relation("FamilyHead")
+  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id])
+  quartier         Quartier?      @relation(fields: [quartierId], references: [id])
+  sector           Sector?        @relation(fields: [sectorId], references: [id])
+  household        Household?     @relation(fields: [householdId], references: [id])
+  father           Citizen?       @relation("ParentChildFather", fields: [fatherId], references: [id])
+  mother           Citizen?       @relation("ParentChildMother", fields: [motherId], references: [id])
+  childrenAsFather Citizen[]      @relation("ParentChildFather")
+  childrenAsMother Citizen[]      @relation("ParentChildMother")
+  householdsHeaded Household[]    @relation("HouseholdHead")
+  familiesHeaded   Family[]       @relation("FamilyHead")
 
-  birthRecord       BirthRecord?  @relation("ChildBirthRecord")
-  recognitionsAsParent Recognition[] @relation("RecognitionParent")
-  recognitionAsChild   Recognition?  @relation("RecognitionChild")
-  marriagesAsHusband Marriage[]    @relation("MarriageHusband")
-  marriagesAsWife    Marriage[]    @relation("MarriageWife")
-  deathRecord        DeathRecord?  @relation("DeceasedDeathRecord")
-  certificates       Certificate[]
-  citizenAccount     CitizenAccount?
-  landParcelsOwned   LandParcel[]
-  landTitlesHeld     LandTitle[]
-  urbanPlanningCases UrbanPlanningCase[]
-  businessesOwned        Business[]
-  marketStallsOccupied   MarketStall[]
-  paymentsMade           Payment[]
-  associationsLed        Association[]
+  birthRecord          BirthRecord?         @relation("ChildBirthRecord")
+  recognitionsAsParent Recognition[]        @relation("RecognitionParent")
+  recognitionAsChild   Recognition?         @relation("RecognitionChild")
+  marriagesAsHusband   Marriage[]           @relation("MarriageHusband")
+  marriagesAsWife      Marriage[]           @relation("MarriageWife")
+  deathRecord          DeathRecord?         @relation("DeceasedDeathRecord")
+  certificates         Certificate[]
+  citizenAccount       CitizenAccount?
+  landParcelsOwned     LandParcel[]
+  landTitlesHeld       LandTitle[]
+  urbanPlanningCases   UrbanPlanningCase[]
+  businessesOwned      Business[]
+  marketStallsOccupied MarketStall[]
+  paymentsMade         Payment[]
+  associationsLed      Association[]
+  obligations          ObligationPaiement[]
 
   @@index([arrondissementId])
   @@index([lastName, firstName])
@@ -315,16 +320,16 @@ model Family {
 // Menage : unite de cohabitation, rattachee a une adresse et un
 // arrondissement/quartier/secteur precis.
 model Household {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  familyId        String?
-  headCitizenId   String?
-  address         String?
+  id               String   @id @default(cuid())
+  code             String   @unique
+  familyId         String?
+  headCitizenId    String?
+  address          String?
   arrondissementId String
-  quartierId      String?
-  sectorId        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  quartierId       String?
+  sectorId         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   family         Family?        @relation(fields: [familyId], references: [id])
   head           Citizen?       @relation("HouseholdHead", fields: [headCitizenId], references: [id])
@@ -338,21 +343,21 @@ model Household {
 
 // status: DECLARED | REGISTERED | RECTIFIED | ANNULLED
 model BirthRecord {
-  id                String   @id @default(cuid())
-  recordNumber      String   @unique
-  childId           String   @unique
+  id                String    @id @default(cuid())
+  recordNumber      String    @unique
+  childId           String    @unique
   fatherId          String?
   motherId          String?
   dateOfBirth       DateTime
   placeOfBirth      String
   declarantName     String
   declarantRelation String?
-  status            String   @default("DECLARED")
+  status            String    @default("DECLARED")
   arrondissementId  String
   createdById       String?
   registeredAt      DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   child          Citizen        @relation("ChildBirthRecord", fields: [childId], references: [id])
   arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
@@ -387,11 +392,11 @@ model Recognition {
 // Regime matrimonial : liste configurable, a valider par l'administration —
 // aucune regle juridique tchadienne presumee ici (regle 39).
 model MarriageRegime {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String  @id @default(cuid())
+  code        String  @unique
   name        String
   description String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   marriages Marriage[]
 }
@@ -410,10 +415,10 @@ model Marriage {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  husband        Citizen         @relation("MarriageHusband", fields: [husbandId], references: [id])
-  wife           Citizen         @relation("MarriageWife", fields: [wifeId], references: [id])
-  regime         MarriageRegime? @relation(fields: [regimeId], references: [id])
-  arrondissement Arrondissement  @relation(fields: [arrondissementId], references: [id])
+  husband        Citizen           @relation("MarriageHusband", fields: [husbandId], references: [id])
+  wife           Citizen           @relation("MarriageWife", fields: [wifeId], references: [id])
+  regime         MarriageRegime?   @relation(fields: [regimeId], references: [id])
+  arrondissement Arrondissement    @relation(fields: [arrondissementId], references: [id])
   witnesses      MarriageWitness[]
   divorce        Divorce?
   certificates   Certificate[]
@@ -423,7 +428,7 @@ model Marriage {
 }
 
 model MarriageWitness {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   marriageId String
   name       String
   role       String? // ex: temoin de l'epoux / temoin de l'epouse
@@ -433,15 +438,15 @@ model MarriageWitness {
 
 // status: DECLARED | FINALIZED
 model Divorce {
-  id                 String   @id @default(cuid())
-  recordNumber       String   @unique
-  marriageId         String   @unique
-  decisionReference  String?
-  divorceDate        DateTime
-  status             String   @default("DECLARED")
-  arrondissementId   String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  recordNumber      String   @unique
+  marriageId        String   @unique
+  decisionReference String?
+  divorceDate       DateTime
+  status            String   @default("DECLARED")
+  arrondissementId  String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   marriage       Marriage       @relation(fields: [marriageId], references: [id])
   arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
@@ -477,11 +482,11 @@ model DeathRecord {
 // Types de documents configurables (section "Certificats municipaux") —
 // aucun type n'est code en dur dans l'application.
 model CertificateType {
-  id          String   @id @default(cuid())
-  code        String   @unique // ex: BIRTH_CERTIFICATE, RESIDENCE_CERTIFICATE
+  id          String  @id @default(cuid())
+  code        String  @unique // ex: BIRTH_CERTIFICATE, RESIDENCE_CERTIFICATE
   name        String
   description String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   certificates Certificate[]
 }
@@ -492,36 +497,36 @@ model CertificateType {
 // donnees personnelles inutiles (voir services/certificates.ts).
 // status: VALID | REVOKED
 model Certificate {
-  id                String    @id @default(cuid())
-  documentNumber    String    @unique
-  qrToken           String    @unique
-  certificateTypeId String
-  citizenId         String?
-  birthRecordId     String?
-  recognitionId     String?
-  marriageId        String?
-  divorceId         String?
-  deathRecordId     String?
+  id                  String    @id @default(cuid())
+  documentNumber      String    @unique
+  qrToken             String    @unique
+  certificateTypeId   String
+  citizenId           String?
+  birthRecordId       String?
+  recognitionId       String?
+  marriageId          String?
+  divorceId           String?
+  deathRecordId       String?
   urbanPlanningCaseId String?
-  arrondissementId  String
-  authority         String    @default("Mairie de N'Djamena")
-  status            String    @default("VALID")
-  issuedById        String?
-  issuedAt          DateTime  @default(now())
-  revokedAt         DateTime?
-  revokedById       String?
-  revokedReason     String?
+  arrondissementId    String
+  authority           String    @default("Mairie de N'Djamena")
+  status              String    @default("VALID")
+  issuedById          String?
+  issuedAt            DateTime  @default(now())
+  revokedAt           DateTime?
+  revokedById         String?
+  revokedReason       String?
 
   certificateType   CertificateType    @relation(fields: [certificateTypeId], references: [id])
   citizen           Citizen?           @relation(fields: [citizenId], references: [id])
   birthRecord       BirthRecord?       @relation(fields: [birthRecordId], references: [id])
   recognition       Recognition?       @relation(fields: [recognitionId], references: [id])
   urbanPlanningCase UrbanPlanningCase? @relation(fields: [urbanPlanningCaseId], references: [id])
-  marriage        Marriage?       @relation(fields: [marriageId], references: [id])
-  divorce         Divorce?        @relation(fields: [divorceId], references: [id])
-  deathRecord     DeathRecord?    @relation(fields: [deathRecordId], references: [id])
-  arrondissement  Arrondissement  @relation(fields: [arrondissementId], references: [id])
-  applications    Application[]
+  marriage          Marriage?          @relation(fields: [marriageId], references: [id])
+  divorce           Divorce?           @relation(fields: [divorceId], references: [id])
+  deathRecord       DeathRecord?       @relation(fields: [deathRecordId], references: [id])
+  arrondissement    Arrondissement     @relation(fields: [arrondissementId], references: [id])
+  applications      Application[]
 
   @@index([arrondissementId])
   @@index([status])
@@ -542,10 +547,10 @@ model CitizenAccount {
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
 
-  citizen       Citizen        @relation(fields: [citizenId], references: [id])
-  applications  Application[]
-  notifications Notification[]
-  complaints    Complaint[]
+  citizen               Citizen          @relation(fields: [citizenId], references: [id])
+  applications          Application[]
+  notifications         Notification[]
+  complaints            Complaint[]
   infrastructureReports Infrastructure[]
 }
 
@@ -555,29 +560,29 @@ model CitizenAccount {
 // recordScopeWhere() comme tout autre module.
 // status: SUBMITTED | IN_REVIEW | APPROVED | REJECTED | COMPLETED
 model Application {
-  id                String    @id @default(cuid())
-  applicationNumber String    @unique
-  citizenAccountId  String
-  type              String // BIRTH_CERTIFICATE_COPY | MARRIAGE_CERTIFICATE_COPY | DEATH_CERTIFICATE_COPY
-  birthRecordId     String?
-  marriageId        String?
-  deathRecordId     String?
-  arrondissementId  String
-  status            String    @default("SUBMITTED")
-  notes             String?
-  reviewedById      String?
-  reviewedAt        DateTime?
-  rejectionReason   String?
+  id                  String    @id @default(cuid())
+  applicationNumber   String    @unique
+  citizenAccountId    String
+  type                String // BIRTH_CERTIFICATE_COPY | MARRIAGE_CERTIFICATE_COPY | DEATH_CERTIFICATE_COPY
+  birthRecordId       String?
+  marriageId          String?
+  deathRecordId       String?
+  arrondissementId    String
+  status              String    @default("SUBMITTED")
+  notes               String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  rejectionReason     String?
   resultCertificateId String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  citizenAccount   CitizenAccount @relation(fields: [citizenAccountId], references: [id])
-  birthRecord      BirthRecord?   @relation(fields: [birthRecordId], references: [id])
-  marriage         Marriage?      @relation(fields: [marriageId], references: [id])
-  deathRecord      DeathRecord?   @relation(fields: [deathRecordId], references: [id])
-  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id])
-  resultCertificate Certificate?  @relation(fields: [resultCertificateId], references: [id])
+  citizenAccount    CitizenAccount @relation(fields: [citizenAccountId], references: [id])
+  birthRecord       BirthRecord?   @relation(fields: [birthRecordId], references: [id])
+  marriage          Marriage?      @relation(fields: [marriageId], references: [id])
+  deathRecord       DeathRecord?   @relation(fields: [deathRecordId], references: [id])
+  arrondissement    Arrondissement @relation(fields: [arrondissementId], references: [id])
+  resultCertificate Certificate?   @relation(fields: [resultCertificateId], references: [id])
 
   @@index([arrondissementId])
   @@index([citizenAccountId])
@@ -636,11 +641,11 @@ model LandParcel {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  arrondissement Arrondissement       @relation(fields: [arrondissementId], references: [id])
-  quartier       Quartier?            @relation(fields: [quartierId], references: [id])
-  sector         Sector?              @relation(fields: [sectorId], references: [id])
-  subdivision    Subdivision?         @relation(fields: [subdivisionId], references: [id])
-  owner          Citizen?             @relation(fields: [ownerCitizenId], references: [id])
+  arrondissement Arrondissement      @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?           @relation(fields: [quartierId], references: [id])
+  sector         Sector?             @relation(fields: [sectorId], references: [id])
+  subdivision    Subdivision?        @relation(fields: [subdivisionId], references: [id])
+  owner          Citizen?            @relation(fields: [ownerCitizenId], references: [id])
   title          LandTitle?
   urbanCases     UrbanPlanningCase[]
 
@@ -704,22 +709,39 @@ model UrbanPlanningCase {
 // recordScopeWhere() — jamais code en dur. Aucun montant/taux n'est
 // invente : TaxType.amount est configurable et signale comme placeholder.
 
-// Commercant/entreprise redevable de patente.
+// Commercant/entreprise redevable de patente = "boutique" du module
+// recensement (section 8). `activity` (texte libre, historique) est
+// conserve pour compatibilite ; `activityId` pointe vers le referentiel
+// configurable ActiviteEconomique pour les nouvelles fiches. `code` est
+// l'identifiant d'emplacement structure (section 7, ex NDJ-A01-Q05-BT-000123),
+// derive de `sequence` (compteur Postgres monotone : jamais reutilise, meme
+// apres suppression) au moment de la creation — jamais recalcule ensuite.
 model Business {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
+  sequence         Int       @unique @default(autoincrement())
+  code             String?   @unique
   name             String
   ownerId          String
   activity         String?
+  activityId       String?
+  category         String?
+  gpsLat           Float?
+  gpsLng           Float?
+  photoUrl         String?
+  openedAt         DateTime?
+  closedAt         DateTime?
   arrondissementId String
   quartierId       String?
-  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED | CLOSED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  status           String    @default("ACTIVE") // ACTIVE | INACTIVE | FERMEE | SUSPENDUE | EN_ATTENTE_DE_VALIDATION
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  owner          Citizen        @relation(fields: [ownerId], references: [id])
-  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
-  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  owner          Citizen              @relation(fields: [ownerId], references: [id])
+  activityRef    ActiviteEconomique?  @relation(fields: [activityId], references: [id])
+  arrondissement Arrondissement       @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?            @relation(fields: [quartierId], references: [id])
   payments       Payment[]
+  obligations    ObligationPaiement[]
 
   @@index([arrondissementId])
 }
@@ -727,42 +749,59 @@ model Business {
 // Type de taxe/patente configurable — montant PLACEHOLDER a valider par la
 // mairie (regle 39), jamais presente comme un bareme officiel.
 model TaxType {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String  @id @default(cuid())
+  code        String  @unique
   name        String
   amount      Float? // montant de reference, configurable, non contractuel
   description String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   payments Payment[]
 }
 
-// status: AVAILABLE | OCCUPIED | RESERVED | SUSPENDED (section 11)
+// `code` = identifiant d'emplacement structure (section 7, ex NDJ-A01-MKT-000001),
+// derive de `sequence` au moment de la creation, jamais reutilise.
+// status: ACTIVE | INACTIVE | FERME (section 6)
 model Market {
   id               String   @id @default(cuid())
+  sequence         Int      @unique @default(autoincrement())
+  code             String?  @unique
   name             String
+  address          String?
+  gpsLat           Float?
+  gpsLng           Float?
+  responsibleName  String?
+  description      String?
+  photoUrl         String?
+  status           String   @default("ACTIVE")
   arrondissementId String
   quartierId       String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
-  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  arrondissement Arrondissement     @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?          @relation(fields: [quartierId], references: [id])
   stalls         MarketStall[]
+  affectations   AgentAffectation[]
 }
 
+// L'emplacement precis au sein d'un marche (etal, kiosque, hangar, place...) ;
+// `code` reste le petit identifiant local unique dans le marche (ex "A12"),
+// combine a Market.code pour un reperage complet sur le terrain.
 model MarketStall {
-  id               String   @id @default(cuid())
-  marketId         String
-  code             String
-  status           String   @default("AVAILABLE") // AVAILABLE | OCCUPIED | RESERVED | SUSPENDED
-  occupantId       String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id         String   @id @default(cuid())
+  marketId   String
+  code       String
+  type       String? // ETAL | KIOSQUE | HANGAR | PLACE | AUTRE
+  status     String   @default("AVAILABLE") // AVAILABLE | OCCUPIED | RESERVED | SUSPENDED
+  occupantId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  market   Market    @relation(fields: [marketId], references: [id])
-  occupant Citizen?  @relation(fields: [occupantId], references: [id])
-  payments Payment[]
+  market      Market               @relation(fields: [marketId], references: [id])
+  occupant    Citizen?             @relation(fields: [occupantId], references: [id])
+  payments    Payment[]
+  obligations ObligationPaiement[]
 
   @@unique([marketId, code])
 }
@@ -771,30 +810,48 @@ model MarketStall {
 // uniquement). Champs alignes sur la structure demandee : payment_id,
 // receipt_number, payer_id, amount, payment_date, payment_method, tax_type,
 // market_id (via marketStallId), business_id, arrondissement_id, collected_by, status.
-// status: PAID | PENDING | OVERDUE
+// obligationId/agentId relient le paiement a la chaine recensement -> tarif
+// -> obligation -> collecte (module "recettes municipales"). collectedById
+// reste le UserId brut de l'acteur (retro-compatible) ; agentId est la
+// relation forte vers sa fiche AgentCollecteur quand la collecte passe par
+// l'app de terrain plutot qu'un enregistrement direct par un agent central.
+// gpsLat/gpsLng : capture passive de la position lors d'une collecte mobile
+// (section 25) — jamais bloquant, uniquement informatif/controle a posteriori.
+// status: PAID | PENDING | OVERDUE | ANNULE (annulation = section 16, jamais
+// une suppression : voir PaymentCancellation)
 model Payment {
-  id              String   @id @default(cuid())
-  receiptNumber   String   @unique
-  payerId         String
-  amount          Float
-  paymentDate     DateTime @default(now())
-  paymentMethod   String // ESPECES | MOBILE_MONEY | VIREMENT | AUTRE — extensible (section 25)
-  taxTypeId       String?
-  businessId      String?
-  marketStallId   String?
+  id               String   @id @default(cuid())
+  receiptNumber    String   @unique
+  payerId          String
+  amount           Float
+  paymentDate      DateTime @default(now())
+  paymentMethod    String // ESPECES | MOBILE_MONEY | VIREMENT | AUTRE — extensible (section 25)
+  taxTypeId        String?
+  businessId       String?
+  marketStallId    String?
+  obligationId     String?
+  agentId          String?
   arrondissementId String?
-  collectedById   String
-  status          String   @default("PAID")
-  createdAt       DateTime @default(now())
+  collectedById    String
+  gpsLat           Float?
+  gpsLng           Float?
+  status           String   @default("PAID")
+  createdAt        DateTime @default(now())
 
-  payer          Citizen        @relation(fields: [payerId], references: [id])
-  taxType        TaxType?       @relation(fields: [taxTypeId], references: [id])
-  business       Business?      @relation(fields: [businessId], references: [id])
-  marketStall    MarketStall?   @relation(fields: [marketStallId], references: [id])
-  arrondissement Arrondissement? @relation(fields: [arrondissementId], references: [id])
+  payer          Citizen              @relation(fields: [payerId], references: [id])
+  taxType        TaxType?             @relation(fields: [taxTypeId], references: [id])
+  business       Business?            @relation(fields: [businessId], references: [id])
+  marketStall    MarketStall?         @relation(fields: [marketStallId], references: [id])
+  obligation     ObligationPaiement?  @relation(fields: [obligationId], references: [id])
+  agent          AgentCollecteur?     @relation(fields: [agentId], references: [id])
+  arrondissement Arrondissement?      @relation(fields: [arrondissementId], references: [id])
+  receipt        Receipt?
+  cancellation   PaymentCancellation?
 
   @@index([arrondissementId])
   @@index([paymentDate])
+  @@index([obligationId])
+  @@index([agentId])
 }
 
 // --- PHASE 6 : SERVICES MUNICIPAUX ------------------------------------------
@@ -916,6 +973,181 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([arrondissementId, createdAt])
+}
+
+// --- PHASE 7 : RECETTES MUNICIPALES — RECENSEMENT, TARIFICATION, AGENTS,
+// OBLIGATIONS, REÇUS -----------------------------------------------------
+// Chaine complete (cahier des charges "recettes municipales") :
+// RECENSEMENT -> CONTRIBUABLE (Citizen) -> ACTIVITE -> MARCHE/BOUTIQUE
+// (Market/Business, deja existants, etendus ci-dessus) -> TARIFICATION
+// (TarifMunicipal) -> OBLIGATION (ObligationPaiement) -> COLLECTE (AgentCollecteur)
+// -> PAIEMENT (Payment, etendu) -> REÇU (Receipt) -> CONTROLE/AUDIT (AuditLog).
+// Meme convention territoriale que le reste de l'application : chaque table
+// operationnelle porte un arrondissementId et est filtree via
+// recordScopeWhere() cote serveur (jamais seulement masquee cote client).
+
+// Referentiel des activites economiques (section 9), configurable par un
+// administrateur autorise — aucune liste figee dans le code.
+model ActiviteEconomique {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  businesses Business[]
+  tarifs     TarifMunicipal[]
+}
+
+// Referentiel tarifaire municipal (section 10). Un tarif n'est JAMAIS
+// modifie/ecrase : toute revision cree une nouvelle ligne (nouvelle version),
+// l'ancienne recevant une endDate. Les obligations deja generees conservent
+// leur reference vers le tarif applicable au moment du calcul (tracabilite).
+// Montants PLACEHOLDER tant qu'un bareme officiel n'est pas fourni (regle 39,
+// meme logique que TaxType.amount).
+model TarifMunicipal {
+  id              String    @id @default(cuid())
+  // `code` n'est PAS unique : chaque revision (section 10) cree une nouvelle
+  // ligne partageant le meme code, l'ancienne etant cloturee (status=INACTIF,
+  // endDate renseignee) par createOrReviseTariff() — jamais ecrasee. Un seul
+  // ACTIF par code a un instant donne est garanti par ce meme service.
+  code            String
+  label           String
+  category        String?
+  activityId      String?
+  emplacementType String // BOUTIQUE | MARCHE | ETAL | AUTRE
+  periodicity     String // JOURNALIERE | HEBDOMADAIRE | MENSUELLE | TRIMESTRIELLE | SEMESTRIELLE | ANNUELLE | AUTRE
+  amount          Float
+  startDate       DateTime  @default(now())
+  endDate         DateTime?
+  status          String    @default("ACTIF") // ACTIF | INACTIF
+  legalReference  String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+
+  activity    ActiviteEconomique?  @relation(fields: [activityId], references: [id])
+  obligations ObligationPaiement[]
+
+  @@index([code])
+  @@index([emplacementType])
+  @@index([status])
+}
+
+// Somme due generee pour un contribuable/emplacement sur une periode donnee
+// (section 11). solde = initialAmount - paidAmount, jamais negatif (verifie
+// en code service, pas de contrainte SQL pour rester compatible paiements
+// partiels successifs).
+// status: A_PAYER | PARTIELLEMENT_PAYE | PAYE | EN_RETARD | ANNULE
+model ObligationPaiement {
+  id               String   @id @default(cuid())
+  number           String   @unique
+  citizenId        String
+  businessId       String?
+  marketStallId    String?
+  tarifId          String
+  period           String // ex "2026-08" (mensuel), "2026" (annuel), ou date ISO (journalier)
+  initialAmount    Float
+  paidAmount       Float    @default(0)
+  dueDate          DateTime
+  status           String   @default("A_PAYER")
+  arrondissementId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  citizen        Citizen        @relation(fields: [citizenId], references: [id])
+  business       Business?      @relation(fields: [businessId], references: [id])
+  marketStall    MarketStall?   @relation(fields: [marketStallId], references: [id])
+  tarif          TarifMunicipal @relation(fields: [tarifId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  payments       Payment[]
+
+  @@index([arrondissementId])
+  @@index([status])
+  @@index([citizenId])
+}
+
+// Fiche agent collecteur (section 12), rattachee a un compte User existant
+// (authentification/RBAC reutilises, pas de realm separe). matricule genere
+// a la creation, jamais reutilise.
+// status: ACTIF | SUSPENDU | INACTIF
+model AgentCollecteur {
+  id               String   @id @default(cuid())
+  matricule        String   @unique
+  userId           String   @unique
+  phone            String?
+  photoUrl         String?
+  status           String   @default("ACTIF")
+  arrondissementId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user           User               @relation(fields: [userId], references: [id])
+  arrondissement Arrondissement     @relation(fields: [arrondissementId], references: [id])
+  affectations   AgentAffectation[]
+  payments       Payment[]
+
+  @@index([arrondissementId])
+}
+
+// Affectation d'un agent a une zone de collecte (quartier ou marche precis),
+// historisee (section 12 : "Historiser toutes les affectations") — une
+// nouvelle affectation ne supprime jamais l'ancienne, elle la cloture
+// (endDate + isActive=false) et en cree une nouvelle.
+model AgentAffectation {
+  id          String    @id @default(cuid())
+  agentId     String
+  zoneType    String // QUARTIER | MARCHE
+  quartierId  String?
+  marketId    String?
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  isActive    Boolean   @default(true)
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  agent    AgentCollecteur @relation(fields: [agentId], references: [id])
+  quartier Quartier?       @relation(fields: [quartierId], references: [id])
+  market   Market?         @relation(fields: [marketId], references: [id])
+
+  @@index([agentId])
+}
+
+// Reçu officiel (section 18), 1:1 avec le Payment qu'il documente. `sequence`
+// est un compteur Postgres monotone (jamais reutilise, meme apres annulation)
+// qui sert a formatter `number` (REC-<annee>-<sequence sur 8 chiffres>).
+// `qrToken` suit exactement la meme convention que Certificate.qrToken :
+// verification publique via /verify-receipt, sans exposer de donnees
+// personnelles (section 19).
+// status: VALIDE | ANNULE
+model Receipt {
+  id         String    @id @default(cuid())
+  sequence   Int       @unique @default(autoincrement())
+  number     String    @unique
+  paymentId  String    @unique
+  qrToken    String    @unique
+  status     String    @default("VALIDE")
+  voidedAt   DateTime?
+  voidedById String?
+  voidReason String?
+  createdAt  DateTime  @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+// Annulation d'un paiement valide (regle absolue #1 et #6 : jamais de
+// suppression, motif toujours obligatoire, action journalisee dans
+// AuditLog). Le Payment original reste visible integralement ; seul son
+// `status` passe a "ANNULE".
+model PaymentCancellation {
+  id              String   @id @default(cuid())
+  paymentId       String   @unique
+  reason          String
+  cancelledById   String
+  cancelledByName String
+  createdAt       DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
 }
 
 // --- Parametres systeme -----------------------------------------------------

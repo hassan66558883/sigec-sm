@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { applyPaymentToObligation } from "@/lib/services/obligations";
+import { generateReceiptForPayment } from "@/lib/services/receipts";
 
 export async function listTaxTypes() {
   return prisma.taxType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
@@ -12,7 +14,7 @@ export async function listTaxTypes() {
 export async function listPayments(user: CurrentUser) {
   return prisma.payment.findMany({
     where: recordScopeWhere(user),
-    include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true },
+    include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true, agent: true, receipt: true },
     orderBy: { paymentDate: "desc" },
     take: 100,
   });
@@ -25,38 +27,83 @@ export type RecordPaymentInput = {
   taxTypeId?: string | null;
   businessId?: string | null;
   marketStallId?: string | null;
+  obligationId?: string | null;
+  agentId?: string | null;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
   arrondissementId?: string | null; // null = recette Mairie Centrale (reserve aux comptes CENTRAL)
 };
 
+// Enregistre une recette et, dans la MEME transaction : impute le montant
+// sur l'obligation liee si fournie (jamais de solde incoherent entre les
+// deux tables) et genere le reçu officiel (regle absolue : un paiement
+// valide sans reçu ne doit jamais exister). Si `obligationId` est fourni,
+// l'emplacement/l'arrondissement de l'obligation font foi (l'appelant ne
+// peut pas les detourner via le payload).
 export async function recordPayment(actor: CurrentUser, input: RecordPaymentInput) {
   if (!can(actor, "payments", "create")) throw new ApiError(403, "Permission insuffisante.");
   if (!input.payerId) throw new ApiError(400, "Payeur requis.");
   if (!input.amount || input.amount <= 0) throw new ApiError(400, "Montant invalide.");
   if (!input.paymentMethod?.trim()) throw new ApiError(400, "Mode de paiement requis.");
 
-  // Un agent d'arrondissement ne peut collecter que pour son propre
-  // perimetre ; seule la Mairie Centrale peut enregistrer une recette
-  // centrale (arrondissementId = null), conformement a la hierarchie exigee.
-  if (!actor.hasGlobalScope) {
-    if (!input.arrondissementId) throw new ApiError(400, "Arrondissement requis pour une recette locale.");
-    if (!canAccessArrondissement(actor, input.arrondissementId)) {
+  let arrondissementId = input.arrondissementId || null;
+  let businessId = input.businessId || null;
+  let marketStallId = input.marketStallId || null;
+
+  if (input.obligationId) {
+    const obligation = await prisma.obligationPaiement.findUnique({ where: { id: input.obligationId } });
+    if (!obligation) throw new ApiError(404, "Obligation introuvable.");
+    if (obligation.status === "ANNULE" || obligation.status === "PAYE") {
+      throw new ApiError(400, "Cette obligation n'accepte plus de paiement (deja soldee ou annulee).");
+    }
+    if (!canAccessArrondissement(actor, obligation.arrondissementId)) {
+      throw new ApiError(403, "Arrondissement hors de votre perimetre.");
+    }
+    arrondissementId = obligation.arrondissementId;
+    businessId = obligation.businessId;
+    marketStallId = obligation.marketStallId;
+  } else if (!actor.hasGlobalScope) {
+    // Un agent d'arrondissement ne peut collecter que pour son propre
+    // perimetre ; seule la Mairie Centrale peut enregistrer une recette
+    // centrale (arrondissementId = null), conformement a la hierarchie exigee.
+    if (!arrondissementId) throw new ApiError(400, "Arrondissement requis pour une recette locale.");
+    if (!canAccessArrondissement(actor, arrondissementId)) {
       throw new ApiError(403, "Arrondissement hors de votre perimetre.");
     }
   }
 
-  const created = await prisma.payment.create({
-    data: {
-      receiptNumber: generateRecordNumber("QUI"),
-      payerId: input.payerId,
-      amount: input.amount,
-      paymentMethod: input.paymentMethod.trim(),
-      taxTypeId: input.taxTypeId || null,
-      businessId: input.businessId || null,
-      marketStallId: input.marketStallId || null,
-      arrondissementId: input.arrondissementId || null,
-      collectedById: actor.id,
-    },
-    include: { taxType: true },
+  if (input.agentId) {
+    const agent = await prisma.agentCollecteur.findUnique({ where: { id: input.agentId } });
+    if (!agent || agent.status !== "ACTIF") throw new ApiError(400, "Agent collecteur invalide ou inactif.");
+    if (!canAccessArrondissement(actor, agent.arrondissementId)) throw new ApiError(403, "Agent hors de votre perimetre.");
+  }
+
+  const { created, receipt } = await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.create({
+      data: {
+        receiptNumber: generateRecordNumber("QUI"),
+        payerId: input.payerId,
+        amount: input.amount,
+        paymentMethod: input.paymentMethod.trim(),
+        taxTypeId: input.taxTypeId || null,
+        businessId,
+        marketStallId,
+        obligationId: input.obligationId || null,
+        agentId: input.agentId || null,
+        gpsLat: input.gpsLat ?? null,
+        gpsLng: input.gpsLng ?? null,
+        arrondissementId,
+        collectedById: actor.id,
+      },
+      include: { taxType: true },
+    });
+
+    if (input.obligationId) {
+      await applyPaymentToObligation(tx, input.obligationId, input.amount);
+    }
+
+    const receipt = await generateReceiptForPayment(tx, payment.id);
+    return { created: payment, receipt };
   });
 
   await logAudit({
@@ -68,13 +115,76 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
     arrondissementId: created.arrondissementId,
     newValue: { receiptNumber: created.receiptNumber, amount: created.amount },
   });
+  await logAudit({
+    user: actor,
+    action: "RECEIPT_GENERATION",
+    module: "receipts",
+    entityType: "Receipt",
+    entityId: receipt.id,
+    arrondissementId: created.arrondissementId,
+    newValue: { number: receipt.number, paymentId: created.id },
+  });
 
-  return created;
+  return { ...created, receipt };
+}
+
+// Annulation d'un paiement valide (regles absolues #1 et #6 : jamais de
+// suppression, motif toujours obligatoire). Reverse l'imputation sur
+// l'obligation liee (sinon elle resterait PAYE/PARTIELLEMENT_PAYE pour un
+// paiement qui n'a plus lieu d'etre compte) et annule le reçu associe — le
+// Payment original reste visible integralement, seul son statut change.
+export async function cancelPayment(actor: CurrentUser, id: string, reason: string) {
+  if (!can(actor, "payments", "cancel")) throw new ApiError(403, "Permission insuffisante.");
+  if (!reason?.trim()) throw new ApiError(400, "Un motif est requis.");
+
+  const before = await prisma.payment.findUnique({ where: { id }, include: { obligation: true, receipt: true } });
+  if (!before) throw new ApiError(404, "Paiement introuvable.");
+  if (before.arrondissementId && !canAccessArrondissement(actor, before.arrondissementId)) {
+    throw new ApiError(403, "Hors de votre perimetre.");
+  }
+  if (!before.arrondissementId && !actor.hasGlobalScope) throw new ApiError(403, "Hors de votre perimetre.");
+  if (before.status === "ANNULE") throw new ApiError(400, "Ce paiement est deja annule.");
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.update({ where: { id }, data: { status: "ANNULE" } });
+
+    if (before.obligationId && before.obligation) {
+      const paidAmount = Math.max(0, before.obligation.paidAmount - before.amount);
+      const status = paidAmount <= 0 ? "A_PAYER" : paidAmount >= before.obligation.initialAmount ? "PAYE" : "PARTIELLEMENT_PAYE";
+      await tx.obligationPaiement.update({ where: { id: before.obligationId }, data: { paidAmount, status } });
+    }
+
+    if (before.receipt) {
+      await tx.receipt.update({
+        where: { id: before.receipt.id },
+        data: { status: "ANNULE", voidedAt: new Date(), voidedById: actor.id, voidReason: reason.trim() },
+      });
+    }
+
+    await tx.paymentCancellation.create({
+      data: { paymentId: id, reason: reason.trim(), cancelledById: actor.id, cancelledByName: actor.name },
+    });
+
+    return payment;
+  });
+
+  await logAudit({
+    user: actor,
+    action: "PAYMENT_CANCELLATION",
+    module: "payments",
+    entityType: "Payment",
+    entityId: id,
+    arrondissementId: before.arrondissementId,
+    oldValue: { status: before.status },
+    newValue: { status: updated.status, reason },
+  });
+  return updated;
 }
 
 // Vision consolidee des recettes (section "Dashboard du maire" / correction
 // finances). Le total n'est JAMAIS code en dur : toujours recalcule par
 // agregation SQL au moment de la requete, filtree par recordScopeWhere().
+// status: "PAID" exclut automatiquement les paiements ANNULE des totaux.
 //   - Mairie Centrale (hasGlobalScope) : total ville + repartition par
 //     arrondissement (y compris les recettes centrales, arrondissementId=null).
 //   - Arrondissement : uniquement le total et la repartition par type de

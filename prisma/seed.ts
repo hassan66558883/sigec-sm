@@ -40,13 +40,20 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   land: ["view", "create", "issue_title"],
   urbanism: ["view", "create", "review", "inspect", "decide"],
   // Phase 5 — Finances municipales
-  businesses: ["view", "create"],
-  markets: ["view", "create"],
-  payments: ["view", "create", "export"],
+  businesses: ["view", "create", "edit"],
+  markets: ["view", "create", "edit"],
+  payments: ["view", "create", "export", "cancel"],
   // Phase 6 — Services municipaux
   associations: ["view", "create", "edit"],
   complaints: ["view", "assign", "update"],
   infrastructure: ["view", "update"],
+  // Phase 7 — Recettes municipales : recensement, tarification, agents
+  // collecteurs, obligations, reçus (chaine complete section "recettes
+  // municipales" du cahier des charges).
+  tariffs: ["view", "create", "edit"],
+  obligations: ["view", "create", "cancel"],
+  collectors: ["view", "create", "edit", "assign"],
+  receipts: ["view", "export", "cancel"],
 };
 
 // Types de taxes : montants PLACEHOLDER a valider par la mairie/autorite
@@ -55,6 +62,29 @@ const TAX_TYPES = [
   { code: "PATENTE_ANNUELLE", name: "Patente annuelle (a valider)", amount: 50000 },
   { code: "TAXE_MARCHE_JOUR", name: "Taxe de marche journaliere (a valider)", amount: 500 },
   { code: "TAXE_OCCUPATION", name: "Taxe d'occupation du domaine public (a valider)", amount: 10000 },
+];
+
+// Referentiel activites economiques (section 9) — liste PLACEHOLDER,
+// configurable/extensible par l'administration (regle 39).
+const ACTIVITIES = [
+  { code: "ALIMENTATION_GENERALE", name: "Alimentation generale" },
+  { code: "RESTAURANT", name: "Restaurant" },
+  { code: "ATELIER", name: "Atelier" },
+  { code: "SALON_COIFFURE", name: "Salon de coiffure" },
+  { code: "BOUTIQUE", name: "Boutique" },
+  { code: "KIOSQUE", name: "Kiosque" },
+  { code: "COMMERCE_DETAIL", name: "Commerce de detail" },
+  { code: "COMMERCE_GROS", name: "Commerce de gros" },
+  { code: "AUTRE_ACTIVITE", name: "Autre" },
+];
+
+// Referentiel tarifaire municipal (section 10) — montants PLACEHOLDER a
+// valider par la mairie/autorite competente (regle 39), meme logique que
+// TAX_TYPES ci-dessus. emplacementType: BOUTIQUE | MARCHE | ETAL | AUTRE.
+const TARIFFS = [
+  { code: "TARIF_BOUTIQUE_MENSUEL", label: "Taxe boutique mensuelle (a valider)", emplacementType: "BOUTIQUE", periodicity: "MENSUELLE", amount: 5000 },
+  { code: "TARIF_ETAL_JOURNALIER", label: "Taxe etal journaliere (a valider)", emplacementType: "ETAL", periodicity: "JOURNALIERE", amount: 500 },
+  { code: "TARIF_MARCHE_ANNUEL", label: "Taxe occupation marche annuelle (a valider)", emplacementType: "MARCHE", periodicity: "ANNUELLE", amount: 30000 },
 ];
 
 // Types de certificats lies a un acte d'etat civil (section 7/16). Types
@@ -120,11 +150,15 @@ const ROLES: {
       "applications:view", "applications:approve", "applications:reject",
       "land:view", "land:create", "land:issue_title",
       "urbanism:view", "urbanism:create", "urbanism:review", "urbanism:inspect", "urbanism:decide",
-      "businesses:view", "businesses:create", "markets:view", "markets:create",
-      "payments:view", "payments:create", "payments:export",
+      "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
+      "payments:view", "payments:create", "payments:export", "payments:cancel",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update",
       "infrastructure:view", "infrastructure:update",
+      "tariffs:view", "tariffs:create", "tariffs:edit",
+      "obligations:view", "obligations:create", "obligations:cancel",
+      "collectors:view", "collectors:create", "collectors:edit", "collectors:assign",
+      "receipts:view", "receipts:export", "receipts:cancel",
     ],
   },
   {
@@ -138,6 +172,7 @@ const ROLES: {
       "land:view", "urbanism:view",
       "businesses:view", "markets:view", "payments:view", "payments:export",
       "associations:view", "complaints:view", "infrastructure:view",
+      "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
     ],
   },
   {
@@ -156,11 +191,15 @@ const ROLES: {
       "applications:view", "applications:approve", "applications:reject",
       "land:view", "land:issue_title",
       "urbanism:view", "urbanism:decide",
-      "businesses:view", "businesses:create", "markets:view", "markets:create",
-      "payments:view", "payments:create", "payments:export",
+      "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
+      "payments:view", "payments:create", "payments:export", "payments:cancel",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update",
       "infrastructure:view", "infrastructure:update",
+      "tariffs:view",
+      "obligations:view", "obligations:create", "obligations:cancel",
+      "collectors:view", "collectors:assign",
+      "receipts:view",
     ],
   },
   {
@@ -198,7 +237,19 @@ const ROLES: {
       "applications:view",
     ],
   },
-  { code: "CENSUS_AGENT", name: "Agent recensement", description: "Recensement de la population (phase 2).", permissions: [] },
+  {
+    code: "CENSUS_AGENT",
+    name: "Agent recensement",
+    description: "Recensement des contribuables, boutiques et emplacements (module recettes municipales).",
+    permissions: [
+      "citizens:view", "citizens:create", "citizens:edit",
+      "households:view", "households:create",
+      "businesses:view", "businesses:create", "businesses:edit",
+      "markets:view",
+      "tariffs:view",
+      "obligations:view", "obligations:create",
+    ],
+  },
   {
     code: "LAND_AGENT",
     name: "Agent foncier",
@@ -214,14 +265,24 @@ const ROLES: {
   {
     code: "TAX_AGENT",
     name: "Agent taxes/finances",
-    description: "Enregistrement des patentes et recettes municipales.",
-    permissions: ["businesses:view", "businesses:create", "payments:view", "payments:create"],
+    description: "Agent collecteur : enregistrement des patentes et recettes municipales.",
+    permissions: [
+      "businesses:view", "businesses:create",
+      "payments:view", "payments:create",
+      "obligations:view",
+      "receipts:view",
+    ],
   },
   {
     code: "MARKET_AGENT",
     name: "Agent marche",
-    description: "Gestion des marches, emplacements et recettes associees.",
-    permissions: ["markets:view", "markets:create", "payments:view", "payments:create"],
+    description: "Agent collecteur : gestion des marches, emplacements et recettes associees.",
+    permissions: [
+      "markets:view", "markets:create",
+      "payments:view", "payments:create",
+      "obligations:view",
+      "receipts:view",
+    ],
   },
   {
     code: "ASSOCIATIONS_AGENT",
@@ -251,6 +312,7 @@ const ROLES: {
       "marriages:view", "divorces:view", "deaths:view", "certificates:view", "applications:view",
       "land:view", "urbanism:view",
       "businesses:view", "markets:view", "payments:view", "payments:export",
+      "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
     ],
   },
   { code: "CITIZEN", name: "Citoyen", description: "Compte du portail citoyen (phase 3) — aucun acces a l'espace administratif.", permissions: [] },
@@ -298,6 +360,17 @@ async function main() {
     await prisma.taxType.upsert({ where: { code: tax.code }, update: {}, create: tax });
   }
   console.log(`  ✓ ${TAX_TYPES.length} types de taxes (placeholders — a valider)`);
+
+  for (const activity of ACTIVITIES) {
+    await prisma.activiteEconomique.upsert({ where: { code: activity.code }, update: {}, create: activity });
+  }
+  console.log(`  ✓ ${ACTIVITIES.length} activites economiques (referentiel)`);
+
+  for (const tarif of TARIFFS) {
+    const existing = await prisma.tarifMunicipal.findFirst({ where: { code: tarif.code } });
+    if (!existing) await prisma.tarifMunicipal.create({ data: tarif });
+  }
+  console.log(`  ✓ ${TARIFFS.length} tarifs municipaux (placeholders — a valider)`);
 
   const permissionIdByCode = new Map<string, string>();
   for (const [module, actions] of Object.entries(MODULES_ACTIONS)) {

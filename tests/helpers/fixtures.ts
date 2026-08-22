@@ -95,6 +95,11 @@ export const ALL_TEST_PERMISSIONS = [
   "territorial:view", "territorial:create", "territorial:edit",
   "users:view", "users:create", "users:edit",
   "audit:view",
-  "payments:view", "payments:create", "payments:export",
-  "businesses:view", "businesses:create",
+  "payments:view", "payments:create", "payments:export", "payments:cancel",
+  "businesses:view", "businesses:create", "businesses:edit",
+  "markets:view", "markets:create", "markets:edit",
+  "tariffs:view", "tariffs:create", "tariffs:edit",
+  "obligations:view", "obligations:create", "obligations:cancel",
+  "collectors:view", "collectors:create", "collectors:edit", "collectors:assign",
+  "receipts:view", "receipts:export", "receipts:cancel",
 ];

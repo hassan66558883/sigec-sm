@@ -5,11 +5,22 @@ import { useState } from "react";
 
 type Option = { id: string; label: string };
 
-export function BusinessForm({ arrondissements, citizens }: { arrondissements: Option[]; citizens: Option[] }) {
+export function BusinessForm({
+  arrondissements,
+  citizens,
+  activities,
+}: {
+  arrondissements: Option[];
+  citizens: Option[];
+  activities: Option[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [activity, setActivity] = useState("");
+  const [activityId, setActivityId] = useState("");
+  const [category, setCategory] = useState("");
+  const [gpsLat, setGpsLat] = useState("");
+  const [gpsLng, setGpsLng] = useState("");
   const [ownerId, setOwnerId] = useState(citizens[0]?.id ?? "");
   const [arrondissementId, setArrondissementId] = useState(arrondissements[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +33,15 @@ export function BusinessForm({ arrondissements, citizens }: { arrondissements: O
     const res = await fetch("/api/businesses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, activity, ownerId, arrondissementId }),
+      body: JSON.stringify({
+        name,
+        activityId: activityId || null,
+        category: category || undefined,
+        gpsLat: gpsLat ? Number(gpsLat) : null,
+        gpsLng: gpsLng ? Number(gpsLng) : null,
+        ownerId,
+        arrondissementId,
+      }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -31,7 +50,10 @@ export function BusinessForm({ arrondissements, citizens }: { arrondissements: O
       return;
     }
     setName("");
-    setActivity("");
+    setActivityId("");
+    setCategory("");
+    setGpsLat("");
+    setGpsLng("");
     setOpen(false);
     router.refresh();
   }
@@ -53,7 +75,22 @@ export function BusinessForm({ arrondissements, citizens }: { arrondissements: O
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Activite</label>
-          <input value={activity} onChange={(e) => setActivity(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+          <select value={activityId} onChange={(e) => setActivityId(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+            <option value="">— Non precisee —</option>
+            {activities.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Categorie (optionnel)</label>
+          <input value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">GPS (latitude, optionnel)</label>
+          <input type="number" step="any" value={gpsLat} onChange={(e) => setGpsLat(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">GPS (longitude, optionnel)</label>
+          <input type="number" step="any" value={gpsLng} onChange={(e) => setGpsLng(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Proprietaire</label>

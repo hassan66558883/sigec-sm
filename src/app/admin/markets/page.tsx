@@ -6,6 +6,7 @@ import { listMarkets } from "@/lib/services/markets";
 import { listCitizens } from "@/lib/services/citizens";
 import { MarketForm } from "@/components/finances/market-form";
 import { StallPanel } from "@/components/finances/stall-panel";
+import { MarketStatusSelect } from "@/components/finances/market-status-select";
 
 export default async function MarketsPage() {
   const user = await getCurrentUser();
@@ -36,9 +37,16 @@ export default async function MarketsPage() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-[var(--color-text)]">{m.name}</h2>
-                <p className="text-xs text-[var(--color-text-muted)]">{m.arrondissement.name}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{m.code ?? "—"} — {m.arrondissement.name}</p>
               </div>
-              <span className="text-xs text-[var(--color-text-muted)]">{m.stalls.length} emplacement(s)</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[var(--color-text-muted)]">{m.stalls.length} emplacement(s)</span>
+                {can(user, "markets", "edit") ? (
+                  <MarketStatusSelect id={m.id} status={m.status} />
+                ) : (
+                  <span className="text-xs text-[var(--color-text-muted)]">{m.status}</span>
+                )}
+              </div>
             </div>
             <StallPanel marketId={m.id} stalls={m.stalls} citizens={citizenOptions} canManage={can(user, "markets", "create")} />
           </div>

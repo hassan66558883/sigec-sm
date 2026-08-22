@@ -10,6 +10,7 @@ const NAV_MODULES = [
   "citizens", "households", "births", "recognitions", "marriages", "divorces", "deaths", "certificates",
   "applications", "land", "urbanism", "businesses", "markets", "payments",
   "associations", "complaints", "infrastructure",
+  "tariffs", "obligations", "collectors", "receipts",
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

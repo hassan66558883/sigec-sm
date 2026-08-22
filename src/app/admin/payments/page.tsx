@@ -7,6 +7,7 @@ import { listPayments, listTaxTypes } from "@/lib/services/payments";
 import { listBusinesses } from "@/lib/services/businesses";
 import { listCitizens } from "@/lib/services/citizens";
 import { PaymentForm } from "@/components/finances/payment-form";
+import { ReasonActionButton } from "@/components/finances/reason-action-button";
 
 export default async function PaymentsPage() {
   const user = await getCurrentUser();
@@ -61,6 +62,8 @@ export default async function PaymentsPage() {
               <th className="px-4 py-2.5">Origine</th>
               <th className="px-4 py-2.5">Montant</th>
               <th className="px-4 py-2.5">Date</th>
+              <th className="px-4 py-2.5">Statut</th>
+              <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
@@ -72,11 +75,21 @@ export default async function PaymentsPage() {
                 <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{p.arrondissement?.name ?? "Mairie Centrale"}</td>
                 <td className="px-4 py-2.5 font-medium">{p.amount.toLocaleString("fr-FR")} FCFA</td>
                 <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{new Date(p.paymentDate).toLocaleDateString("fr-FR")}</td>
+                <td className="px-4 py-2.5">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.status === "PAID" ? "bg-green-100 text-[var(--color-success)]" : p.status === "ANNULE" ? "bg-red-100 text-[var(--color-danger)]" : "bg-gray-100 text-[var(--color-text-muted)]"}`}>
+                    {p.status}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  {can(user, "payments", "cancel") && p.status === "PAID" && (
+                    <ReasonActionButton endpoint={`/api/payments/${p.id}`} action="cancel" label="Annuler" />
+                  )}
+                </td>
               </tr>
             ))}
             {payments.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
+                <td colSpan={8} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
                   Aucun paiement enregistre.
                 </td>
               </tr>

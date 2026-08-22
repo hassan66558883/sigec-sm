@@ -13,3 +13,39 @@ export function generateRecordNumber(prefix: string) {
 export function generateVerificationToken() {
   return randomBytes(24).toString("base64url");
 }
+
+// Identifiant d'emplacement structure (section 7 du module recettes
+// municipales), ex: NDJ-A01-MKT-000001 ou NDJ-A01-Q05-BT-000123.
+// `sequence` doit venir d'un compteur Postgres monotone (colonne
+// `@default(autoincrement())`) jamais reutilise, meme apres suppression —
+// c'est ce qui garantit la regle "ne jamais reutiliser un identifiant".
+export function generateEmplacementCode(opts: {
+  arrondissementNumber: number;
+  quartierCode?: string | null;
+  typeCode: string; // MKT | BT | ...
+  sequence: number;
+}) {
+  const parts = ["NDJ", `A${String(opts.arrondissementNumber).padStart(2, "0")}`];
+  if (opts.quartierCode) parts.push(opts.quartierCode);
+  parts.push(opts.typeCode, String(opts.sequence).padStart(6, "0"));
+  return parts.join("-");
+}
+
+// Numero de recu sequentiel (section 18), ex: REC-2026-00000001. `sequence`
+// doit venir de Receipt.sequence (compteur Postgres monotone, jamais
+// reutilise meme apres annulation).
+export function generateReceiptNumber(sequence: number) {
+  const year = new Date().getFullYear();
+  return `REC-${year}-${String(sequence).padStart(8, "0")}`;
+}
+
+// Numero d'obligation, ex: OBL-2026-9F3A21B4. Meme convention entropique que
+// generateRecordNumber (pas de risque de course).
+export function generateObligationNumber() {
+  return generateRecordNumber("OBL");
+}
+
+// Matricule agent collecteur, ex: AGT-2026-9F3A21B4.
+export function generateAgentMatricule() {
+  return generateRecordNumber("AGT");
+}
