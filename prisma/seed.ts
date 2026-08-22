@@ -42,7 +42,7 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   // Phase 5 — Finances municipales
   businesses: ["view", "create", "edit"],
   markets: ["view", "create", "edit"],
-  payments: ["view", "create", "export", "cancel"],
+  payments: ["view", "create", "export", "cancel", "refund"],
   // Phase 6 — Services municipaux
   associations: ["view", "create", "edit"],
   complaints: ["view", "assign", "update"],
@@ -156,7 +156,7 @@ const ROLES: {
       "land:view", "land:create", "land:issue_title",
       "urbanism:view", "urbanism:create", "urbanism:review", "urbanism:inspect", "urbanism:decide",
       "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
-      "payments:view", "payments:create", "payments:export", "payments:cancel",
+      "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update",
       "infrastructure:view", "infrastructure:update",
@@ -204,7 +204,7 @@ const ROLES: {
       "land:view", "land:issue_title",
       "urbanism:view", "urbanism:decide",
       "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
-      "payments:view", "payments:create", "payments:export", "payments:cancel",
+      "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update",
       "infrastructure:view", "infrastructure:update",

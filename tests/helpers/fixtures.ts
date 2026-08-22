@@ -81,6 +81,21 @@ export async function createTestCitizen(arrondissementId: string, overrides: Par
   });
 }
 
+// Compte du portail contribuable rattache a un Citizen existant — meme
+// forme que ce que getCurrentCitizenAccount() renvoie (services/*.ts du
+// portail attendent { id, citizenId, citizen: {...} }).
+export async function createTestCitizenAccount(citizenId: string) {
+  const citizen = await testPrisma.citizen.findUniqueOrThrow({ where: { id: citizenId } });
+  const account = await testPrisma.citizenAccount.create({
+    data: {
+      citizenId,
+      email: `${uid("citizen")}@test.local`,
+      password: await bcrypt.hash("Test1234!", 4),
+    },
+  });
+  return { id: account.id, citizenId: account.citizenId, citizen };
+}
+
 // Jeu de permissions "administrateur central" complet pour les modules
 // couverts par les tests — evite de lister chaque permission a chaque test.
 export const ALL_TEST_PERMISSIONS = [
@@ -95,7 +110,7 @@ export const ALL_TEST_PERMISSIONS = [
   "territorial:view", "territorial:create", "territorial:edit",
   "users:view", "users:create", "users:edit",
   "audit:view",
-  "payments:view", "payments:create", "payments:export", "payments:cancel",
+  "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
   "businesses:view", "businesses:create", "businesses:edit",
   "markets:view", "markets:create", "markets:edit",
   "tariffs:view", "tariffs:create", "tariffs:edit",

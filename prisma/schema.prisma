@@ -199,6 +199,7 @@ model Arrondissement {
   caisses            CashRegister[]
   versements         Versement[]
   fraudAlerts        FraudAlert[]
+  tarifsMunicipaux   TarifMunicipal[]
 
   @@unique([cityId, number])
   @@index([cityId])
@@ -837,8 +838,10 @@ model MarketStall {
 // market_id (via marketStallId), business_id, arrondissement_id, collected_by, status.
 // obligationId/agentId relient le paiement a la chaine recensement -> tarif
 // -> obligation -> collecte (module "recettes municipales"). collectedById
-// reste le UserId brut de l'acteur (retro-compatible) ; agentId est la
-// relation forte vers sa fiche AgentCollecteur quand la collecte passe par
+// reste l'ID brut de l'acteur (retro-compatible) : un UserId pour une
+// collecte agent/caisse, un CitizenAccount.id pour un paiement en ligne
+// initie par le contribuable lui-meme (module paiement en ligne, section 9).
+// agentId est la relation forte vers sa fiche AgentCollecteur quand la collecte passe par
 // l'app de terrain plutot qu'un enregistrement direct par un agent central.
 // gpsLat/gpsLng : capture passive de la position lors d'une collecte mobile
 // (section 25) — jamais bloquant, uniquement informatif/controle a posteriori.
@@ -850,7 +853,7 @@ model Payment {
   payerId          String
   amount           Float
   paymentDate      DateTime @default(now())
-  paymentMethod    String // ESPECES | MOBILE_MONEY | VIREMENT | AUTRE — extensible (section 25)
+  paymentMethod    String // ESPECES | MOBILE_MONEY | VIREMENT | CARTE | EN_LIGNE | AUTRE — extensible (section 25)
   taxTypeId        String?
   businessId       String?
   marketStallId    String?
@@ -861,9 +864,10 @@ model Payment {
   collectedById    String
   gpsLat           Float?
   gpsLng           Float?
-  // PAID | PENDING | OVERDUE | ANNULE | ECHEC — un Mobile Money reste PENDING
-  // (aucun reçu, aucune imputation d'obligation) jusqu'a confirmation reelle
-  // par le prestataire (voir services/mobile-money.ts).
+  // PAID | PENDING | OVERDUE | ANNULE | ECHEC | REMBOURSE — un paiement
+  // mediatise par un prestataire reste PENDING (aucun reçu, aucune
+  // imputation d'obligation) jusqu'a confirmation reelle (voir
+  // services/mobile-money.ts et services/payment-provider.ts).
   status           String   @default("PAID")
   createdAt        DateTime @default(now())
 
@@ -878,6 +882,7 @@ model Payment {
   receipt        Receipt?
   cancellation   PaymentCancellation?
   mobileMoney    MobileMoneyTransaction?
+  refund         PaymentRefund?
   fraudAlerts    FraudAlert[]
 
   @@index([arrondissementId])
@@ -1040,31 +1045,39 @@ model ActiviteEconomique {
 // Montants PLACEHOLDER tant qu'un bareme officiel n'est pas fourni (regle 39,
 // meme logique que TaxType.amount).
 model TarifMunicipal {
-  id              String    @id @default(cuid())
+  id               String    @id @default(cuid())
   // `code` n'est PAS unique : chaque revision (section 10) cree une nouvelle
   // ligne partageant le meme code, l'ancienne etant cloturee (status=INACTIF,
   // endDate renseignee) par createOrReviseTariff() — jamais ecrasee. Un seul
   // ACTIF par code a un instant donne est garanti par ce meme service.
-  code            String
-  label           String
-  category        String?
-  activityId      String?
-  emplacementType String // BOUTIQUE | MARCHE | ETAL | AUTRE
-  periodicity     String // JOURNALIERE | HEBDOMADAIRE | MENSUELLE | TRIMESTRIELLE | SEMESTRIELLE | ANNUELLE | AUTRE
-  amount          Float
-  startDate       DateTime  @default(now())
-  endDate         DateTime?
-  status          String    @default("ACTIF") // ACTIF | INACTIF
-  legalReference  String?
-  createdById     String?
-  createdAt       DateTime  @default(now())
+  code             String
+  label            String
+  category         String?
+  activityId       String?
+  emplacementType  String // BOUTIQUE | MARCHE | ETAL | AUTRE
+  periodicity      String // JOURNALIERE | HEBDOMADAIRE | MENSUELLE | TRIMESTRIELLE | SEMESTRIELLE | ANNUELLE | AUTRE
+  unit             String? // ex "m2", "emplacement", "forfait" — unite sur laquelle `amount` s'applique (module paiement en ligne, section 5)
+  amount           Float
+  // null = tarif valable pour toute la ville ; renseigne = specifique a un
+  // arrondissement (module paiement en ligne, section 5). Un tarif ville-wide
+  // et un tarif specifique au meme `code` peuvent coexister ; le moteur de
+  // calcul prend le plus specifique.
+  arrondissementId String?
+  startDate        DateTime  @default(now())
+  endDate          DateTime?
+  status           String    @default("ACTIF") // ACTIF | INACTIF
+  legalReference   String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
 
-  activity    ActiviteEconomique?  @relation(fields: [activityId], references: [id])
-  obligations ObligationPaiement[]
+  activity       ActiviteEconomique?  @relation(fields: [activityId], references: [id])
+  arrondissement Arrondissement?      @relation(fields: [arrondissementId], references: [id])
+  obligations    ObligationPaiement[]
 
   @@index([code])
   @@index([emplacementType])
   @@index([status])
+  @@index([arrondissementId])
 }
 
 // Somme due generee pour un contribuable/emplacement sur une periode donnee
@@ -1081,8 +1094,16 @@ model ObligationPaiement {
   tarifId          String
   period           String // ex "2026-08" (mensuel), "2026" (annuel), ou date ISO (journalier)
   initialAmount    Float
+  // Penalite/remise : montants structurels, jamais calcules automatiquement
+  // par un taux invente (regle absolue : ne jamais inventer une penalite).
+  // Restent a 0 tant qu'aucun texte officiel ne fixe une regle de calcul ;
+  // saisie manuelle par un agent autorise en attendant (module paiement en
+  // ligne, section 6/19).
+  penaltyAmount    Float    @default(0)
+  discountAmount   Float    @default(0)
   paidAmount       Float    @default(0)
   dueDate          DateTime
+  // A_PAYER | PARTIELLEMENT_PAYE | PAYE | EN_RETARD | ANNULE | REMBOURSE
   status           String   @default("A_PAYER")
   arrondissementId String
   createdAt        DateTime @default(now())
@@ -1257,18 +1278,56 @@ model Versement {
 // alors via une action administrative explicite plutot qu'un faux succes
 // automatique.
 // status: INITIATED | PENDING | SUCCESS | FAILED | CANCELLED | REFUNDED
+// Sert de table `PaymentTransaction` generique (module paiement en ligne,
+// section 11) pour tout paiement mediatise par un prestataire : collecte
+// Mobile Money par un agent sur le terrain (channel=AGENT, historique) ET
+// paiement en ligne initie par le contribuable depuis /portail
+// (channel=ONLINE, voir services/payment-provider.ts). Le nom du modele est
+// conserve pour ne pas casser l'existant (regle absolue : ne pas
+// reconstruire inutilement) ; `provider` reste une chaine libre, jamais un
+// operateur code en dur. externalReference reste l'idempotence prestataire ;
+// internalReference est notre propre reference, generee avant meme l'appel
+// au prestataire (utile pour retrouver une transaction dont l'appel
+// prestataire a echoue avant de recevoir une reference externe).
 model MobileMoneyTransaction {
+  id                 String    @id @default(cuid())
+  paymentId          String    @unique
+  provider           String    @default("MANUAL")
+  channel            String    @default("AGENT") // AGENT | ONLINE
+  internalReference  String?   @unique
+  externalReference  String?   @unique
+  phoneNumber        String?
+  amount             Float
+  currency           String    @default("XAF")
+  // INITIATED | PENDING | SUCCESS | FAILED | CANCELLED | REFUNDED
+  status             String    @default("INITIATED")
+  providerResponse   Json?
+  failureReason      String?
+  initiatedAt        DateTime  @default(now())
+  callbackReceivedAt DateTime?
+  verifiedAt         DateTime?
+  confirmedAt        DateTime?
+  confirmedById      String?
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+// Remboursement d'un paiement confirme (module paiement en ligne, section
+// 8/17). Jamais de suppression du Payment original — celui-ci passe au
+// statut REMBOURSE, et cette ligne conserve la trace complete (motif
+// obligatoire, auteur, montant). Un paiement ne peut avoir qu'un seul
+// remboursement (relation 1:1) : un remboursement partiel reste un montant
+// inferieur au paiement, jamais une deuxieme ligne.
+model PaymentRefund {
   id                String    @id @default(cuid())
   paymentId         String    @unique
-  provider          String    @default("MANUAL")
-  externalReference String?   @unique
-  phoneNumber       String?
   amount            Float
-  status            String    @default("INITIATED")
-  providerResponse  Json?
-  initiatedAt       DateTime  @default(now())
-  confirmedAt       DateTime?
-  confirmedById     String?
+  reason            String
+  status            String    @default("INITIATED") // INITIATED | COMPLETED | FAILED
+  providerReference String?
+  requestedById     String
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
 
   payment Payment @relation(fields: [paymentId], references: [id])
 }

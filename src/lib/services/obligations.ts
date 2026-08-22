@@ -8,8 +8,11 @@ import { generateObligationNumber } from "@/lib/ids";
 
 // Somme due generee pour un contribuable/emplacement (section 11). Le solde
 // n'est jamais stocke : toujours recalcule a la lecture, jamais negatif.
-function withBalance<T extends { initialAmount: number; paidAmount: number }>(o: T) {
-  return { ...o, balance: Math.max(0, o.initialAmount - o.paidAmount) };
+// totalDue integre penalite/remise (module paiement en ligne, section 6) —
+// tous deux a 0 par defaut tant qu'aucune regle officielle n'est configuree.
+export function withBalance<T extends { initialAmount: number; paidAmount: number; penaltyAmount: number; discountAmount: number }>(o: T) {
+  const totalDue = o.initialAmount + o.penaltyAmount - o.discountAmount;
+  return { ...o, totalDue, balance: Math.max(0, totalDue - o.paidAmount) };
 }
 
 export async function listObligations(user: CurrentUser, filters?: { status?: string; citizenId?: string }) {
@@ -56,17 +59,24 @@ export type CreateObligationInput = {
   tarifId: string;
   period: string;
   dueDate: string;
+  // Quantite sur laquelle le tarif s'applique (superficie en m², nombre
+  // d'emplacements...) quand `tarif.unit` le prevoit (module paiement en
+  // ligne, section 5/6). Defaut 1 = comportement historique (tarif forfaitaire).
+  quantity?: number;
 };
 
 // Genere la somme due a partir du tarif applicable (section 10 : "les
 // montants doivent venir du referentiel tarifaire" — jamais un montant
 // saisi librement). arrondissementId est derive de l'emplacement (boutique
-// ou etal) si fourni, sinon du contribuable lui-meme.
+// ou etal) si fourni, sinon du contribuable lui-meme. montant = tarif.amount
+// x quantity (ex: tarif au m² x superficie) — jamais un montant invente.
 export async function createObligation(actor: CurrentUser, input: CreateObligationInput) {
   if (!can(actor, "obligations", "create")) throw new ApiError(403, "Permission insuffisante.");
   if (!input.citizenId || !input.tarifId || !input.period?.trim() || !input.dueDate) {
     throw new ApiError(400, "Contribuable, tarif, periode et echeance requis.");
   }
+  const quantity = input.quantity ?? 1;
+  if (!Number.isFinite(quantity) || quantity <= 0) throw new ApiError(400, "Quantite invalide.");
 
   const citizen = await prisma.citizen.findUnique({ where: { id: input.citizenId } });
   if (!citizen) throw new ApiError(404, "Contribuable introuvable.");
@@ -95,7 +105,7 @@ export async function createObligation(actor: CurrentUser, input: CreateObligati
       marketStallId: input.marketStallId || null,
       tarifId: input.tarifId,
       period: input.period.trim(),
-      initialAmount: tarif.amount,
+      initialAmount: tarif.amount * quantity,
       dueDate: new Date(input.dueDate),
       arrondissementId,
     },
@@ -108,7 +118,7 @@ export async function createObligation(actor: CurrentUser, input: CreateObligati
     entityType: "ObligationPaiement",
     entityId: created.id,
     arrondissementId,
-    newValue: { number: created.number, amount: created.initialAmount, period: created.period },
+    newValue: { number: created.number, amount: created.initialAmount, period: created.period, tarifAmount: tarif.amount, quantity },
   });
 
   return withBalance(created);
@@ -146,8 +156,23 @@ export async function applyPaymentToObligation(tx: Prisma.TransactionClient, obl
   if (!obligation) throw new ApiError(404, "Obligation introuvable.");
   if (obligation.status === "ANNULE") throw new ApiError(400, "Cette obligation est annulee.");
 
+  const totalDue = obligation.initialAmount + obligation.penaltyAmount - obligation.discountAmount;
   const paidAmount = obligation.paidAmount + amount;
-  const status = paidAmount >= obligation.initialAmount ? "PAYE" : paidAmount > 0 ? "PARTIELLEMENT_PAYE" : obligation.status;
+  const status = paidAmount >= totalDue ? "PAYE" : paidAmount > 0 ? "PARTIELLEMENT_PAYE" : obligation.status;
+
+  return tx.obligationPaiement.update({ where: { id: obligationId }, data: { paidAmount, status } });
+}
+
+// Reverse d'un remboursement (module paiement en ligne, section 8/17) : fait
+// baisser paidAmount et recalcule le statut, jamais l'inverse d'une
+// suppression — l'obligation garde toute sa trace (initialAmount inchange).
+export async function reversePaymentOnObligation(tx: Prisma.TransactionClient, obligationId: string, amount: number) {
+  const obligation = await tx.obligationPaiement.findUnique({ where: { id: obligationId } });
+  if (!obligation) throw new ApiError(404, "Obligation introuvable.");
+
+  const totalDue = obligation.initialAmount + obligation.penaltyAmount - obligation.discountAmount;
+  const paidAmount = Math.max(0, obligation.paidAmount - amount);
+  const status = paidAmount >= totalDue ? "PAYE" : paidAmount > 0 ? "PARTIELLEMENT_PAYE" : "A_PAYER";
 
   return tx.obligationPaiement.update({ where: { id: obligationId }, data: { paidAmount, status } });
 }

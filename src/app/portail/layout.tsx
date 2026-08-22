@@ -4,6 +4,8 @@ import { CitizenLogoutButton } from "@/components/portal/citizen-logout-button";
 
 const NAV_ITEMS = [
   { href: "/portail", label: "Tableau de bord" },
+  { href: "/portail/factures", label: "Mes factures" },
+  { href: "/portail/paiements", label: "Mes paiements" },
   { href: "/portail/demandes/nouvelle", label: "Nouvelle demande" },
   { href: "/portail/plaintes", label: "Mes plaintes" },
   { href: "/portail/voirie", label: "Signaler (voirie)" },

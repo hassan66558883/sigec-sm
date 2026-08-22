@@ -186,7 +186,11 @@ export async function detectOffHours(paymentId: string, agentId: string | null, 
 // defense — si une tentative de doublon la percute quand meme, on la
 // journalise en CRITICAL plutot que de la laisser remonter comme une
 // simple erreur 500 anonyme.
-export async function raiseDuplicateAlert(type: "DOUBLE_PAYMENT" | "DOUBLE_RECEIPT", description: string, arrondissementId?: string | null) {
+export async function raiseDuplicateAlert(
+  type: "DOUBLE_PAYMENT" | "DOUBLE_RECEIPT" | "FORBIDDEN_MODIFICATION",
+  description: string,
+  arrondissementId?: string | null,
+) {
   await raiseFraudAlert({ type, severity: "CRITICAL", description, arrondissementId });
 }
 

@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentCitizenAccount } from "@/lib/citizen-auth";
+import { listMyObligations } from "@/lib/services/online-payments";
+
+function formatFcfa(amount: number) {
+  return `${amount.toLocaleString("fr-FR")} FCFA`;
+}
 
 const APP_STATUS_LABEL: Record<string, string> = {
   SUBMITTED: "Soumise",
@@ -21,7 +26,7 @@ export default async function PortailDashboardPage() {
   const account = await getCurrentCitizenAccount();
   if (!account) return null;
 
-  const [applications, notifications] = await Promise.all([
+  const [applications, notifications, obligations] = await Promise.all([
     prisma.application.findMany({
       where: { citizenAccountId: account.id },
       include: { resultCertificate: true },
@@ -32,7 +37,12 @@ export default async function PortailDashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    listMyObligations(account),
   ]);
+
+  const solde = obligations.reduce((sum, o) => sum + o.balance, 0);
+  const factureEnAttente = obligations.filter((o) => o.balance > 0 && o.status !== "ANNULE").length;
+  const factureEchue = obligations.filter((o) => o.status === "EN_RETARD").length;
 
   return (
     <div className="space-y-6">
@@ -53,6 +63,26 @@ export default async function PortailDashboardPage() {
           + Nouvelle demande
         </Link>
       </div>
+
+      <Link
+        href="/portail/factures"
+        className="block rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm hover:bg-gray-50"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Solde a payer</div>
+            <div className="mt-1 text-xl font-semibold text-[var(--color-text)]">{formatFcfa(solde)}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Factures en attente</div>
+            <div className="mt-1 text-xl font-semibold text-[var(--color-text)]">{factureEnAttente}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Factures echues</div>
+            <div className="mt-1 text-xl font-semibold text-[var(--color-text)]">{factureEchue}</div>
+          </div>
+        </div>
+      </Link>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
         <div className="border-b border-[var(--color-border)] px-5 py-3">

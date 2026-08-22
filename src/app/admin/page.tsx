@@ -5,6 +5,7 @@ import { arrondissementScopeWhere, can } from "@/lib/rbac";
 import { listAuditLogs } from "@/lib/audit";
 import { getFinanceSummary } from "@/lib/services/payments";
 import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
+import { getRecoveryStats } from "@/lib/services/analytics";
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
@@ -29,7 +30,7 @@ export default async function AdminDashboardPage() {
   const canViewAudit = can(user, "audit", "view");
   const canViewRevenue = can(user, "payments", "view");
 
-  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview] = await Promise.all([
+  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview, recoveryStats] = await Promise.all([
     prisma.arrondissement.findMany({
       where: scopeWhere,
       orderBy: { number: "asc" },
@@ -40,6 +41,7 @@ export default async function AdminDashboardPage() {
     canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
     canViewRevenue && user ? getFinanceSummary(user) : Promise.resolve(null),
     canViewRevenue && user ? getMunicipalRevenueOverview(user) : Promise.resolve(null),
+    user ? getRecoveryStats(user) : Promise.resolve(null),
   ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);
@@ -94,6 +96,17 @@ export default async function AdminDashboardPage() {
                 hint={<Link href="/admin/fraud" className="hover:underline">Voir le controle anti-fraude →</Link>}
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {recoveryStats && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Recouvrement & paiement en ligne</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard label="Taux de recouvrement" value={`${recoveryStats.recoveryRate}%`} hint={formatFcfa(recoveryStats.totalPaidOnObligations)} />
+            <StatCard label="Paiements en ligne" value={recoveryStats.online.count} hint={formatFcfa(recoveryStats.online.total)} />
+            <StatCard label="Paiements physiques" value={recoveryStats.physical.count} hint={formatFcfa(recoveryStats.physical.total)} />
           </div>
         </div>
       )}

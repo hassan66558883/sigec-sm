@@ -105,6 +105,49 @@ export async function getServicesStats(user: CurrentUser) {
   };
 }
 
+// Indicateurs de recouvrement + repartition en ligne/physique (module
+// paiement en ligne, section 15/16). Taux de recouvrement = montant
+// effectivement paye / montant total du (obligations non annulees), jamais
+// stocke, toujours recalcule. La repartition en ligne/physique se base sur
+// MobileMoneyTransaction.channel="ONLINE" (paiement initie depuis le
+// portail) — tout le reste (especes, virement, Mobile Money collecte par un
+// agent) est considere "physique".
+export async function getRecoveryStats(user: CurrentUser) {
+  if (!can(user, "obligations", "view") || !can(user, "payments", "view")) return null;
+  const scope = recordScopeWhere(user);
+
+  const [dueAgg, onlineAgg, totalPaidAgg] = await Promise.all([
+    prisma.obligationPaiement.aggregate({
+      where: { ...scope, status: { not: "ANNULE" } },
+      _sum: { initialAmount: true, penaltyAmount: true, discountAmount: true, paidAmount: true },
+    }),
+    prisma.payment.aggregate({
+      where: { ...scope, status: "PAID", mobileMoney: { channel: "ONLINE" } },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    prisma.payment.aggregate({ where: { ...scope, status: "PAID" }, _sum: { amount: true }, _count: true }),
+  ]);
+
+  const totalDue =
+    (dueAgg._sum.initialAmount ?? 0) + (dueAgg._sum.penaltyAmount ?? 0) - (dueAgg._sum.discountAmount ?? 0);
+  const totalPaidOnObligations = dueAgg._sum.paidAmount ?? 0;
+  const recoveryRate = totalDue > 0 ? Math.round((totalPaidOnObligations / totalDue) * 1000) / 10 : 0;
+
+  const onlineTotal = onlineAgg._sum.amount ?? 0;
+  const onlineCount = onlineAgg._count;
+  const totalPaid = totalPaidAgg._sum.amount ?? 0;
+  const totalPaidCount = totalPaidAgg._count;
+
+  return {
+    totalDue,
+    totalPaidOnObligations,
+    recoveryRate,
+    online: { total: onlineTotal, count: onlineCount },
+    physical: { total: totalPaid - onlineTotal, count: totalPaidCount - onlineCount },
+  };
+}
+
 // Rapport statistique consolide par arrondissement : une ligne par
 // arrondissement dans le perimetre de l'utilisateur, une colonne par
 // module — chaque colonne n'est calculee (et exposee au CSV) que si
