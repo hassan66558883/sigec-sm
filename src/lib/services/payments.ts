@@ -7,7 +7,7 @@ import { generateRecordNumber } from "@/lib/ids";
 import { applyPaymentToObligation } from "@/lib/services/obligations";
 import { generateReceiptForPayment } from "@/lib/services/receipts";
 import { initiateMobileMoneyPayment } from "@/lib/services/mobile-money";
-import { detectExcessiveCancellations, detectOutOfZone, detectSuspiciousVolume, detectOffHours } from "@/lib/services/fraud";
+import { detectExcessiveCancellations, detectOutOfZone, detectSuspiciousVolume, detectOffHours, enforceGeolocationPolicy } from "@/lib/services/fraud";
 
 export async function listTaxTypes() {
   return prisma.taxType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
@@ -19,6 +19,58 @@ export async function listPayments(user: CurrentUser) {
     include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true, agent: true, receipt: true },
     orderBy: { paymentDate: "desc" },
     take: 100,
+  });
+}
+
+export type PaymentReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+  arrondissementId?: string;
+  agentId?: string;
+  paymentMethod?: string;
+  status?: string;
+};
+
+// Rapport recettes filtre (section 31) : les memes filtres croises que
+// demandes (periode, arrondissement, agent, mode de paiement, statut),
+// toujours borne par recordScopeWhere() — un compte arrondissement ne peut
+// jamais elargir son perimetre via `arrondissementId` (l'appelant est
+// simplement ignore hors de son propre scope).
+export async function listPaymentsForReport(user: CurrentUser, filters: PaymentReportFilters) {
+  const scope = recordScopeWhere(user);
+  const arrondissementFilter =
+    filters.arrondissementId && (user.hasGlobalScope || user.arrondissementIds.includes(filters.arrondissementId))
+      ? { arrondissementId: filters.arrondissementId }
+      : {};
+
+  return prisma.payment.findMany({
+    where: {
+      ...scope,
+      ...arrondissementFilter,
+      ...(filters.agentId ? { agentId: filters.agentId } : {}),
+      ...(filters.paymentMethod ? { paymentMethod: filters.paymentMethod } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.dateFrom || filters.dateTo
+        ? {
+            paymentDate: {
+              ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+              ...(filters.dateTo ? { lte: new Date(`${filters.dateTo}T23:59:59`) } : {}),
+            },
+          }
+        : {}),
+    },
+    include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true, agent: { include: { user: true } } },
+    orderBy: { paymentDate: "desc" },
+    take: 5000,
+  });
+}
+
+export async function listCancellations(user: CurrentUser) {
+  return prisma.paymentCancellation.findMany({
+    where: { payment: recordScopeWhere(user) },
+    include: { payment: { include: { payer: true, arrondissement: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 500,
   });
 }
 
@@ -109,6 +161,13 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
 
   if (input.paymentMethod.trim() === "MOBILE_MONEY") {
     return initiateMobileMoneyPayment(actor, input, context);
+  }
+
+  // Politique de geolocalisation (section 25) : verifiee AVANT toute
+  // ecriture — un policy=BLOCK doit empecher la collecte, pas l'annuler
+  // apres coup.
+  if (context.agentId) {
+    await enforceGeolocationPolicy(context.agentId, context.arrondissementId, input.gpsLat, input.gpsLng);
   }
 
   const { created, receipt } = await prisma.$transaction(async (tx) => {

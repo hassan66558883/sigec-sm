@@ -3,8 +3,14 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { arrondissementScopeWhere, can } from "@/lib/rbac";
 import { listAuditLogs } from "@/lib/audit";
+import { getFinanceSummary } from "@/lib/services/payments";
+import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
 
-function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
+function formatFcfa(amount: number) {
+  return `${amount.toLocaleString("fr-FR")} FCFA`;
+}
+
+function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
       <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -21,8 +27,9 @@ export default async function AdminDashboardPage() {
   const scopeWhere = arrondissementScopeWhere(user);
 
   const canViewAudit = can(user, "audit", "view");
+  const canViewRevenue = can(user, "payments", "view");
 
-  const [arrondissements, roleCount, departmentCount, recentAudit] = await Promise.all([
+  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview] = await Promise.all([
     prisma.arrondissement.findMany({
       where: scopeWhere,
       orderBy: { number: "asc" },
@@ -31,6 +38,8 @@ export default async function AdminDashboardPage() {
     prisma.role.count(),
     prisma.department.count({ where: { isActive: true } }),
     canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
+    canViewRevenue && user ? getFinanceSummary(user) : Promise.resolve(null),
+    canViewRevenue && user ? getMunicipalRevenueOverview(user) : Promise.resolve(null),
   ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);
@@ -64,6 +73,30 @@ export default async function AdminDashboardPage() {
           <StatCard label="Roles definis" value={roleCount} />
         )}
       </div>
+
+      {financeSummary && revenueOverview && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">
+            Recettes municipales {user?.hasGlobalScope ? "— Ville de N'Djamena" : "— votre perimetre"}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <StatCard label="Recettes aujourd'hui" value={formatFcfa(financeSummary.byPeriod.today)} />
+            <StatCard label="Recettes ce mois" value={formatFcfa(financeSummary.byPeriod.month)} />
+            <StatCard label="Contribuables" value={revenueOverview.citizens} />
+            <StatCard label="Boutiques" value={revenueOverview.businesses} />
+            <StatCard label="Marches" value={revenueOverview.markets} hint={`${revenueOverview.marketStalls} emplacement(s)`} />
+            <StatCard label="Agents actifs" value={revenueOverview.activeAgents} />
+            <StatCard label="Obligations impayees" value={revenueOverview.unpaidCount} hint={formatFcfa(revenueOverview.unpaidTotal)} />
+            {can(user, "fraud", "view") && (
+              <StatCard
+                label="Anomalies ouvertes"
+                value={revenueOverview.openFraudAlerts}
+                hint={<Link href="/admin/fraud" className="hover:underline">Voir le controle anti-fraude →</Link>}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
         <div className="border-b border-[var(--color-border)] px-5 py-3">
@@ -118,9 +151,9 @@ export default async function AdminDashboardPage() {
       )}
 
       <p className="text-xs text-[var(--color-text-muted)]">
-        Les modules Etat civil, Foncier, Finances (recettes/taxes par arrondissement) et Services municipaux
-        seront ajoutes lors des phases suivantes, en reutilisant le meme mecanisme d&apos;isolation
-        territoriale (voir <code>recordScopeWhere</code>).
+        Tous les modules (etat civil, foncier, recettes municipales, services municipaux) partagent le meme
+        mecanisme d&apos;isolation territoriale (voir <code>recordScopeWhere</code>) — aucune donnee d&apos;un
+        autre arrondissement n&apos;est jamais exposee.
       </p>
     </div>
   );

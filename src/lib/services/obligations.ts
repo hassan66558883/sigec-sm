@@ -26,6 +26,19 @@ export async function listObligations(user: CurrentUser, filters?: { status?: st
   return rows.map(withBalance);
 }
 
+// Rapport impayes (section 31) : toutes les obligations dont le solde
+// reste ouvert, quel que soit leur statut precis (A_PAYER, EN_RETARD ou
+// partiellement soldees).
+export async function listUnpaidObligations(user: CurrentUser) {
+  const rows = await prisma.obligationPaiement.findMany({
+    where: { ...recordScopeWhere(user), status: { in: ["A_PAYER", "PARTIELLEMENT_PAYE", "EN_RETARD"] } },
+    include: { citizen: true, business: true, marketStall: { include: { market: true } }, tarif: true, arrondissement: true },
+    orderBy: { dueDate: "asc" },
+    take: 2000,
+  });
+  return rows.map(withBalance);
+}
+
 export async function getObligation(user: CurrentUser, id: string) {
   const row = await prisma.obligationPaiement.findUnique({
     where: { id },

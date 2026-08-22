@@ -5,6 +5,7 @@ import { openCashRegister, closeCashRegister } from "../src/lib/services/caisses
 import { createVersement } from "../src/lib/services/versements";
 import { createCollector } from "../src/lib/services/collectors";
 import { ApiError } from "../src/lib/api";
+import bcrypt from "bcryptjs";
 import {
   createTestCity,
   createTestArrondissement,
@@ -139,5 +140,63 @@ describe("caisses, versements, Mobile Money, controle anti-fraude", () => {
 
     await closeCashRegister(admin, caisse.id, 0);
     await expect(closeCashRegister(admin, caisse.id, 0)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("un ecart de caisse notifie le superviseur reellement rattache a l'arrondissement (section 32)", async () => {
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["collectors:create", "caisses:create", "caisses:edit", "payments:create"],
+    });
+    const agent = await makeAgent(admin);
+    const owner = await createTestCitizen(arrA);
+
+    // Cree un vrai superviseur en base (Role + Permission + UserRole reels,
+    // pas seulement un CurrentUser synthetique) : notifyArrondissementSupervisors
+    // interroge la base, pas un objet en memoire.
+    const permission = await testPrisma.permission.findUniqueOrThrow({ where: { code: "fraud:resolve" } });
+    const role = await testPrisma.role.create({ data: { code: uid("SUPERVISOR"), name: "Superviseur test" } });
+    await testPrisma.rolePermission.create({ data: { roleId: role.id, permissionId: permission.id } });
+    const supervisorUser = await testPrisma.user.create({
+      data: {
+        name: "Superviseur Test",
+        email: `${uid("sup")}@test.local`,
+        password: await bcrypt.hash("Test1234!", 4),
+        organizationLevel: "ARRONDISSEMENT",
+      },
+    });
+    await testPrisma.userRole.create({ data: { userId: supervisorUser.id, roleId: role.id } });
+    await testPrisma.userArrondissement.create({ data: { userId: supervisorUser.id, arrondissementId: arrA } });
+
+    const caisse = await openCashRegister(admin, agent.id);
+    await recordPayment(admin, { payerId: owner.id, amount: 1000, paymentMethod: "ESPECES", agentId: agent.id, arrondissementId: arrA, caisseId: caisse.id });
+    await closeCashRegister(admin, caisse.id, 100);
+
+    const notification = await testPrisma.staffNotification.findFirst({ where: { userId: supervisorUser.id } });
+    expect(notification).not.toBeNull();
+    expect(notification?.title).toBe("Ecart de caisse");
+  });
+
+  it("la politique de geolocalisation BLOCK refuse une collecte sans position GPS, WARN l'autorise avec une alerte", async () => {
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["collectors:create", "payments:create"],
+    });
+    const agent = await makeAgent(admin);
+    const owner = await createTestCitizen(arrA);
+
+    await testPrisma.systemSetting.upsert({
+      where: { key: "geolocation_policy" },
+      update: { value: { mode: "BLOCK" } },
+      create: { key: "geolocation_policy", value: { mode: "BLOCK" } },
+    });
+    await expect(
+      recordPayment(admin, { payerId: owner.id, amount: 500, paymentMethod: "ESPECES", agentId: agent.id, arrondissementId: arrA }),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await testPrisma.systemSetting.update({ where: { key: "geolocation_policy" }, data: { value: { mode: "WARN" } } });
+    const paid = await recordPayment(admin, { payerId: owner.id, amount: 500, paymentMethod: "ESPECES", agentId: agent.id, arrondissementId: arrA });
+    expect(paid.status).toBe("PAID");
+
+    await testPrisma.systemSetting.update({ where: { key: "geolocation_policy" }, data: { value: { mode: "ALLOW" } } });
   });
 });

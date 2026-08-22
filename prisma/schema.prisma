@@ -46,12 +46,13 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  department      Department?          @relation(fields: [departmentId], references: [id])
-  roles           UserRole[]
-  arrondissements UserArrondissement[]
-  quartiers       UserQuartier[]
-  auditLogs       AuditLog[]
-  agentCollecteur AgentCollecteur?
+  department         Department?          @relation(fields: [departmentId], references: [id])
+  roles              UserRole[]
+  arrondissements    UserArrondissement[]
+  quartiers          UserQuartier[]
+  auditLogs          AuditLog[]
+  agentCollecteur    AgentCollecteur?
+  staffNotifications StaffNotification[]
 
   @@index([isActive])
   @@index([organizationLevel])
@@ -605,6 +606,27 @@ model Notification {
   citizenAccount CitizenAccount @relation(fields: [citizenAccountId], references: [id])
 
   @@index([citizenAccountId])
+}
+
+// Notifications internes agents/superviseurs/administration (section 32) —
+// modele distinct de Notification (portail citoyen) : realm different,
+// evite tout risque de regression sur le flux citoyen existant. Canaux
+// email/SMS : architecture prevue mais non implementee (necessiterait un
+// fournisseur reel), meme reserve que pour Notification.
+// severity: INFO | WARNING | CRITICAL
+model StaffNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  severity  String   @default("INFO")
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
 }
 
 // --- PHASE 4 : FONCIER ET URBANISME ----------------------------------------

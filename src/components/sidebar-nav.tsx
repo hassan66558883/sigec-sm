@@ -50,6 +50,7 @@ const NAV_SECTIONS: { title: string | null; items: { href: string; label: string
       { href: "/admin/caisses", label: "Caisses", module: "caisses" },
       { href: "/admin/versements", label: "Versements", module: "versements" },
       { href: "/admin/fraud", label: "Controle anti-fraude", module: "fraud" },
+      { href: "/admin/reports", label: "Rapports", module: "payments" },
     ],
   },
   {

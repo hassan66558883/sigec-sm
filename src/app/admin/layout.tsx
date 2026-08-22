@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
+import { countUnreadNotifications } from "@/lib/services/notifications";
 
 const NAV_MODULES = [
   "territorial", "departments", "users", "roles", "audit",
@@ -21,6 +22,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // layout), y compris pour les navigations cote client — voir proxy.ts.
 
   const visibleModules = new Set(NAV_MODULES.filter((m) => user.permissions.has(`${m}:view`)));
+
+  const unreadNotifications = await countUnreadNotifications(user);
 
   const orgLabel = user.hasGlobalScope
     ? "Mairie Centrale"
@@ -72,6 +75,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               {user.roles.map((r) => r.name).join(", ") || "Aucun role"}
             </div>
           </div>
+          <Link
+            href="/admin/notifications"
+            className="mb-2 flex items-center justify-center gap-2 rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-gray-50"
+          >
+            Notifications
+            {unreadNotifications > 0 && (
+              <span className="rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {unreadNotifications}
+              </span>
+            )}
+          </Link>
           <Link
             href="/admin/reset-password"
             className="mb-2 block rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-gray-50"

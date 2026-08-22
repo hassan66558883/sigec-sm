@@ -4,6 +4,17 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { isAgentAssignedToZone } from "@/lib/services/collectors";
+import { notifyArrondissementSupervisors, notifyCentralAdmins } from "@/lib/services/notifications";
+
+const ALERT_TITLE: Record<string, string> = {
+  DOUBLE_PAYMENT: "Double paiement detecte",
+  DOUBLE_RECEIPT: "Double reçu detecte",
+  EXCESSIVE_CANCELLATIONS: "Annulations excessives",
+  CASH_DISCREPANCY: "Ecart de caisse",
+  OUT_OF_ZONE: "Collecte hors zone",
+  SUSPICIOUS_VOLUME: "Volume de transactions suspect",
+  OFF_HOURS: "Paiement hors horaires",
+};
 
 // Seuils configurables (section 23 : "Les seuils doivent etre
 // configurables") — stockes dans SystemSetting, valeurs par defaut sinon.
@@ -64,6 +75,23 @@ async function raiseFraudAlert(input: RaiseAlertInput) {
     newValue: { type: input.type, severity: input.severity, description: input.description },
     result: "FAILURE",
   });
+
+  // Notifications (section 32) : le superviseur du perimetre concerne pour
+  // toute alerte territorialisee ; l'administration centrale en plus pour
+  // les severites elevees (fraude potentielle avere / volume anormal).
+  const title = ALERT_TITLE[input.type] ?? "Alerte controle anti-fraude";
+  if (input.arrondissementId) {
+    await notifyArrondissementSupervisors(input.arrondissementId, {
+      title,
+      message: input.description,
+      severity: input.severity,
+      link: "/admin/fraud",
+    });
+  }
+  if (input.severity === "HIGH" || input.severity === "CRITICAL") {
+    await notifyCentralAdmins({ title, message: input.description, severity: input.severity, link: "/admin/fraud" });
+  }
+
   return alert;
 }
 
@@ -171,6 +199,38 @@ export async function getAgentRiskScore(agentId: string): Promise<"LOW" | "MEDIU
   if (count >= thresholds.riskAlertsHigh) return "HIGH";
   if (count >= thresholds.riskAlertsMedium) return "MEDIUM";
   return "LOW";
+}
+
+// Politique de geolocalisation (section 25) : ALLOW (par defaut — aucune
+// verification), WARN (position manquante -> alerte, le paiement continue)
+// ou BLOCK (position manquante -> paiement refuse). Ne compare PAS la
+// position a la zone d'affectation (aucune coordonnee de reference n'existe
+// pour un quartier dans ce modele) — se limite honnetement a verifier
+// qu'une position a bien ete transmise par l'agent, conformement a
+// l'exigence explicite de ne jamais bloquer brutalement une operation a
+// cause d'une precision GPS faible : BLOCK reste un choix explicite de
+// configuration, jamais le comportement par defaut.
+export async function getGeolocationPolicy(): Promise<"ALLOW" | "WARN" | "BLOCK"> {
+  const setting = await prisma.systemSetting.findUnique({ where: { key: "geolocation_policy" } });
+  const mode = (setting?.value as { mode?: string } | null)?.mode;
+  return mode === "WARN" || mode === "BLOCK" ? mode : "ALLOW";
+}
+
+export async function enforceGeolocationPolicy(agentId: string, arrondissementId: string | null, gpsLat?: number | null, gpsLng?: number | null) {
+  if (gpsLat != null && gpsLng != null) return;
+  const policy = await getGeolocationPolicy();
+  if (policy === "ALLOW") return;
+  if (policy === "BLOCK") {
+    throw new ApiError(400, "Position GPS requise pour cette collecte (politique de geolocalisation configuree en BLOCK).");
+  }
+  const agent = await prisma.agentCollecteur.findUnique({ where: { id: agentId } });
+  await raiseFraudAlert({
+    type: "OUT_OF_ZONE",
+    severity: "LOW",
+    description: `Collecte enregistree sans position GPS par l'agent ${agent?.matricule ?? agentId} (politique WARN).`,
+    agentId,
+    arrondissementId,
+  });
 }
 
 export async function listFraudAlerts(user: CurrentUser, filters?: { status?: string; severity?: string }) {
