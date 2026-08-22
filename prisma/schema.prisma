@@ -1,0 +1,921 @@
+// SIGEC-SM — Systeme Integre de Gestion de l'Etat Civil et des Services
+// Municipaux (Ville de N'Djamena)
+//
+// PHASE 1 — FONDATION
+// Authentification, utilisateurs, roles/permissions (RBAC), structure
+// territoriale (villes > arrondissements > quartiers > secteurs), isolation
+// des donnees par arrondissement, audit log, parametres systeme.
+//
+// Les phases suivantes (etat civil, portail citoyen, foncier, finances,
+// services municipaux, analytics) ajouteront leurs propres modeles sans
+// modifier la structure ci-dessous, hormis l'ajout de relations.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Utilisateurs & RBAC -------------------------------------------------
+
+// La Ville de N'Djamena est administree par UNE Mairie Centrale ; les 10
+// arrondissements sont ses subdivisions territoriales, pas des mairies
+// independantes. organizationLevel est la source de verite du perimetre
+// (utilisee par arrondissementScopeWhere/canAccessArrondissement), separee
+// des permissions RBAC (qui restent portees par les roles) :
+//   CENTRAL        -> vision/consultation globale des 10 arrondissements,
+//                      rattache eventuellement a un Department (service
+//                      central : Etat civil, Finances, Urbanisme...).
+//   ARRONDISSEMENT -> perimetre restreint aux arrondissements lies via
+//                      UserArrondissement (et, si precise, aux quartiers via
+//                      UserQuartier).
+model User {
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  password          String
+  phone             String?
+  isActive          Boolean   @default(true)
+  mustResetPwd      Boolean   @default(false)
+  organizationLevel String    @default("ARRONDISSEMENT") // CENTRAL | ARRONDISSEMENT
+  departmentId      String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  department         Department?          @relation(fields: [departmentId], references: [id])
+  roles              UserRole[]
+  arrondissements    UserArrondissement[]
+  quartiers          UserQuartier[]
+  auditLogs          AuditLog[]
+
+  @@index([isActive])
+  @@index([organizationLevel])
+}
+
+// Services / directions centrales de la Mairie Centrale (section "Services
+// centraux"). Regroupe les utilisateurs CENTRAL par direction ; purement
+// organisationnel, ne restreint pas l'acces aux donnees (les permissions
+// RBAC s'en chargent).
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique // ex: Direction de l'Etat Civil
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  users User[]
+}
+
+// Roles minimum prevus par la specification (section 18). D'autres roles
+// personnalises pourront etre ajoutes par l'administration (isSystem=false).
+model Role {
+  id          String   @id @default(cuid())
+  code        String   @unique // ex: SUPER_ADMIN, MAYOR, ARRONDISSEMENT_HEAD, CIVIL_STATUS_AGENT...
+  name        String
+  description String?
+  isSystem    Boolean  @default(true) // roles systeme non supprimables
+  createdAt   DateTime @default(now())
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+// Permission granulaire = (module, action). Ex: (civil_status, validate).
+// Actions possibles: view, create, edit, validate, approve, reject, sign,
+// print, download, revoke, delete, export.
+model Permission {
+  id          String   @id @default(cuid())
+  module      String // ex: civil_status, citizens, land, taxes, complaints...
+  action      String // ex: view, create, edit, validate, approve, reject, sign, print, download, revoke, delete, export
+  code        String   @unique // "<module>:<action>", genere a l'ecriture
+  description String?
+
+  roles RolePermission[]
+
+  @@unique([module, action])
+  @@index([module])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+// Isolation par arrondissement (section 19). Un utilisateur sans aucune
+// entree ici, mais dont un role porte hasGlobalScope=true (ex: SUPER_ADMIN,
+// MAYOR), voit les 10 arrondissements. Un agent restreint est rattache a un
+// ou plusieurs arrondissements precis.
+model UserArrondissement {
+  userId          String
+  arrondissementId String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  arrondissement  Arrondissement  @relation(fields: [arrondissementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, arrondissementId])
+}
+
+// Restriction plus fine, optionnelle, a l'interieur des arrondissements
+// autorises ci-dessus.
+model UserQuartier {
+  userId     String
+  quartierId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quartier   Quartier @relation(fields: [quartierId], references: [id], onDelete: Cascade)
+
+  @@id([userId, quartierId])
+}
+
+// --- Structure territoriale ----------------------------------------------
+// cities -> arrondissements -> quartiers -> sectors/zones
+// Configurable: l'administration peut ajouter/modifier/desactiver une
+// subdivision. N'Djamena est initialisee avec exactement 10 arrondissements
+// via le seed, mais rien n'est code en dur dans l'application.
+
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  arrondissements Arrondissement[]
+}
+
+model Arrondissement {
+  id        String   @id @default(cuid())
+  cityId    String
+  number    Int // 1 a 10 pour N'Djamena
+  name      String
+  code      String   @unique // ex: NDJ-01
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City       @relation(fields: [cityId], references: [id])
+  quartiers Quartier[]
+  users     UserArrondissement[]
+
+  citizens      Citizen[]
+  households    Household[]
+  birthRecords  BirthRecord[]
+  recognitions  Recognition[]
+  marriages     Marriage[]
+  divorces      Divorce[]
+  deathRecords  DeathRecord[]
+  certificates  Certificate[]
+  applications  Application[]
+  subdivisions       Subdivision[]
+  landParcels        LandParcel[]
+  urbanPlanningCases UrbanPlanningCase[]
+  businesses         Business[]
+  markets            Market[]
+  payments           Payment[]
+  associations       Association[]
+  complaints         Complaint[]
+  infrastructures    Infrastructure[]
+
+  @@unique([cityId, number])
+  @@index([cityId])
+}
+
+model Quartier {
+  id               String   @id @default(cuid())
+  arrondissementId String
+  name             String
+  code             String   @unique
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  sectors        Sector[]
+  users          UserQuartier[]
+
+  citizens   Citizen[]
+  households Household[]
+  landParcels LandParcel[]
+  businesses  Business[]
+  markets     Market[]
+
+  @@index([arrondissementId])
+}
+
+model Sector {
+  id         String   @id @default(cuid())
+  quartierId String
+  name       String
+  code       String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  quartier Quartier @relation(fields: [quartierId], references: [id])
+
+  citizens   Citizen[]
+  households Household[]
+  landParcels LandParcel[]
+
+  @@index([quartierId])
+}
+
+// --- PHASE 2 : ETAT CIVIL --------------------------------------------------
+// Chaque enregistrement "de terrain" porte un arrondissementId obligatoire
+// (l'arrondissement qui a instruit/enregistre l'acte) et est filtre cote
+// serveur via recordScopeWhere() (voir rbac.ts) — jamais seulement masque
+// cote client. Aucune regle juridique tchadienne n'est codee en dur : les
+// statuts/regimes sont des donnees configurables, a valider par la mairie
+// (regle 39 du cahier des charges).
+
+// Dossier numerique unique par citoyen/resident.
+model Citizen {
+  id             String    @id @default(cuid())
+  uniqueNumber   String    @unique // numero de dossier citoyen, genere a la creation
+  firstName      String
+  lastName       String
+  sex            String // M | F
+  dateOfBirth    DateTime?
+  placeOfBirth   String?
+  nationality    String    @default("Tchadienne")
+  maritalStatus  String    @default("SINGLE") // SINGLE | MARRIED | DIVORCED | WIDOWED — mis a jour par les modules mariage/divorce/deces
+  phone          String?
+  address        String?
+  photoUrl       String?
+  isDeceased     Boolean   @default(false)
+  arrondissementId String
+  quartierId     String?
+  sectorId       String?
+  householdId    String?
+  fatherId       String?
+  motherId       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  sector         Sector?        @relation(fields: [sectorId], references: [id])
+  household      Household?     @relation(fields: [householdId], references: [id])
+  father         Citizen?       @relation("ParentChildFather", fields: [fatherId], references: [id])
+  mother         Citizen?       @relation("ParentChildMother", fields: [motherId], references: [id])
+  childrenAsFather Citizen[]    @relation("ParentChildFather")
+  childrenAsMother Citizen[]    @relation("ParentChildMother")
+  householdsHeaded Household[]  @relation("HouseholdHead")
+  familiesHeaded   Family[]     @relation("FamilyHead")
+
+  birthRecord       BirthRecord?  @relation("ChildBirthRecord")
+  recognitionsAsParent Recognition[] @relation("RecognitionParent")
+  recognitionAsChild   Recognition?  @relation("RecognitionChild")
+  marriagesAsHusband Marriage[]    @relation("MarriageHusband")
+  marriagesAsWife    Marriage[]    @relation("MarriageWife")
+  deathRecord        DeathRecord?  @relation("DeceasedDeathRecord")
+  certificates       Certificate[]
+  citizenAccount     CitizenAccount?
+  landParcelsOwned   LandParcel[]
+  landTitlesHeld     LandTitle[]
+  urbanPlanningCases UrbanPlanningCase[]
+  businessesOwned        Business[]
+  marketStallsOccupied   MarketStall[]
+  paymentsMade           Payment[]
+  associationsLed        Association[]
+
+  @@index([arrondissementId])
+  @@index([lastName, firstName])
+}
+
+// Lignee/nom de famille — regroupement large, distinct du menage
+// (cohabitation). Optionnel : un citoyen peut n'avoir aucune Family associee.
+model Family {
+  id            String   @id @default(cuid())
+  name          String // nom de famille / lignee
+  headCitizenId String?
+  createdAt     DateTime @default(now())
+
+  head       Citizen?    @relation("FamilyHead", fields: [headCitizenId], references: [id])
+  households Household[]
+}
+
+// Menage : unite de cohabitation, rattachee a une adresse et un
+// arrondissement/quartier/secteur precis.
+model Household {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  familyId        String?
+  headCitizenId   String?
+  address         String?
+  arrondissementId String
+  quartierId      String?
+  sectorId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  family         Family?        @relation(fields: [familyId], references: [id])
+  head           Citizen?       @relation("HouseholdHead", fields: [headCitizenId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  sector         Sector?        @relation(fields: [sectorId], references: [id])
+  members        Citizen[]
+
+  @@index([arrondissementId])
+}
+
+// status: DECLARED | REGISTERED | RECTIFIED | ANNULLED
+model BirthRecord {
+  id                String   @id @default(cuid())
+  recordNumber      String   @unique
+  childId           String   @unique
+  fatherId          String?
+  motherId          String?
+  dateOfBirth       DateTime
+  placeOfBirth      String
+  declarantName     String
+  declarantRelation String?
+  status            String   @default("DECLARED")
+  arrondissementId  String
+  createdById       String?
+  registeredAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  child          Citizen        @relation("ChildBirthRecord", fields: [childId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  certificates   Certificate[]
+  applications   Application[]
+
+  @@index([arrondissementId])
+}
+
+// Reconnaissance d'un enfant par un parent (pere ou mere).
+// status: DECLARED | VALIDATED | ANNULLED
+model Recognition {
+  id               String   @id @default(cuid())
+  recordNumber     String   @unique
+  childId          String   @unique
+  parentId         String
+  parentRole       String // FATHER | MOTHER
+  declarationDate  DateTime @default(now())
+  status           String   @default("DECLARED")
+  arrondissementId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  child          Citizen        @relation("RecognitionChild", fields: [childId], references: [id])
+  parent         Citizen        @relation("RecognitionParent", fields: [parentId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  certificates   Certificate[]
+
+  @@index([arrondissementId])
+}
+
+// Regime matrimonial : liste configurable, a valider par l'administration —
+// aucune regle juridique tchadienne presumee ici (regle 39).
+model MarriageRegime {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+
+  marriages Marriage[]
+}
+
+// status: DECLARED | VALID | DIVORCED | ANNULLED
+model Marriage {
+  id               String   @id @default(cuid())
+  recordNumber     String   @unique
+  husbandId        String
+  wifeId           String
+  marriageDate     DateTime
+  marriagePlace    String
+  regimeId         String?
+  status           String   @default("DECLARED")
+  arrondissementId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  husband        Citizen         @relation("MarriageHusband", fields: [husbandId], references: [id])
+  wife           Citizen         @relation("MarriageWife", fields: [wifeId], references: [id])
+  regime         MarriageRegime? @relation(fields: [regimeId], references: [id])
+  arrondissement Arrondissement  @relation(fields: [arrondissementId], references: [id])
+  witnesses      MarriageWitness[]
+  divorce        Divorce?
+  certificates   Certificate[]
+  applications   Application[]
+
+  @@index([arrondissementId])
+}
+
+model MarriageWitness {
+  id         String @id @default(cuid())
+  marriageId String
+  name       String
+  role       String? // ex: temoin de l'epoux / temoin de l'epouse
+
+  marriage Marriage @relation(fields: [marriageId], references: [id], onDelete: Cascade)
+}
+
+// status: DECLARED | FINALIZED
+model Divorce {
+  id                 String   @id @default(cuid())
+  recordNumber       String   @unique
+  marriageId         String   @unique
+  decisionReference  String?
+  divorceDate        DateTime
+  status             String   @default("DECLARED")
+  arrondissementId   String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  marriage       Marriage       @relation(fields: [marriageId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  certificates   Certificate[]
+
+  @@index([arrondissementId])
+}
+
+// cause : champ optionnel — a n'utiliser que si legalement requis (regle 39).
+// status: DECLARED | REGISTERED
+model DeathRecord {
+  id                String   @id @default(cuid())
+  recordNumber      String   @unique
+  deceasedId        String   @unique
+  dateOfDeath       DateTime
+  placeOfDeath      String
+  cause             String?
+  declarantName     String
+  declarantRelation String?
+  status            String   @default("DECLARED")
+  arrondissementId  String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  deceased       Citizen        @relation("DeceasedDeathRecord", fields: [deceasedId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  certificates   Certificate[]
+  applications   Application[]
+
+  @@index([arrondissementId])
+}
+
+// Types de documents configurables (section "Certificats municipaux") —
+// aucun type n'est code en dur dans l'application.
+model CertificateType {
+  id          String   @id @default(cuid())
+  code        String   @unique // ex: BIRTH_CERTIFICATE, RESIDENCE_CERTIFICATE
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+
+  certificates Certificate[]
+}
+
+// Moteur de generation de documents (section 7/16) : chaque document porte
+// un numero unique + un token QR verifiable publiquement, sans compte,
+// via /verify/[qrToken]. La verification publique n'expose jamais de
+// donnees personnelles inutiles (voir services/certificates.ts).
+// status: VALID | REVOKED
+model Certificate {
+  id                String    @id @default(cuid())
+  documentNumber    String    @unique
+  qrToken           String    @unique
+  certificateTypeId String
+  citizenId         String?
+  birthRecordId     String?
+  recognitionId     String?
+  marriageId        String?
+  divorceId         String?
+  deathRecordId     String?
+  urbanPlanningCaseId String?
+  arrondissementId  String
+  authority         String    @default("Mairie de N'Djamena")
+  status            String    @default("VALID")
+  issuedById        String?
+  issuedAt          DateTime  @default(now())
+  revokedAt         DateTime?
+  revokedById       String?
+  revokedReason     String?
+
+  certificateType   CertificateType    @relation(fields: [certificateTypeId], references: [id])
+  citizen           Citizen?           @relation(fields: [citizenId], references: [id])
+  birthRecord       BirthRecord?       @relation(fields: [birthRecordId], references: [id])
+  recognition       Recognition?       @relation(fields: [recognitionId], references: [id])
+  urbanPlanningCase UrbanPlanningCase? @relation(fields: [urbanPlanningCaseId], references: [id])
+  marriage        Marriage?       @relation(fields: [marriageId], references: [id])
+  divorce         Divorce?        @relation(fields: [divorceId], references: [id])
+  deathRecord     DeathRecord?    @relation(fields: [deathRecordId], references: [id])
+  arrondissement  Arrondissement  @relation(fields: [arrondissementId], references: [id])
+  applications    Application[]
+
+  @@index([arrondissementId])
+  @@index([status])
+}
+
+// --- PHASE 3 : PORTAIL CITOYEN ---------------------------------------------
+// Realm d'authentification separe des comptes agents (User) : un citoyen n'a
+// aucune permission RBAC, uniquement un acces a ses propres donnees. Le
+// compte est cree en le rattachant a un dossier Citizen existant (verifie
+// par numero unique + nom), pas par simple auto-declaration.
+
+model CitizenAccount {
+  id          String    @id @default(cuid())
+  citizenId   String    @unique
+  email       String    @unique
+  password    String
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  citizen       Citizen        @relation(fields: [citizenId], references: [id])
+  applications  Application[]
+  notifications Notification[]
+  complaints    Complaint[]
+  infrastructureReports Infrastructure[]
+}
+
+// Demande citoyenne (section 15/17) : ex. copie/extrait d'un acte deja
+// enregistre. arrondissementId est denormalise depuis le dossier citoyen
+// pour permettre aux agents de filtrer leur file de traitement via
+// recordScopeWhere() comme tout autre module.
+// status: SUBMITTED | IN_REVIEW | APPROVED | REJECTED | COMPLETED
+model Application {
+  id                String    @id @default(cuid())
+  applicationNumber String    @unique
+  citizenAccountId  String
+  type              String // BIRTH_CERTIFICATE_COPY | MARRIAGE_CERTIFICATE_COPY | DEATH_CERTIFICATE_COPY
+  birthRecordId     String?
+  marriageId        String?
+  deathRecordId     String?
+  arrondissementId  String
+  status            String    @default("SUBMITTED")
+  notes             String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  resultCertificateId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  citizenAccount   CitizenAccount @relation(fields: [citizenAccountId], references: [id])
+  birthRecord      BirthRecord?   @relation(fields: [birthRecordId], references: [id])
+  marriage         Marriage?      @relation(fields: [marriageId], references: [id])
+  deathRecord      DeathRecord?   @relation(fields: [deathRecordId], references: [id])
+  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id])
+  resultCertificate Certificate?  @relation(fields: [resultCertificateId], references: [id])
+
+  @@index([arrondissementId])
+  @@index([citizenAccountId])
+  @@index([status])
+}
+
+// Notifications in-app (section 24). Canaux email/SMS : architecture
+// prevue mais non implementee (necessiterait un fournisseur reel).
+model Notification {
+  id               String   @id @default(cuid())
+  citizenAccountId String
+  title            String
+  message          String
+  isRead           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  citizenAccount CitizenAccount @relation(fields: [citizenAccountId], references: [id])
+
+  @@index([citizenAccountId])
+}
+
+// --- PHASE 4 : FONCIER ET URBANISME ----------------------------------------
+// Architecture compatible avec une future integration GIS/cartographie
+// (section 8) : `location` reste un texte libre pour l'instant, a remplacer
+// par des coordonnees/geometrie sans casser le reste du modele.
+
+// Projet de lotissement — regroupe des parcelles au sein d'une zone.
+model Subdivision {
+  id               String   @id @default(cuid())
+  name             String // nom du projet
+  zone             String?
+  description      String?
+  status           String   @default("PLANNED") // PLANNED | IN_PROGRESS | COMPLETED
+  arrondissementId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  parcels        LandParcel[]
+
+  @@index([arrondissementId])
+}
+
+// status: AVAILABLE | OCCUPIED | DISPUTED | TITLED
+model LandParcel {
+  id               String   @id @default(cuid())
+  parcelNumber     String   @unique
+  arrondissementId String
+  quartierId       String?
+  sectorId         String?
+  subdivisionId    String?
+  area             Float? // superficie en m2
+  location         String?
+  ownerCitizenId   String?
+  status           String   @default("AVAILABLE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  arrondissement Arrondissement       @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?            @relation(fields: [quartierId], references: [id])
+  sector         Sector?              @relation(fields: [sectorId], references: [id])
+  subdivision    Subdivision?         @relation(fields: [subdivisionId], references: [id])
+  owner          Citizen?             @relation(fields: [ownerCitizenId], references: [id])
+  title          LandTitle?
+  urbanCases     UrbanPlanningCase[]
+
+  @@index([arrondissementId])
+}
+
+// Un titre actif par parcelle dans ce modele simplifie ; l'historique des
+// mutations successives est une extension future (nouvelle table
+// LandTitleTransfer) plutot qu'un abus de ce modele.
+// status: VALID | REVOKED
+model LandTitle {
+  id          String   @id @default(cuid())
+  titleNumber String   @unique
+  parcelId    String   @unique
+  holderId    String
+  issuedDate  DateTime @default(now())
+  status      String   @default("VALID")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parcel LandParcel @relation(fields: [parcelId], references: [id])
+  holder Citizen    @relation(fields: [holderId], references: [id])
+}
+
+// Permis de construire / autorisation de demolition (section 9).
+// Workflow (section 9) : Demande -> Verification -> Instruction -> Controle
+// -> Validation -> Decision -> Document officiel.
+// status: SUBMITTED | UNDER_REVIEW | INSPECTED | APPROVED | REJECTED
+model UrbanPlanningCase {
+  id               String    @id @default(cuid())
+  caseNumber       String    @unique
+  type             String // BUILDING_PERMIT | DEMOLITION_PERMIT
+  parcelId         String
+  applicantId      String
+  description      String?
+  status           String    @default("SUBMITTED")
+  arrondissementId String
+  inspectedAt      DateTime?
+  inspectionNotes  String?
+  decisionAt       DateTime?
+  decisionById     String?
+  decisionNotes    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  parcel         LandParcel     @relation(fields: [parcelId], references: [id])
+  applicant      Citizen        @relation(fields: [applicantId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  certificates   Certificate[]
+
+  @@index([arrondissementId])
+  @@index([status])
+}
+
+// --- PHASE 5 : FINANCES MUNICIPALES ----------------------------------------
+// Applique la hierarchie de visibilite exigee pour les recettes : chaque
+// Payment porte un arrondissementId obligatoire, NULL uniquement pour une
+// recette collectee directement par la Mairie Centrale (organizationLevel
+// CENTRAL cote agent collecteur). Les totaux (dashboard, rapports) sont
+// TOUJOURS calcules dynamiquement par agregation (groupBy/sum) via
+// recordScopeWhere() — jamais code en dur. Aucun montant/taux n'est
+// invente : TaxType.amount est configurable et signale comme placeholder.
+
+// Commercant/entreprise redevable de patente.
+model Business {
+  id               String   @id @default(cuid())
+  name             String
+  ownerId          String
+  activity         String?
+  arrondissementId String
+  quartierId       String?
+  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED | CLOSED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  owner          Citizen        @relation(fields: [ownerId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  payments       Payment[]
+
+  @@index([arrondissementId])
+}
+
+// Type de taxe/patente configurable — montant PLACEHOLDER a valider par la
+// mairie (regle 39), jamais presente comme un bareme officiel.
+model TaxType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  amount      Float? // montant de reference, configurable, non contractuel
+  description String?
+  isActive    Boolean  @default(true)
+
+  payments Payment[]
+}
+
+// status: AVAILABLE | OCCUPIED | RESERVED | SUSPENDED (section 11)
+model Market {
+  id               String   @id @default(cuid())
+  name             String
+  arrondissementId String
+  quartierId       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  quartier       Quartier?      @relation(fields: [quartierId], references: [id])
+  stalls         MarketStall[]
+}
+
+model MarketStall {
+  id               String   @id @default(cuid())
+  marketId         String
+  code             String
+  status           String   @default("AVAILABLE") // AVAILABLE | OCCUPIED | RESERVED | SUSPENDED
+  occupantId       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  market   Market    @relation(fields: [marketId], references: [id])
+  occupant Citizen?  @relation(fields: [occupantId], references: [id])
+  payments Payment[]
+
+  @@unique([marketId, code])
+}
+
+// Recette municipale. arrondissementId obligatoire (NULL = Mairie Centrale
+// uniquement). Champs alignes sur la structure demandee : payment_id,
+// receipt_number, payer_id, amount, payment_date, payment_method, tax_type,
+// market_id (via marketStallId), business_id, arrondissement_id, collected_by, status.
+// status: PAID | PENDING | OVERDUE
+model Payment {
+  id              String   @id @default(cuid())
+  receiptNumber   String   @unique
+  payerId         String
+  amount          Float
+  paymentDate     DateTime @default(now())
+  paymentMethod   String // ESPECES | MOBILE_MONEY | VIREMENT | AUTRE — extensible (section 25)
+  taxTypeId       String?
+  businessId      String?
+  marketStallId   String?
+  arrondissementId String?
+  collectedById   String
+  status          String   @default("PAID")
+  createdAt       DateTime @default(now())
+
+  payer          Citizen        @relation(fields: [payerId], references: [id])
+  taxType        TaxType?       @relation(fields: [taxTypeId], references: [id])
+  business       Business?      @relation(fields: [businessId], references: [id])
+  marketStall    MarketStall?   @relation(fields: [marketStallId], references: [id])
+  arrondissement Arrondissement? @relation(fields: [arrondissementId], references: [id])
+
+  @@index([arrondissementId])
+  @@index([paymentDate])
+}
+
+// --- PHASE 6 : SERVICES MUNICIPAUX ------------------------------------------
+
+// Associations et ONG locales (section 12). Registre gere par les agents ;
+// pas d'espace citoyen dedie a ce stade.
+// status: REGISTERED | SUSPENDED | DISSOLVED
+model Association {
+  id                 String   @id @default(cuid())
+  registrationNumber String   @unique
+  name               String
+  type               String? // ex: culturelle, sportive, humanitaire, ONG
+  leaderId           String?
+  arrondissementId   String
+  status             String   @default("REGISTERED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  leader         Citizen?       @relation(fields: [leaderId], references: [id])
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+
+  @@index([arrondissementId])
+}
+
+// Guichet numerique des plaintes (section 13). Soumise depuis le portail
+// citoyen ; suivie par les agents avec un historique d'etapes.
+// status: NEW | RECEIVED | ASSIGNED | IN_PROGRESS | PENDING | RESOLVED | CLOSED
+model Complaint {
+  id               String    @id @default(cuid())
+  caseNumber       String    @unique
+  citizenAccountId String
+  category         String // VOIRIE | PROPRETE | ECLAIRAGE | EAU | SECURITE | AUTRE
+  description      String
+  status           String    @default("NEW")
+  arrondissementId String
+  assignedToId     String?
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  citizenAccount CitizenAccount    @relation(fields: [citizenAccountId], references: [id])
+  arrondissement Arrondissement    @relation(fields: [arrondissementId], references: [id])
+  updates        ComplaintUpdate[]
+
+  @@index([arrondissementId])
+  @@index([status])
+}
+
+// Historique des etapes de traitement — visible par le citoyen dans son
+// suivi de dossier (section 13 : "recevoir un numero de dossier, suivre le
+// traitement").
+model ComplaintUpdate {
+  id          String   @id @default(cuid())
+  complaintId String
+  status      String
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+// Voirie et infrastructures (section 14). Le citoyen peut signaler un
+// probleme depuis le portail ; `location` reste un texte libre en attendant
+// une future integration GIS (meme convention que LandParcel).
+// status: REPORTED | IN_PROGRESS | COMPLETED
+model Infrastructure {
+  id               String    @id @default(cuid())
+  reportNumber     String    @unique
+  type             String // ROAD | LIGHTING | DRAINAGE | WASTE | PUBLIC_SPACE | OTHER
+  description      String
+  location         String?
+  status           String    @default("REPORTED")
+  arrondissementId String
+  reportedById     String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  arrondissement Arrondissement  @relation(fields: [arrondissementId], references: [id])
+  reportedBy     CitizenAccount? @relation(fields: [reportedById], references: [id])
+
+  @@index([arrondissementId])
+  @@index([status])
+}
+
+// --- Audit log -------------------------------------------------------------
+// Non modifiable par les agents ordinaires (aucune route d'edition/suppression
+// n'est exposee ; ecriture uniquement depuis le serveur via logAudit()).
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String // capture au moment de l'action, resiste a la suppression du compte
+  action     String // ex: CREATE, UPDATE, DELETE, VALIDATE, APPROVE, REJECT, SIGN, REVOKE, LOGIN, LOGIN_FAILED
+  module     String // ex: auth, territorial, users, civil_status...
+  entityType String? // ex: Arrondissement, User, Role
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  result     String   @default("SUCCESS") // SUCCESS | FAILURE
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([module, createdAt])
+  @@index([userId])
+  @@index([entityType, entityId])
+}
+
+// --- Parametres systeme -----------------------------------------------------
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+}

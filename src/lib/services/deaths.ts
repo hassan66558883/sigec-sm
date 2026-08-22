@@ -1,0 +1,99 @@
+import { prisma } from "@/lib/db";
+import type { CurrentUser } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
+import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
+import { generateRecordNumber } from "@/lib/ids";
+import { encryptField, decryptField } from "@/lib/encryption";
+
+export async function listDeathRecords(user: CurrentUser) {
+  const records = await prisma.deathRecord.findMany({
+    where: recordScopeWhere(user),
+    include: { deceased: true, arrondissement: true },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+  // cause est chiffree en base (section 32) ; dechiffree ici pour que tout
+  // appelant (page admin, futur export...) recoive du texte en clair sans
+  // avoir a connaitre le detail du chiffrement.
+  return records.map((r) => ({ ...r, cause: decryptField(r.cause) }));
+}
+
+export type DeclareDeathInput = {
+  deceasedId: string;
+  dateOfDeath: string;
+  placeOfDeath: string;
+  cause?: string;
+  declarantName: string;
+  declarantRelation?: string;
+  arrondissementId: string;
+};
+
+// cause est optionnel et ne doit etre rempli que si legalement requis
+// (regle 39 du cahier des charges — aucune obligation presumee ici).
+export async function declareDeath(actor: CurrentUser, input: DeclareDeathInput) {
+  if (!can(actor, "deaths", "create")) throw new ApiError(403, "Permission insuffisante.");
+  if (!input.deceasedId || !input.dateOfDeath || !input.placeOfDeath?.trim()) {
+    throw new ApiError(400, "Personne decedee, date et lieu requis.");
+  }
+  if (!input.declarantName?.trim()) throw new ApiError(400, "Nom du declarant requis.");
+  if (!canAccessArrondissement(actor, input.arrondissementId)) {
+    throw new ApiError(403, "Arrondissement hors de votre perimetre.");
+  }
+
+  const existing = await prisma.deathRecord.findUnique({ where: { deceasedId: input.deceasedId } });
+  if (existing) throw new ApiError(409, "Un acte de deces existe deja pour cette personne.");
+
+  const created = await prisma.deathRecord.create({
+    data: {
+      recordNumber: generateRecordNumber("DEC"),
+      deceasedId: input.deceasedId,
+      dateOfDeath: new Date(input.dateOfDeath),
+      placeOfDeath: input.placeOfDeath.trim(),
+      cause: encryptField(input.cause?.trim()),
+      declarantName: input.declarantName.trim(),
+      declarantRelation: input.declarantRelation?.trim(),
+      arrondissementId: input.arrondissementId,
+    },
+  });
+
+  await logAudit({
+    user: actor,
+    action: "CREATE",
+    module: "deaths",
+    entityType: "DeathRecord",
+    entityId: created.id,
+    newValue: { recordNumber: created.recordNumber },
+  });
+
+  return created;
+}
+
+// Mise a jour du fichier de population (section "deces").
+export async function validateDeathRecord(actor: CurrentUser, id: string) {
+  if (!can(actor, "deaths", "validate")) throw new ApiError(403, "Permission insuffisante.");
+  const before = await prisma.deathRecord.findUnique({ where: { id } });
+  if (!before) throw new ApiError(404, "Declaration introuvable.");
+  if (!canAccessArrondissement(actor, before.arrondissementId)) {
+    throw new ApiError(403, "Dossier hors de votre perimetre.");
+  }
+  if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const d = await tx.deathRecord.update({ where: { id }, data: { status: "REGISTERED" } });
+    await tx.citizen.update({ where: { id: before.deceasedId }, data: { isDeceased: true } });
+    return d;
+  });
+
+  await logAudit({
+    user: actor,
+    action: "VALIDATE",
+    module: "deaths",
+    entityType: "DeathRecord",
+    entityId: id,
+    oldValue: { status: before.status },
+    newValue: { status: updated.status },
+  });
+
+  return updated;
+}

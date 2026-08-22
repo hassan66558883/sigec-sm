@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #0f4c81; /* bleu institutionnel */
+  --color-primary-dark: #0a3760;
+  --color-accent: #c8a13a; /* or, rappel du sceau municipal */
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-text: #1a2330;
+  --color-text-muted: #5b6b7d;
+  --color-border: #e1e6ec;
+  --color-success: #1e7d4b;
+  --color-warning: #b8860b;
+  --color-danger: #b3261e;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
