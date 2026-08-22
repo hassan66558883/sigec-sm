@@ -21,7 +21,7 @@ const PERIODICITIES = [
   { value: "AUTRE", label: "Autre" },
 ];
 
-export function TariffForm({ activities }: { activities: Option[] }) {
+export function TariffForm({ activities, arrondissements }: { activities: Option[]; arrondissements: Option[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
@@ -30,7 +30,9 @@ export function TariffForm({ activities }: { activities: Option[] }) {
   const [activityId, setActivityId] = useState("");
   const [emplacementType, setEmplacementType] = useState("BOUTIQUE");
   const [periodicity, setPeriodicity] = useState("MENSUELLE");
+  const [unit, setUnit] = useState("");
   const [amount, setAmount] = useState("");
+  const [arrondissementId, setArrondissementId] = useState("");
   const [legalReference, setLegalReference] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,9 @@ export function TariffForm({ activities }: { activities: Option[] }) {
         activityId: activityId || null,
         emplacementType,
         periodicity,
+        unit: unit || undefined,
         amount: Number(amount),
+        arrondissementId: arrondissementId || null,
         legalReference: legalReference || undefined,
       }),
     });
@@ -62,7 +66,9 @@ export function TariffForm({ activities }: { activities: Option[] }) {
     setCode("");
     setLabel("");
     setCategory("");
+    setUnit("");
     setAmount("");
+    setArrondissementId("");
     setLegalReference("");
     setOpen(false);
     router.refresh();
@@ -116,6 +122,17 @@ export function TariffForm({ activities }: { activities: Option[] }) {
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Montant (FCFA)</label>
           <input required type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Unite (optionnel, ex: m2)</label>
+          <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="m2, emplacement, forfait..." className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Arrondissement (optionnel)</label>
+          <select value={arrondissementId} onChange={(e) => setArrondissementId(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+            <option value="">— Toute la ville —</option>
+            {arrondissements.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Reference reglementaire</label>

@@ -105,6 +105,7 @@ export default async function ReportsPage() {
           </a>
         )}
         {can(user, "receipts", "export") && (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
           <a href="/api/receipts/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
             <div className="font-medium text-[var(--color-text)]">Rapport reçus</div>
             <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les reçus emis.</div>
@@ -128,6 +129,7 @@ export default async function ReportsPage() {
         <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Etat civil</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {can(user, "citizens", "export") && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
             <a href="/api/citizens/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
               <div className="font-medium text-[var(--color-text)]">Rapport citoyens</div>
               <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les citoyens recenses.</div>
@@ -140,24 +142,28 @@ export default async function ReportsPage() {
             </a>
           )}
           {can(user, "births", "export") && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
             <a href="/api/births/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
               <div className="font-medium text-[var(--color-text)]">Rapport naissances</div>
               <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les actes de naissance.</div>
             </a>
           )}
           {can(user, "marriages", "export") && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
             <a href="/api/marriages/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
               <div className="font-medium text-[var(--color-text)]">Rapport mariages</div>
               <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les actes de mariage.</div>
             </a>
           )}
           {can(user, "divorces", "export") && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
             <a href="/api/divorces/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
               <div className="font-medium text-[var(--color-text)]">Rapport divorces</div>
               <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les actes de divorce.</div>
             </a>
           )}
           {can(user, "deaths", "export") && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
             <a href="/api/deaths/export" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
               <div className="font-medium text-[var(--color-text)]">Rapport deces</div>
               <div className="mt-1 text-xs text-[var(--color-text-muted)]">Tous les actes de deces.</div>

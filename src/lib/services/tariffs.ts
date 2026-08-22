@@ -13,7 +13,7 @@ const EMPLACEMENT_TYPES = ["BOUTIQUE", "MARCHE", "ETAL", "AUTRE"];
 export async function listTariffs(includeHistory = false) {
   return prisma.tarifMunicipal.findMany({
     where: includeHistory ? undefined : { status: "ACTIF" },
-    include: { activity: true },
+    include: { activity: true, arrondissement: true },
     orderBy: [{ emplacementType: "asc" }, { startDate: "desc" }],
   });
 }
@@ -25,7 +25,15 @@ export type CreateTariffInput = {
   activityId?: string | null;
   emplacementType: string;
   periodicity: string;
+  // Unite sur laquelle `amount` s'applique (ex: "m2", "emplacement", "forfait")
+  // — module paiement en ligne, section 5. Purement informatif tant qu'aucun
+  // moteur de calcul par superficie n'est branche (voir createObligation()).
+  unit?: string;
   amount: number;
+  // null = tarif valable pour toute la ville (comportement historique) ;
+  // renseigne = specifique a un arrondissement (module paiement en ligne,
+  // section 5).
+  arrondissementId?: string | null;
   legalReference?: string;
 };
 
@@ -59,7 +67,9 @@ export async function createOrReviseTariff(actor: CurrentUser, input: CreateTari
         activityId: input.activityId || null,
         emplacementType: input.emplacementType,
         periodicity: input.periodicity,
+        unit: input.unit?.trim() || null,
         amount: input.amount,
+        arrondissementId: input.arrondissementId || null,
         legalReference: input.legalReference?.trim(),
         createdById: actor.id,
       },

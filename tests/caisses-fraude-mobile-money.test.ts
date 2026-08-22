@@ -4,7 +4,6 @@ import { confirmMobileMoneyPayment } from "../src/lib/services/mobile-money";
 import { openCashRegister, closeCashRegister } from "../src/lib/services/caisses";
 import { createVersement } from "../src/lib/services/versements";
 import { createCollector } from "../src/lib/services/collectors";
-import { ApiError } from "../src/lib/api";
 import bcrypt from "bcryptjs";
 import {
   createTestCity,

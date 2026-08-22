@@ -122,7 +122,7 @@ async function resolvePaymentContext(actor: CurrentUser, input: RecordPaymentInp
     }
   }
 
-  let agentId = input.agentId || null;
+  const agentId = input.agentId || null;
   let caisseId = input.caisseId || null;
   if (agentId) {
     const agent = await prisma.agentCollecteur.findUnique({ where: { id: agentId } });
@@ -279,6 +279,9 @@ export async function cancelPayment(actor: CurrentUser, id: string, reason: stri
     oldValue: { status: before.status },
     newValue: { status: updated.status, reason },
   });
+
+  if (before.agentId) await detectExcessiveCancellations(before.agentId);
+
   return updated;
 }
 

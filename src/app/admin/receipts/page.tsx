@@ -25,6 +25,7 @@ export default async function ReceiptsPage() {
           </p>
         </div>
         {can(user, "receipts", "export") && (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- telechargement de fichier (route API), pas une page a naviguer
           <a href="/api/receipts/export" className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50">
             Exporter (CSV)
           </a>

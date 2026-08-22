@@ -87,6 +87,57 @@ describe("recettes municipales — chaine complete", () => {
     expect(v2.status).toBe("ACTIF");
   });
 
+  it("un tarif peut porter une unite et etre restreint a un arrondissement (module paiement en ligne, section 5)", async () => {
+    const admin = await createTestUser({ organizationLevel: "CENTRAL", permissions: ["tariffs:create"] });
+    const tarif = await createOrReviseTariff(admin, {
+      code: uid("TARIF"),
+      label: "Taxe au m2",
+      emplacementType: "MARCHE",
+      periodicity: "MENSUELLE",
+      amount: 5000,
+      unit: "m2",
+      arrondissementId: arrA,
+    });
+    expect(tarif.unit).toBe("m2");
+    expect(tarif.arrondissementId).toBe(arrA);
+
+    const villeWide = await createOrReviseTariff(admin, {
+      code: uid("TARIF"),
+      label: "Taxe ville entiere",
+      emplacementType: "MARCHE",
+      periodicity: "MENSUELLE",
+      amount: 3000,
+    });
+    expect(villeWide.arrondissementId).toBeNull();
+  });
+
+  it("createObligation multiplie le tarif par la quantite fournie (ex: tarif au m2 x superficie) — jamais un montant invente", async () => {
+    const admin = await createTestUser({ organizationLevel: "CENTRAL", permissions: ["tariffs:create", "obligations:create"] });
+    const owner = await createTestCitizen(arrA);
+    const tarif = await createOrReviseTariff(admin, {
+      code: uid("TARIF"),
+      label: "Taxe au m2",
+      emplacementType: "MARCHE",
+      periodicity: "MENSUELLE",
+      amount: 5000,
+      unit: "m2",
+    });
+
+    const obligation = await createObligation(admin, {
+      citizenId: owner.id,
+      tarifId: tarif.id,
+      period: "2026-08",
+      dueDate: "2026-08-31",
+      quantity: 9,
+    });
+    expect(obligation.initialAmount).toBe(45000);
+    expect(obligation.balance).toBe(45000);
+
+    await expect(
+      createObligation(admin, { citizenId: owner.id, tarifId: tarif.id, period: "2026-08", dueDate: "2026-08-31", quantity: 0 }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
   it("Test 5+6 — un paiement sur une obligation genere un reçu, met a jour le solde et le statut", async () => {
     const admin = await createTestUser({ organizationLevel: "CENTRAL", permissions: ["tariffs:create", "obligations:create", "businesses:create", "payments:create"] });
     const owner = await createTestCitizen(arrA);
