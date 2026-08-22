@@ -14,6 +14,19 @@ export async function listHouseholds(user: CurrentUser) {
   });
 }
 
+// Rapport (section 31) : contrairement a listHouseholds() ci-dessus (pour
+// les ecrans admin, plafonnee a 100 lignes), un export doit refleter le
+// perimetre complet — meme filtrage territorial, plafond plus haut par
+// simple securite anti-abus.
+export async function listHouseholdsForReport(user: CurrentUser) {
+  return prisma.household.findMany({
+    where: recordScopeWhere(user),
+    include: { arrondissement: true, quartier: true, head: true, _count: { select: { members: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+}
+
 export type CreateHouseholdInput = {
   address?: string;
   arrondissementId: string;

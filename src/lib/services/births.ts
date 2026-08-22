@@ -14,6 +14,17 @@ export async function listBirthRecords(user: CurrentUser) {
   });
 }
 
+// Rapport (section 31) : meme perimetre territorial, plafond plus haut que
+// listBirthRecords() (reservee aux ecrans admin pagines).
+export async function listBirthRecordsForReport(user: CurrentUser) {
+  return prisma.birthRecord.findMany({
+    where: recordScopeWhere(user),
+    include: { child: true, arrondissement: true },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+}
+
 export async function getBirthRecord(user: CurrentUser, id: string) {
   const record = await prisma.birthRecord.findUnique({
     where: { id },

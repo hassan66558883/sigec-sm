@@ -19,6 +19,18 @@ export async function listDeathRecords(user: CurrentUser) {
   return records.map((r) => ({ ...r, cause: decryptField(r.cause) }));
 }
 
+// Rapport (section 31) : meme perimetre territorial + dechiffrement de
+// `cause`, plafond plus haut que listDeathRecords() (ecrans admin pagines).
+export async function listDeathRecordsForReport(user: CurrentUser) {
+  const records = await prisma.deathRecord.findMany({
+    where: recordScopeWhere(user),
+    include: { deceased: true, arrondissement: true },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+  return records.map((r) => ({ ...r, cause: decryptField(r.cause) }));
+}
+
 export type DeclareDeathInput = {
   deceasedId: string;
   dateOfDeath: string;

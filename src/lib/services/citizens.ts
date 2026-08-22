@@ -25,6 +25,28 @@ export async function listCitizens(user: CurrentUser, search?: string) {
   });
 }
 
+// Rapport (section 31) : meme perimetre territorial + recherche optionnelle,
+// plafond plus haut que listCitizens() (ecrans admin/recherche terrain).
+export async function listCitizensForReport(user: CurrentUser, search?: string) {
+  return prisma.citizen.findMany({
+    where: {
+      ...recordScopeWhere(user),
+      ...(search
+        ? {
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } },
+              { lastName: { contains: search, mode: "insensitive" } },
+              { uniqueNumber: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    include: { arrondissement: true, quartier: true },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+}
+
 export async function getCitizen(user: CurrentUser, id: string) {
   const citizen = await prisma.citizen.findUnique({
     where: { id },

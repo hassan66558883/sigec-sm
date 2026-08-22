@@ -14,6 +14,17 @@ export async function listMarriages(user: CurrentUser) {
   });
 }
 
+// Rapport (section 31) : meme perimetre territorial, plafond plus haut que
+// listMarriages() (reservee aux ecrans admin pagines).
+export async function listMarriagesForReport(user: CurrentUser) {
+  return prisma.marriage.findMany({
+    where: recordScopeWhere(user),
+    include: { husband: true, wife: true, regime: true, arrondissement: true },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+}
+
 export async function listMarriageRegimes() {
   return prisma.marriageRegime.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
 }

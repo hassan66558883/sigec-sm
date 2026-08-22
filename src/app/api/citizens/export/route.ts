@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { requirePermission, handleApiError } from "@/lib/api";
-import { listCitizens } from "@/lib/services/citizens";
+import { listCitizensForReport } from "@/lib/services/citizens";
 import { toCsv, csvResponse } from "@/lib/csv";
 
 export async function GET(req: NextRequest) {
   try {
     const user = await requirePermission("citizens", "export");
     const search = req.nextUrl.searchParams.get("search") ?? undefined;
-    const citizens = await listCitizens(user, search);
+    const citizens = await listCitizensForReport(user, search);
     const csv = toCsv(citizens, [
       { header: "Numero unique", value: (c) => c.uniqueNumber },
       { header: "Nom", value: (c) => c.lastName },
