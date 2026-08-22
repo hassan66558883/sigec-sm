@@ -3,10 +3,12 @@
 // des charges) et un compte SUPER_ADMIN initial.
 //
 // IMPORTANT : les noms d'arrondissements ci-dessous sont des placeholders
-// numerotes ("Arrondissement 1" a "10"). Conformement a la regle 39 du cahier
-// des charges, aucune denomination officielle n'est inventee ici — a
-// renommer par l'administration via /admin/arrondissements une fois les
-// denominations officielles confirmees.
+// numerotes ("1er/2e/... Arrondissement"). Les quartiers (QUARTIERS_NDJAMENA)
+// viennent d'une liste de travail fournie par l'utilisateur, marquee
+// sourceReference="a valider" a la creation. Conformement a la regle 39 du
+// cahier des charges, aucune denomination officielle n'est inventee ici — a
+// confirmer par l'administration via /admin/arrondissements une fois les
+// denominations officielles validees.
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
@@ -60,6 +62,99 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   mobile_money: ["view", "confirm"],
   fraud: ["view", "resolve"],
 };
+
+// Liste de travail des quartiers de N'Djamena, fournie par l'utilisateur —
+// marquee "a valider" (voir sourceReference applique a la creation, regle
+// 39 : jamais presentee comme une denomination officielle confirmee).
+const QUARTIERS_NDJAMENA: { code: string; name: string; arrondissement: number }[] = [
+  { code: "Q01-001", name: "Farcha", arrondissement: 1 },
+  { code: "Q01-002", name: "Milezi", arrondissement: 1 },
+  { code: "Q01-003", name: "Madjorio", arrondissement: 1 },
+  { code: "Q01-004", name: "Guilmeye", arrondissement: 1 },
+  { code: "Q01-005", name: "Djougoulier", arrondissement: 1 },
+  { code: "Q01-006", name: "Karkandjeri", arrondissement: 1 },
+  { code: "Q01-007", name: "Amsinéné", arrondissement: 1 },
+  { code: "Q01-008", name: "Guinébor", arrondissement: 1 },
+  { code: "Q01-009", name: "N'Djamena-Koudou", arrondissement: 1 },
+  { code: "Q01-010", name: "Massil Abcoma", arrondissement: 1 },
+  { code: "Q01-011", name: "Zaraf", arrondissement: 1 },
+  { code: "Q01-012", name: "Allaya", arrondissement: 1 },
+  { code: "Q01-013", name: "Ardeb-Timan", arrondissement: 1 },
+  { code: "Q01-014", name: "Antona", arrondissement: 1 },
+
+  { code: "Q02-001", name: "Djamba Ngato", arrondissement: 2 },
+  { code: "Q02-002", name: "Mardjandaffack", arrondissement: 2 },
+  { code: "Q02-003", name: "Bololo", arrondissement: 2 },
+  { code: "Q02-004", name: "Goudji", arrondissement: 2 },
+  { code: "Q02-005", name: "Klémat", arrondissement: 2 },
+
+  { code: "Q03-001", name: "Gardolé", arrondissement: 3 },
+  { code: "Q03-002", name: "Ambassatna", arrondissement: 3 },
+  { code: "Q03-003", name: "Ardep Djoumal", arrondissement: 3 },
+  { code: "Q03-004", name: "Sabangali", arrondissement: 3 },
+  { code: "Q03-005", name: "Kabalaye", arrondissement: 3 },
+  { code: "Q03-006", name: "Djambalbarh", arrondissement: 3 },
+
+  { code: "Q04-001", name: "Repos I", arrondissement: 4 },
+  { code: "Q04-002", name: "Repos II", arrondissement: 4 },
+  { code: "Q04-003", name: "Naga I", arrondissement: 4 },
+  { code: "Q04-004", name: "Naga II", arrondissement: 4 },
+  { code: "Q04-005", name: "Blabine", arrondissement: 4 },
+
+  { code: "Q05-001", name: "Ridina", arrondissement: 5 },
+  { code: "Q05-002", name: "Am-Riguebé", arrondissement: 5 },
+  { code: "Q05-003", name: "Karkandjie", arrondissement: 5 },
+
+  { code: "Q06-001", name: "Moursal", arrondissement: 6 },
+  { code: "Q06-002", name: "Paris-Congo", arrondissement: 6 },
+
+  { code: "Q07-001", name: "Chagoua", arrondissement: 7 },
+  { code: "Q07-002", name: "Dembé", arrondissement: 7 },
+  { code: "Q07-003", name: "Ambatta", arrondissement: 7 },
+  { code: "Q07-004", name: "Boutalbagara", arrondissement: 7 },
+  { code: "Q07-005", name: "Kourmanadji", arrondissement: 7 },
+  { code: "Q07-006", name: "Atrone", arrondissement: 7 },
+  { code: "Q07-007", name: "Amtoukoui", arrondissement: 7 },
+  { code: "Q07-008", name: "Amtoukoui Alaya", arrondissement: 7 },
+  { code: "Q07-009", name: "Habena", arrondissement: 7 },
+  { code: "Q07-010", name: "Gassi", arrondissement: 7 },
+  { code: "Q07-011", name: "Kilwiti", arrondissement: 7 },
+  { code: "Q07-012", name: "Ambatta 2", arrondissement: 7 },
+  { code: "Q07-013", name: "Dembé 2", arrondissement: 7 },
+  { code: "Q07-014", name: "Karkouta", arrondissement: 7 },
+  { code: "Q07-015", name: "Djinio", arrondissement: 7 },
+
+  { code: "Q08-001", name: "Diguel", arrondissement: 8 },
+  { code: "Q08-002", name: "Ndjari", arrondissement: 8 },
+  { code: "Q08-003", name: "Angabo", arrondissement: 8 },
+  { code: "Q08-004", name: "Zaffaye-Est", arrondissement: 8 },
+  { code: "Q08-005", name: "Zaffaye-Ouest", arrondissement: 8 },
+  { code: "Q08-006", name: "Machaga", arrondissement: 8 },
+  { code: "Q08-007", name: "Amtoukougne Koudou", arrondissement: 8 },
+
+  { code: "Q09-001", name: "Walia", arrondissement: 9 },
+  { code: "Q09-002", name: "Ngoumna", arrondissement: 9 },
+  { code: "Q09-003", name: "Digangali", arrondissement: 9 },
+  { code: "Q09-004", name: "Ngueli", arrondissement: 9 },
+  { code: "Q09-005", name: "Kabé", arrondissement: 9 },
+  { code: "Q09-006", name: "Toukra", arrondissement: 9 },
+  { code: "Q09-007", name: "Gardolé 2", arrondissement: 9 },
+  { code: "Q09-008", name: "Toukra Massa", arrondissement: 9 },
+
+  { code: "Q10-001", name: "Gozator", arrondissement: 10 },
+  { code: "Q10-002", name: "Goudji-Charffa", arrondissement: 10 },
+  { code: "Q10-003", name: "Ouroula", arrondissement: 10 },
+  { code: "Q10-004", name: "Gaoui", arrondissement: 10 },
+  { code: "Q10-005", name: "Lamadji", arrondissement: 10 },
+  { code: "Q10-006", name: "Sadjeri", arrondissement: 10 },
+  { code: "Q10-007", name: "Achawayil", arrondissement: 10 },
+  { code: "Q10-008", name: "Fondoré", arrondissement: 10 },
+  { code: "Q10-009", name: "Djaballiro", arrondissement: 10 },
+  { code: "Q10-010", name: "Hillé Houdjaj", arrondissement: 10 },
+  { code: "Q10-011", name: "Tamon Kessa", arrondissement: 10 },
+  { code: "Q10-012", name: "Wouroulou", arrondissement: 10 },
+  { code: "Q10-013", name: "Kalatchou Sadjéré", arrondissement: 10 },
+];
 
 // Types de taxes : montants PLACEHOLDER a valider par la mairie/autorite
 // competente (regle 39 — aucun bareme officiel invente ici).
@@ -354,15 +449,30 @@ async function main() {
     create: { name: "N'Djamena", code: "NDJ" },
   });
 
+  const arrondissementByNumber = new Map<number, string>();
   for (let number = 1; number <= 10; number++) {
     const code = `NDJ-${String(number).padStart(2, "0")}`;
-    await prisma.arrondissement.upsert({
+    const name = `${number}${number === 1 ? "er" : "e"} Arrondissement`;
+    const arrondissement = await prisma.arrondissement.upsert({
       where: { code },
-      update: {},
-      create: { cityId: city.id, number, name: `Arrondissement ${number}`, code },
+      update: { name },
+      create: { cityId: city.id, number, name, code },
     });
+    arrondissementByNumber.set(number, arrondissement.id);
   }
   console.log("  ✓ Ville de N'Djamena et 10 arrondissements");
+
+  const QUARTIER_SOURCE = "Liste de travail SIGEC-SM — a valider par la Mairie de N'Djamena";
+  for (const q of QUARTIERS_NDJAMENA) {
+    const arrondissementId = arrondissementByNumber.get(q.arrondissement);
+    if (!arrondissementId) continue;
+    await prisma.quartier.upsert({
+      where: { code: q.code },
+      update: { name: q.name, arrondissementId, sourceReference: QUARTIER_SOURCE },
+      create: { code: q.code, name: q.name, arrondissementId, sourceReference: QUARTIER_SOURCE },
+    });
+  }
+  console.log(`  ✓ ${QUARTIERS_NDJAMENA.length} quartiers (liste de travail — a valider)`);
 
   for (const dept of DEPARTMENTS) {
     await prisma.department.upsert({

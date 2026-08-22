@@ -211,6 +211,11 @@ model Quartier {
   name             String
   code             String   @unique
   isActive         Boolean  @default(true)
+  // Provenance quand le quartier vient d'une liste de travail non encore
+  // validee par la mairie (regle 39 : ne jamais presenter une denomination
+  // comme officielle sans confirmation) — null pour un quartier cree via
+  // /admin (deja considere confirme par l'agent qui le saisit).
+  sourceReference  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

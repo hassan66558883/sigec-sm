@@ -58,7 +58,10 @@ export default async function ArrondissementDetailPage({ params }: { params: Pro
                     {q.name}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{q.code}</td>
+                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">
+                  {q.code}
+                  {q.sourceReference && <span className="ml-1" title={q.sourceReference}>⚠</span>}
+                </td>
                 <td className="px-4 py-2.5">{q._count.sectors}</td>
                 <td className="px-4 py-2.5">
                   <span

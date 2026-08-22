@@ -28,6 +28,9 @@ export default async function QuartierDetailPage({ params }: { params: Promise<{
         <h1 className="mt-1 text-xl font-semibold text-[var(--color-text)]">
           {quartier.name} <span className="text-[var(--color-text-muted)]">({quartier.code})</span>
         </h1>
+        {quartier.sourceReference && (
+          <p className="mt-1 text-xs text-[var(--color-warning)]">⚠ {quartier.sourceReference}</p>
+        )}
       </div>
 
       {can(user, "territorial", "create") && (
