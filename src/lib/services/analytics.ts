@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
-import { can, recordScopeWhere } from "@/lib/rbac";
+import { can, recordScopeWhere, arrondissementScopeWhere } from "@/lib/rbac";
 
 // Statistiques consolidees (section 20/21). Chaque section n'est calculee
 // que si l'utilisateur a la permission de vue du module correspondant —
@@ -103,4 +103,73 @@ export async function getServicesStats(user: CurrentUser) {
     urbanCases: toBreakdown(urbanCases),
     parcels: toBreakdown(parcels),
   };
+}
+
+// Rapport statistique consolide par arrondissement : une ligne par
+// arrondissement dans le perimetre de l'utilisateur, une colonne par
+// module — chaque colonne n'est calculee (et exposee au CSV) que si
+// l'utilisateur a la permission de vue du module correspondant, meme
+// logique de visibilite que getCivilStatusStats/getServicesStats.
+export async function getArrondissementStatsReport(user: CurrentUser) {
+  const scope = recordScopeWhere(user);
+
+  const [arrondissements, citizens, households, births, marriages, divorces, deaths, revenue, unpaid] =
+    await Promise.all([
+      prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
+      can(user, "citizens", "view")
+        ? prisma.citizen.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "households", "view")
+        ? prisma.household.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "births", "view")
+        ? prisma.birthRecord.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "marriages", "view")
+        ? prisma.marriage.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "divorces", "view")
+        ? prisma.divorce.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "deaths", "view")
+        ? prisma.deathRecord.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "payments", "view")
+        ? prisma.payment.groupBy({ by: ["arrondissementId"], where: { ...scope, status: "PAID" }, _sum: { amount: true } })
+        : null,
+      can(user, "obligations", "view")
+        ? prisma.obligationPaiement.groupBy({
+            by: ["arrondissementId"],
+            where: { ...scope, status: { in: ["A_PAYER", "PARTIELLEMENT_PAYE", "EN_RETARD"] } },
+            _count: true,
+          })
+        : null,
+    ]);
+
+  const countMap = (rows: { arrondissementId: string | null; _count: number }[] | null) =>
+    rows && new Map(rows.map((r) => [r.arrondissementId, r._count]));
+  const sumMap = (rows: { arrondissementId: string | null; _sum: { amount: number | null } }[] | null) =>
+    rows && new Map(rows.map((r) => [r.arrondissementId, r._sum.amount ?? 0]));
+
+  const citizensMap = countMap(citizens);
+  const householdsMap = countMap(households);
+  const birthsMap = countMap(births);
+  const marriagesMap = countMap(marriages);
+  const divorcesMap = countMap(divorces);
+  const deathsMap = countMap(deaths);
+  const revenueMap = sumMap(revenue);
+  const unpaidMap = countMap(unpaid);
+
+  return arrondissements.map((a) => ({
+    name: a.name,
+    code: a.code,
+    population: citizensMap ? citizensMap.get(a.id) ?? 0 : null,
+    menages: householdsMap ? householdsMap.get(a.id) ?? 0 : null,
+    naissances: birthsMap ? birthsMap.get(a.id) ?? 0 : null,
+    mariages: marriagesMap ? marriagesMap.get(a.id) ?? 0 : null,
+    divorces: divorcesMap ? divorcesMap.get(a.id) ?? 0 : null,
+    deces: deathsMap ? deathsMap.get(a.id) ?? 0 : null,
+    recettes: revenueMap ? revenueMap.get(a.id) ?? 0 : null,
+    impayes: unpaidMap ? unpaidMap.get(a.id) ?? 0 : null,
+  }));
 }

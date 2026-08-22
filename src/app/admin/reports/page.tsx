@@ -116,6 +116,12 @@ export default async function ReportsPage() {
             <div className="mt-1 text-xs text-[var(--color-text-muted)]">Journal complet des actions sensibles.</div>
           </a>
         )}
+        {can(user, "territorial", "export") && (
+          <a href="/api/reports/arrondissements" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm shadow-sm hover:bg-gray-50">
+            <div className="font-medium text-[var(--color-text)]">Rapport statistique par arrondissement</div>
+            <div className="mt-1 text-xs text-[var(--color-text-muted)]">Population, etat civil, recettes et impayes — une ligne par arrondissement.</div>
+          </a>
+        )}
       </div>
 
       <div>
