@@ -3,9 +3,9 @@
 ## 1. Connexion
 
 - **Agents municipaux** : `/login` avec l'email et le mot de passe fournis par un administrateur.
-  Un compte nouvellement créé doit changer son mot de passe à la première connexion (indicateur
-  interne `mustResetPwd` — l'application de ce changement obligatoire dans l'interface est prévue
-  pour une itération ultérieure ; en attendant, communiquez la consigne à l'agent directement).
+  Un compte nouvellement créé doit changer son mot de passe à la première connexion — l'application
+  bloque réellement l'accès à tout le reste de l'espace agent (`mustResetPwd`, vérifié à chaque
+  requête, y compris en navigation côté client) tant que ce changement n'a pas été fait.
 - **Citoyens** : `/portail/login`. La création de compte (`/portail/register`) nécessite le
   **numéro de dossier citoyen** (visible sur tout certificat délivré, format `CIT-AAAA-XXXXXXXX`) et
   le nom de famille exact du dossier — un compte ne peut pas être créé sans dossier citoyen
