@@ -80,7 +80,7 @@ acte réel (ex. déclaration de naissance).
   idempotent, remboursement (`payments:refund`, motif obligatoire, jamais de suppression).
 - 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (64 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (107 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
   matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
@@ -206,7 +206,7 @@ simulation.
   contraints par une unicité — sinon le chiffrement (IV aléatoire à chaque appel) casse la requête.
 - **Endpoint de supervision** `/api/health` (public, minimal : disponibilité appli + base) — à
   brancher sur un load balancer ou un outil de monitoring externe (voir `docs/DEPLOYMENT.md`).
-- **Suite de tests automatisés** (`npm test`, Vitest, 64 tests) contre une base PostgreSQL de test
+- **Suite de tests automatisés** (`npm test`, Vitest, 107 tests) contre une base PostgreSQL de test
   dédiée — voir la section [Tests automatisés](#tests-automatisés) ci-dessus.
 
 Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix (ex.

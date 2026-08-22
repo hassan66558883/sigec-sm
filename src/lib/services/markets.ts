@@ -134,6 +134,13 @@ export async function setStallStatus(actor: CurrentUser, id: string, status: str
   if (!canAccessArrondissement(actor, stall.market.arrondissementId)) {
     throw new ApiError(403, "Emplacement hors de votre perimetre.");
   }
+  // Un emplacement ne peut avoir qu'un seul occupant actif a la fois (module
+  // paiement en ligne, section 4) : reattribuer un emplacement deja OCCUPIED
+  // a un autre contribuable exige de d'abord le liberer explicitement
+  // (AVAILABLE), jamais un simple ecrasement silencieux de l'occupant.
+  if (status === "OCCUPIED" && stall.status === "OCCUPIED" && stall.occupantId && stall.occupantId !== occupantId) {
+    throw new ApiError(409, "Cet emplacement est deja occupe — liberez-le avant de l'attribuer a un autre contribuable.");
+  }
   const updated = await prisma.marketStall.update({
     where: { id },
     data: { status, occupantId: status === "OCCUPIED" ? occupantId : null },
