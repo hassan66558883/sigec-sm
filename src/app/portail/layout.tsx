@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/portail/demandes/nouvelle", label: "Nouvelle demande" },
   { href: "/portail/plaintes", label: "Mes plaintes" },
   { href: "/portail/voirie", label: "Signaler (voirie)" },
+  { href: "/portail/mot-de-passe", label: "Mon mot de passe" },
 ];
 
 export default async function PortailLayout({ children }: { children: React.ReactNode }) {

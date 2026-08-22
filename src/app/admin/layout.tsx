@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -69,6 +70,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               {user.roles.map((r) => r.name).join(", ") || "Aucun role"}
             </div>
           </div>
+          <Link
+            href="/admin/reset-password"
+            className="mb-2 block rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-gray-50"
+          >
+            Changer mon mot de passe
+          </Link>
           <LogoutButton />
         </div>
       </aside>
