@@ -54,6 +54,11 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   obligations: ["view", "create", "cancel"],
   collectors: ["view", "create", "edit", "assign"],
   receipts: ["view", "export", "cancel"],
+  // Phase 8 — Caisses, versements, Mobile Money, controle anti-fraude.
+  caisses: ["view", "create", "edit"],
+  versements: ["view", "create", "validate"],
+  mobile_money: ["view", "confirm"],
+  fraud: ["view", "resolve"],
 };
 
 // Types de taxes : montants PLACEHOLDER a valider par la mairie/autorite
@@ -159,6 +164,10 @@ const ROLES: {
       "obligations:view", "obligations:create", "obligations:cancel",
       "collectors:view", "collectors:create", "collectors:edit", "collectors:assign",
       "receipts:view", "receipts:export", "receipts:cancel",
+      "caisses:view", "caisses:create", "caisses:edit",
+      "versements:view", "versements:create", "versements:validate",
+      "mobile_money:view", "mobile_money:confirm",
+      "fraud:view", "fraud:resolve",
     ],
   },
   {
@@ -173,6 +182,7 @@ const ROLES: {
       "businesses:view", "markets:view", "payments:view", "payments:export",
       "associations:view", "complaints:view", "infrastructure:view",
       "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
+      "caisses:view", "versements:view", "mobile_money:view", "fraud:view",
     ],
   },
   {
@@ -200,6 +210,10 @@ const ROLES: {
       "obligations:view", "obligations:create", "obligations:cancel",
       "collectors:view", "collectors:assign",
       "receipts:view",
+      "caisses:view", "caisses:edit",
+      "versements:view", "versements:validate",
+      "mobile_money:view", "mobile_money:confirm",
+      "fraud:view", "fraud:resolve",
     ],
   },
   {
@@ -267,10 +281,14 @@ const ROLES: {
     name: "Agent taxes/finances",
     description: "Agent collecteur : enregistrement des patentes et recettes municipales.",
     permissions: [
+      "citizens:view",
       "businesses:view", "businesses:create",
       "payments:view", "payments:create",
       "obligations:view",
       "receipts:view",
+      "caisses:view", "caisses:create", "caisses:edit",
+      "versements:view", "versements:create",
+      "mobile_money:view", "mobile_money:confirm",
     ],
   },
   {
@@ -278,10 +296,14 @@ const ROLES: {
     name: "Agent marche",
     description: "Agent collecteur : gestion des marches, emplacements et recettes associees.",
     permissions: [
+      "citizens:view",
       "markets:view", "markets:create",
       "payments:view", "payments:create",
       "obligations:view",
       "receipts:view",
+      "caisses:view", "caisses:create", "caisses:edit",
+      "versements:view", "versements:create",
+      "mobile_money:view", "mobile_money:confirm",
     ],
   },
   {
@@ -313,6 +335,7 @@ const ROLES: {
       "land:view", "urbanism:view",
       "businesses:view", "markets:view", "payments:view", "payments:export",
       "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
+      "caisses:view", "versements:view", "mobile_money:view", "fraud:view",
     ],
   },
   { code: "CITIZEN", name: "Citoyen", description: "Compte du portail citoyen (phase 3) — aucun acces a l'espace administratif.", permissions: [] },

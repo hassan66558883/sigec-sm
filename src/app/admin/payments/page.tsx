@@ -76,7 +76,17 @@ export default async function PaymentsPage() {
                 <td className="px-4 py-2.5 font-medium">{p.amount.toLocaleString("fr-FR")} FCFA</td>
                 <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{new Date(p.paymentDate).toLocaleDateString("fr-FR")}</td>
                 <td className="px-4 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.status === "PAID" ? "bg-green-100 text-[var(--color-success)]" : p.status === "ANNULE" ? "bg-red-100 text-[var(--color-danger)]" : "bg-gray-100 text-[var(--color-text-muted)]"}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      p.status === "PAID"
+                        ? "bg-green-100 text-[var(--color-success)]"
+                        : p.status === "ANNULE" || p.status === "ECHEC"
+                          ? "bg-red-100 text-[var(--color-danger)]"
+                          : p.status === "PENDING"
+                            ? "bg-amber-100 text-[var(--color-warning)]"
+                            : "bg-gray-100 text-[var(--color-text-muted)]"
+                    }`}
+                  >
                     {p.status}
                   </span>
                 </td>

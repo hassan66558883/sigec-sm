@@ -95,7 +95,7 @@ describe("recettes municipales — chaine complete", () => {
     const obligation = await createObligation(admin, { citizenId: owner.id, businessId: business.id, tarifId: tarif.id, period: "2026-08", dueDate: "2026-08-31" });
 
     const result = await recordPayment(admin, { payerId: owner.id, amount: 4000, paymentMethod: "ESPECES", obligationId: obligation.id });
-    expect(result.receipt).toBeDefined();
+    if (!result.receipt) throw new Error("un paiement ESPECES doit toujours generer un reçu immediat");
     expect(result.receipt.number).toMatch(/^REC-\d{4}-\d{8}$/);
 
     const afterPartial = await testPrisma.obligationPaiement.findUniqueOrThrow({ where: { id: obligation.id } });
@@ -103,6 +103,7 @@ describe("recettes municipales — chaine complete", () => {
     expect(afterPartial.status).toBe("PARTIELLEMENT_PAYE");
 
     const result2 = await recordPayment(admin, { payerId: owner.id, amount: 6000, paymentMethod: "ESPECES", obligationId: obligation.id });
+    if (!result2.receipt) throw new Error("un paiement ESPECES doit toujours generer un reçu immediat");
     expect(result2.receipt.number).not.toBe(result.receipt.number);
 
     const afterFull = await testPrisma.obligationPaiement.findUniqueOrThrow({ where: { id: obligation.id } });
@@ -115,6 +116,7 @@ describe("recettes municipales — chaine complete", () => {
     const owner = await createTestCitizen(arrA, { lastName: "NomSecret" });
 
     const result = await recordPayment(admin, { payerId: owner.id, amount: 5000, paymentMethod: "ESPECES" });
+    if (!result.receipt) throw new Error("un paiement ESPECES doit toujours generer un reçu immediat");
     const receiptRow = await testPrisma.receipt.findUniqueOrThrow({ where: { id: result.receipt.id } });
 
     const publicView = await verifyReceiptPublic(receiptRow.qrToken);

@@ -102,4 +102,8 @@ export const ALL_TEST_PERMISSIONS = [
   "obligations:view", "obligations:create", "obligations:cancel",
   "collectors:view", "collectors:create", "collectors:edit", "collectors:assign",
   "receipts:view", "receipts:export", "receipts:cancel",
+  "caisses:view", "caisses:create", "caisses:edit",
+  "versements:view", "versements:create", "versements:validate",
+  "mobile_money:view", "mobile_money:confirm",
+  "fraud:view", "fraud:resolve",
 ];

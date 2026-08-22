@@ -195,6 +195,9 @@ model Arrondissement {
   auditLogs          AuditLog[]
   obligations        ObligationPaiement[]
   agentsCollecteurs  AgentCollecteur[]
+  caisses            CashRegister[]
+  versements         Versement[]
+  fraudAlerts        FraudAlert[]
 
   @@unique([cityId, number])
   @@index([cityId])
@@ -831,27 +834,35 @@ model Payment {
   marketStallId    String?
   obligationId     String?
   agentId          String?
+  caisseId         String?
   arrondissementId String?
   collectedById    String
   gpsLat           Float?
   gpsLng           Float?
+  // PAID | PENDING | OVERDUE | ANNULE | ECHEC — un Mobile Money reste PENDING
+  // (aucun reçu, aucune imputation d'obligation) jusqu'a confirmation reelle
+  // par le prestataire (voir services/mobile-money.ts).
   status           String   @default("PAID")
   createdAt        DateTime @default(now())
 
-  payer          Citizen              @relation(fields: [payerId], references: [id])
-  taxType        TaxType?             @relation(fields: [taxTypeId], references: [id])
-  business       Business?            @relation(fields: [businessId], references: [id])
-  marketStall    MarketStall?         @relation(fields: [marketStallId], references: [id])
-  obligation     ObligationPaiement?  @relation(fields: [obligationId], references: [id])
-  agent          AgentCollecteur?     @relation(fields: [agentId], references: [id])
-  arrondissement Arrondissement?      @relation(fields: [arrondissementId], references: [id])
+  payer          Citizen                 @relation(fields: [payerId], references: [id])
+  taxType        TaxType?                @relation(fields: [taxTypeId], references: [id])
+  business       Business?               @relation(fields: [businessId], references: [id])
+  marketStall    MarketStall?            @relation(fields: [marketStallId], references: [id])
+  obligation     ObligationPaiement?     @relation(fields: [obligationId], references: [id])
+  agent          AgentCollecteur?        @relation(fields: [agentId], references: [id])
+  caisse         CashRegister?           @relation(fields: [caisseId], references: [id])
+  arrondissement Arrondissement?         @relation(fields: [arrondissementId], references: [id])
   receipt        Receipt?
   cancellation   PaymentCancellation?
+  mobileMoney    MobileMoneyTransaction?
+  fraudAlerts    FraudAlert[]
 
   @@index([arrondissementId])
   @@index([paymentDate])
   @@index([obligationId])
   @@index([agentId])
+  @@index([caisseId])
 }
 
 // --- PHASE 6 : SERVICES MUNICIPAUX ------------------------------------------
@@ -1086,6 +1097,9 @@ model AgentCollecteur {
   arrondissement Arrondissement     @relation(fields: [arrondissementId], references: [id])
   affectations   AgentAffectation[]
   payments       Payment[]
+  caisses        CashRegister[]
+  versements     Versement[]
+  fraudAlerts    FraudAlert[]
 
   @@index([arrondissementId])
 }
@@ -1148,6 +1162,124 @@ model PaymentCancellation {
   createdAt       DateTime @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+// --- PHASE 8 : CAISSES, VERSEMENTS, MOBILE MONEY, CONTROLE ANTI-FRAUDE -----
+// Suite du module "recettes municipales" : un agent ouvre une caisse, opere
+// des collectes (Payment.caisseId), la cloture avec un montant declare ->
+// l'ecart eventuel genere automatiquement une FraudAlert (section 20/22).
+// Le Mobile Money suit un cycle honnete : INITIATED -> PENDING -> SUCCESS
+// (le paiement ne devient PAID, l'obligation n'est impute et le reçu n'est
+// genere qu'A LA CONFIRMATION — jamais simule, voir services/mobile-money.ts).
+
+// status: OUVERTE | CLOTUREE | RAPPROCHEE
+model CashRegister {
+  id               String    @id @default(cuid())
+  number           String    @unique
+  agentId          String
+  arrondissementId String
+  openedAt         DateTime  @default(now())
+  openedById       String
+  closedAt         DateTime?
+  closedById       String?
+  // Calcules a la cloture : somme des paiements ESPECES lies a cette caisse
+  // (seul l'argent physique est reconcilie) vs montant reellement compte par
+  // l'agent. Jamais recalcules apres coup — figes au moment de la cloture.
+  expectedAmount   Float?
+  declaredAmount   Float?
+  discrepancy      Float?
+  status           String    @default("OUVERTE")
+  createdAt        DateTime  @default(now())
+
+  agent          AgentCollecteur @relation(fields: [agentId], references: [id])
+  arrondissement Arrondissement  @relation(fields: [arrondissementId], references: [id])
+  payments       Payment[]
+  versements     Versement[]
+  fraudAlerts    FraudAlert[]
+
+  @@index([agentId])
+  @@index([arrondissementId])
+}
+
+// Remise des especes collectees a la structure habilitee (section 21).
+// status: EN_ATTENTE | VALIDE | ECART | REJETE
+model Versement {
+  id               String    @id @default(cuid())
+  number           String    @unique
+  agentId          String
+  caisseId         String?
+  expectedAmount   Float
+  remittedAmount   Float
+  discrepancy      Float
+  justification    String?
+  status           String    @default("EN_ATTENTE")
+  validatedById    String?
+  validatedAt      DateTime?
+  arrondissementId String
+  createdAt        DateTime  @default(now())
+
+  agent          AgentCollecteur @relation(fields: [agentId], references: [id])
+  caisse         CashRegister?   @relation(fields: [caisseId], references: [id])
+  arrondissement Arrondissement  @relation(fields: [arrondissementId], references: [id])
+
+  @@index([agentId])
+  @@index([arrondissementId])
+}
+
+// Transaction Mobile Money (section 17), 1:1 avec le Payment qu'elle
+// documente. `externalReference` est UNIQUE : c'est le mecanisme
+// d'idempotence garantissant qu'une meme transaction prestataire n'est
+// jamais enregistree deux fois (regle absolue #5). `provider` reste
+// configurable (aucun operateur code en dur) ; "MANUAL" tant qu'aucun
+// prestataire n'est effectivement contractualise — la confirmation se fait
+// alors via une action administrative explicite plutot qu'un faux succes
+// automatique.
+// status: INITIATED | PENDING | SUCCESS | FAILED | CANCELLED | REFUNDED
+model MobileMoneyTransaction {
+  id                String    @id @default(cuid())
+  paymentId         String    @unique
+  provider          String    @default("MANUAL")
+  externalReference String?   @unique
+  phoneNumber       String?
+  amount            Float
+  status            String    @default("INITIATED")
+  providerResponse  Json?
+  initiatedAt       DateTime  @default(now())
+  confirmedAt       DateTime?
+  confirmedById     String?
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+// Alerte generee par le moteur de controle anti-fraude (section 22/23).
+// type: DOUBLE_PAYMENT | DOUBLE_RECEIPT | FORBIDDEN_MODIFICATION |
+//   EXCESSIVE_CANCELLATIONS | CASH_DISCREPANCY | OUT_OF_ZONE |
+//   UNKNOWN_DEVICE | SUSPICIOUS_VOLUME | OFF_HOURS | SUSPICIOUS_RECEIPT
+// severity: LOW | MEDIUM | HIGH | CRITICAL — seuils configurables, voir
+// services/fraud.ts. status: OUVERTE | RESOLUE | IGNOREE
+model FraudAlert {
+  id               String    @id @default(cuid())
+  type             String
+  severity         String
+  description      String
+  agentId          String?
+  paymentId        String?
+  caisseId         String?
+  arrondissementId String?
+  status           String    @default("OUVERTE")
+  resolvedById     String?
+  resolvedAt       DateTime?
+  resolutionNotes  String?
+  createdAt        DateTime  @default(now())
+
+  agent          AgentCollecteur? @relation(fields: [agentId], references: [id])
+  payment        Payment?         @relation(fields: [paymentId], references: [id])
+  caisse         CashRegister?    @relation(fields: [caisseId], references: [id])
+  arrondissement Arrondissement?  @relation(fields: [arrondissementId], references: [id])
+
+  @@index([status])
+  @@index([severity])
+  @@index([arrondissementId])
 }
 
 // --- Parametres systeme -----------------------------------------------------

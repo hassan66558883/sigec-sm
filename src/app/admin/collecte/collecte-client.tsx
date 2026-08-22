@@ -14,13 +14,15 @@ type Obligation = {
   dueDate: string;
   tarif: { label: string };
 };
-type ReceiptResult = { id: string; number: string; amount: number };
+type PaymentResult =
+  | { kind: "receipt"; id: string; number: string; amount: number }
+  | { kind: "pending"; amount: number };
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
 }
 
-export function CollecteClient() {
+export function CollecteClient({ agentId }: { agentId: string | null }) {
   const [search, setSearch] = useState("");
   const [citizens, setCitizens] = useState<Citizen[]>([]);
   const [selected, setSelected] = useState<Citizen | null>(null);
@@ -28,19 +30,26 @@ export function CollecteClient() {
   const [payingId, setPayingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [externalReference, setExternalReference] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<ReceiptResult | null>(null);
+  const [result, setResult] = useState<PaymentResult | null>(null);
 
   async function onSearch(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSelected(null);
-    setReceipt(null);
+    setResult(null);
     if (!search.trim()) return;
     const res = await fetch(`/api/citizens?search=${encodeURIComponent(search.trim())}`);
     const data = await res.json();
-    setCitizens(res.ok ? data.data : []);
+    if (!res.ok) {
+      setError(data.error ?? "Echec de la recherche.");
+      setCitizens([]);
+      return;
+    }
+    setCitizens(data.data);
   }
 
   async function refreshObligations(citizenId: string) {
@@ -51,7 +60,7 @@ export function CollecteClient() {
 
   async function selectCitizen(citizen: Citizen) {
     setSelected(citizen);
-    setReceipt(null);
+    setResult(null);
     setError(null);
     await refreshObligations(citizen.id);
   }
@@ -59,11 +68,17 @@ export function CollecteClient() {
   function startPayment(obligation: Obligation) {
     setPayingId(obligation.id);
     setAmount(String(obligation.balance));
+    setPhoneNumber(selected?.phone ?? "");
+    setExternalReference("");
     setError(null);
   }
 
   async function confirmPayment(obligation: Obligation) {
     if (!selected) return;
+    if (paymentMethod === "MOBILE_MONEY" && (!phoneNumber.trim() || !externalReference.trim())) {
+      setError("Numero de telephone et reference de transaction requis pour le Mobile Money.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const res = await fetch("/api/payments", {
@@ -74,6 +89,9 @@ export function CollecteClient() {
         amount: Number(amount),
         paymentMethod,
         obligationId: obligation.id,
+        agentId: agentId ?? undefined,
+        phoneNumber: paymentMethod === "MOBILE_MONEY" ? phoneNumber.trim() : undefined,
+        externalReference: paymentMethod === "MOBILE_MONEY" ? externalReference.trim() : undefined,
       }),
     });
     const data = await res.json();
@@ -82,7 +100,13 @@ export function CollecteClient() {
       setError(data.error ?? "Echec de l'enregistrement du paiement.");
       return;
     }
-    setReceipt({ id: data.data.receipt.id, number: data.data.receipt.number, amount: data.data.amount });
+    if (data.data.receipt) {
+      setResult({ kind: "receipt", id: data.data.receipt.id, number: data.data.receipt.number, amount: data.data.amount });
+    } else {
+      // Mobile Money : le paiement reste PENDING jusqu'a confirmation
+      // reelle (voir /admin/mobile-money) — jamais de reçu ni de succes simule.
+      setResult({ kind: "pending", amount: data.data.amount });
+    }
     setPayingId(null);
     // Rafraichir les obligations restantes du contribuable sans effacer la
     // confirmation qu'on vient d'afficher (selectCitizen() la reinitialise).
@@ -103,6 +127,8 @@ export function CollecteClient() {
         </button>
       </form>
 
+      {!selected && error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+
       {!selected && citizens.length > 0 && (
         <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           {citizens.map((c) => (
@@ -118,14 +144,27 @@ export function CollecteClient() {
         </div>
       )}
 
-      {receipt && (
+      {result?.kind === "receipt" && (
         <div className="rounded-lg border border-[var(--color-success)]/30 bg-green-50 p-4 text-center">
           <div className="text-sm font-semibold text-[var(--color-success)]">Paiement enregistre</div>
-          <div className="mt-1 text-lg font-semibold">{formatFcfa(receipt.amount)}</div>
-          <div className="mt-1 text-xs text-[var(--color-text-muted)]">Reçu {receipt.number}</div>
+          <div className="mt-1 text-lg font-semibold">{formatFcfa(result.amount)}</div>
+          <div className="mt-1 text-xs text-[var(--color-text-muted)]">Reçu {result.number}</div>
           <div className="mt-2 flex justify-center gap-3 text-xs">
-            <a href={`/api/receipts/${receipt.id}/qr`} target="_blank" className="text-[var(--color-primary)] hover:underline">Voir le QR</a>
+            <a href={`/api/receipts/${result.id}/qr`} target="_blank" className="text-[var(--color-primary)] hover:underline">Voir le QR</a>
             <a href="/admin/receipts" className="text-[var(--color-primary)] hover:underline">Tous les reçus →</a>
+          </div>
+        </div>
+      )}
+
+      {result?.kind === "pending" && (
+        <div className="rounded-lg border border-[var(--color-warning)]/30 bg-amber-50 p-4 text-center">
+          <div className="text-sm font-semibold text-[var(--color-warning)]">Transaction Mobile Money initiee</div>
+          <div className="mt-1 text-lg font-semibold">{formatFcfa(result.amount)}</div>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            En attente de confirmation — aucun reçu tant que la reception n&apos;est pas confirmee.
+          </p>
+          <div className="mt-2 text-xs">
+            <a href="/admin/mobile-money" className="text-[var(--color-primary)] hover:underline">Suivre la transaction →</a>
           </div>
         </div>
       )}
@@ -166,6 +205,22 @@ export function CollecteClient() {
                       <option value="MOBILE_MONEY">Mobile money</option>
                       <option value="VIREMENT">Virement</option>
                     </select>
+                    {paymentMethod === "MOBILE_MONEY" && (
+                      <>
+                        <input
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder="Numero de telephone"
+                          className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          value={externalReference}
+                          onChange={(e) => setExternalReference(e.target.value)}
+                          placeholder="Reference de transaction (SMS operateur)"
+                          className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm"
+                        />
+                      </>
+                    )}
                     {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
                     <div className="flex gap-2">
                       <button

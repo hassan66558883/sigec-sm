@@ -23,6 +23,8 @@ export function PaymentForm({
   const [payerId, setPayerId] = useState(citizens[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [externalReference, setExternalReference] = useState("");
   const [taxTypeId, setTaxTypeId] = useState("");
   const [businessId, setBusinessId] = useState("");
   const [scope, setScope] = useState<"LOCAL" | "CENTRAL">("LOCAL");
@@ -33,6 +35,10 @@ export function PaymentForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (paymentMethod === "MOBILE_MONEY" && (!phoneNumber.trim() || !externalReference.trim())) {
+      setError("Numero de telephone et reference de transaction requis pour le Mobile Money.");
+      return;
+    }
     setLoading(true);
     const res = await fetch("/api/payments", {
       method: "POST",
@@ -41,6 +47,8 @@ export function PaymentForm({
         payerId,
         amount: Number(amount),
         paymentMethod,
+        phoneNumber: paymentMethod === "MOBILE_MONEY" ? phoneNumber.trim() : undefined,
+        externalReference: paymentMethod === "MOBILE_MONEY" ? externalReference.trim() : undefined,
         taxTypeId: taxTypeId || null,
         businessId: businessId || null,
         arrondissementId: scope === "CENTRAL" ? null : arrondissementId,
@@ -53,6 +61,8 @@ export function PaymentForm({
       return;
     }
     setAmount("");
+    setPhoneNumber("");
+    setExternalReference("");
     setOpen(false);
     router.refresh();
   }
@@ -89,6 +99,18 @@ export function PaymentForm({
             <option value="AUTRE">Autre</option>
           </select>
         </div>
+        {paymentMethod === "MOBILE_MONEY" && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Numero de telephone</label>
+              <input required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Reference de transaction</label>
+              <input required value={externalReference} onChange={(e) => setExternalReference(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+            </div>
+          </>
+        )}
         <div>
           <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Type de taxe</label>
           <select value={taxTypeId} onChange={(e) => setTaxTypeId(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">

@@ -45,7 +45,11 @@ const NAV_SECTIONS: { title: string | null; items: { href: string; label: string
       { href: "/admin/collectors", label: "Agents collecteurs", module: "collectors" },
       { href: "/admin/collecte", label: "Collecte (terrain)", module: "payments" },
       { href: "/admin/payments", label: "Paiements", module: "payments" },
+      { href: "/admin/mobile-money", label: "Mobile Money", module: "mobile_money" },
       { href: "/admin/receipts", label: "Recus", module: "receipts" },
+      { href: "/admin/caisses", label: "Caisses", module: "caisses" },
+      { href: "/admin/versements", label: "Versements", module: "versements" },
+      { href: "/admin/fraud", label: "Controle anti-fraude", module: "fraud" },
     ],
   },
   {

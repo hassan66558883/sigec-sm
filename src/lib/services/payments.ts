@@ -6,6 +6,8 @@ import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { applyPaymentToObligation } from "@/lib/services/obligations";
 import { generateReceiptForPayment } from "@/lib/services/receipts";
+import { initiateMobileMoneyPayment } from "@/lib/services/mobile-money";
+import { detectExcessiveCancellations, detectOutOfZone, detectSuspiciousVolume, detectOffHours } from "@/lib/services/fraud";
 
 export async function listTaxTypes() {
   return prisma.taxType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
@@ -29,23 +31,19 @@ export type RecordPaymentInput = {
   marketStallId?: string | null;
   obligationId?: string | null;
   agentId?: string | null;
+  caisseId?: string | null;
   gpsLat?: number | null;
   gpsLng?: number | null;
   arrondissementId?: string | null; // null = recette Mairie Centrale (reserve aux comptes CENTRAL)
+  // Requis uniquement si paymentMethod === "MOBILE_MONEY" (section 17).
+  phoneNumber?: string;
+  externalReference?: string;
 };
 
-// Enregistre une recette et, dans la MEME transaction : impute le montant
-// sur l'obligation liee si fournie (jamais de solde incoherent entre les
-// deux tables) et genere le reçu officiel (regle absolue : un paiement
-// valide sans reçu ne doit jamais exister). Si `obligationId` est fourni,
-// l'emplacement/l'arrondissement de l'obligation font foi (l'appelant ne
-// peut pas les detourner via le payload).
-export async function recordPayment(actor: CurrentUser, input: RecordPaymentInput) {
-  if (!can(actor, "payments", "create")) throw new ApiError(403, "Permission insuffisante.");
-  if (!input.payerId) throw new ApiError(400, "Payeur requis.");
-  if (!input.amount || input.amount <= 0) throw new ApiError(400, "Montant invalide.");
-  if (!input.paymentMethod?.trim()) throw new ApiError(400, "Mode de paiement requis.");
-
+// Resout et valide le perimetre/l'emplacement communs a tous les modes de
+// paiement (obligation, arrondissement, agent, caisse) — partage entre le
+// flux immediat (especes/virement) et le flux Mobile Money (differe).
+async function resolvePaymentContext(actor: CurrentUser, input: RecordPaymentInput) {
   let arrondissementId = input.arrondissementId || null;
   let businessId = input.businessId || null;
   let marketStallId = input.marketStallId || null;
@@ -72,10 +70,45 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
     }
   }
 
-  if (input.agentId) {
-    const agent = await prisma.agentCollecteur.findUnique({ where: { id: input.agentId } });
+  let agentId = input.agentId || null;
+  let caisseId = input.caisseId || null;
+  if (agentId) {
+    const agent = await prisma.agentCollecteur.findUnique({ where: { id: agentId } });
     if (!agent || agent.status !== "ACTIF") throw new ApiError(400, "Agent collecteur invalide ou inactif.");
     if (!canAccessArrondissement(actor, agent.arrondissementId)) throw new ApiError(403, "Agent hors de votre perimetre.");
+    // Rattache automatiquement a la caisse actuellement ouverte de l'agent
+    // si aucune n'est precisee explicitement (section 20 : les collectes
+    // d'une session de caisse doivent y etre rattachees pour le rapprochement).
+    if (!caisseId) {
+      const openCaisse = await prisma.cashRegister.findFirst({ where: { agentId, status: "OUVERTE" } });
+      caisseId = openCaisse?.id ?? null;
+    }
+  }
+
+  return { arrondissementId, businessId, marketStallId, agentId, caisseId };
+}
+
+// Enregistre une recette et, dans la MEME transaction : impute le montant
+// sur l'obligation liee si fournie (jamais de solde incoherent entre les
+// deux tables) et genere le reçu officiel (regle absolue : un paiement
+// valide sans reçu ne doit jamais exister). Si `obligationId` est fourni,
+// l'emplacement/l'arrondissement de l'obligation font foi (l'appelant ne
+// peut pas les detourner via le payload).
+//
+// Cas particulier MOBILE_MONEY (section 17) : delegue entierement a
+// initiateMobileMoneyPayment() — le paiement reste PENDING, sans reçu, tant
+// que confirmMobileMoneyPayment() n'a pas ete appele (jamais de succes
+// simule). Voir services/mobile-money.ts.
+export async function recordPayment(actor: CurrentUser, input: RecordPaymentInput) {
+  if (!can(actor, "payments", "create")) throw new ApiError(403, "Permission insuffisante.");
+  if (!input.payerId) throw new ApiError(400, "Payeur requis.");
+  if (!input.amount || input.amount <= 0) throw new ApiError(400, "Montant invalide.");
+  if (!input.paymentMethod?.trim()) throw new ApiError(400, "Mode de paiement requis.");
+
+  const context = await resolvePaymentContext(actor, input);
+
+  if (input.paymentMethod.trim() === "MOBILE_MONEY") {
+    return initiateMobileMoneyPayment(actor, input, context);
   }
 
   const { created, receipt } = await prisma.$transaction(async (tx) => {
@@ -86,13 +119,14 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
         amount: input.amount,
         paymentMethod: input.paymentMethod.trim(),
         taxTypeId: input.taxTypeId || null,
-        businessId,
-        marketStallId,
+        businessId: context.businessId,
+        marketStallId: context.marketStallId,
         obligationId: input.obligationId || null,
-        agentId: input.agentId || null,
+        agentId: context.agentId,
+        caisseId: context.caisseId,
         gpsLat: input.gpsLat ?? null,
         gpsLng: input.gpsLng ?? null,
-        arrondissementId,
+        arrondissementId: context.arrondissementId,
         collectedById: actor.id,
       },
       include: { taxType: true },
@@ -124,6 +158,14 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
     arrondissementId: created.arrondissementId,
     newValue: { number: receipt.number, paymentId: created.id },
   });
+
+  // Detecteurs anti-fraude (section 22) : jamais bloquants, executes une
+  // fois le paiement effectivement enregistre.
+  if (context.agentId) {
+    await detectOutOfZone(created.id, context.agentId, undefined, context.marketStallId ? (await prisma.marketStall.findUnique({ where: { id: context.marketStallId } }))?.marketId : null);
+    await detectSuspiciousVolume(context.agentId);
+    await detectOffHours(created.id, context.agentId, created.paymentDate, created.arrondissementId);
+  }
 
   return { ...created, receipt };
 }

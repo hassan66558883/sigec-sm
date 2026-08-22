@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { CollecteClient } from "./collecte-client";
@@ -12,6 +13,12 @@ export default async function CollectePage() {
   if (!user) return null;
   if (!can(user, "payments", "create")) redirect("/admin");
 
+  // Si l'agent connecte a une fiche AgentCollecteur, ses paiements y sont
+  // automatiquement rattaches (agent + caisse ouverte le cas echeant) —
+  // condition necessaire au rapprochement de caisse (section 20) et au
+  // controle de zone (section 22).
+  const agent = await prisma.agentCollecteur.findUnique({ where: { userId: user.id } });
+
   return (
     <div className="space-y-4">
       <div>
@@ -19,8 +26,14 @@ export default async function CollectePage() {
         <p className="text-sm text-[var(--color-text-muted)]">
           Recherchez un contribuable pour encaisser une obligation en attente.
         </p>
+        {!agent && (
+          <p className="mt-1 text-xs text-[var(--color-warning)]">
+            Votre compte n&apos;est pas rattache a une fiche agent collecteur : les paiements enregistres ici ne
+            seront pas imputes a une caisse.
+          </p>
+        )}
       </div>
-      <CollecteClient />
+      <CollecteClient agentId={agent?.id ?? null} />
     </div>
   );
 }

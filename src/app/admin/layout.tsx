@@ -11,6 +11,7 @@ const NAV_MODULES = [
   "applications", "land", "urbanism", "businesses", "markets", "payments",
   "associations", "complaints", "infrastructure",
   "tariffs", "obligations", "collectors", "receipts",
+  "caisses", "versements", "mobile_money", "fraud",
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
