@@ -64,36 +64,59 @@ acte réel (ex. déclaration de naissance).
   certificats, total + année en cours), et services (demandes/plaintes/dossiers d'urbanisme/parcelles
   par statut) — `/admin/analytics`, chaque section n'apparaît que si l'utilisateur a la permission de
   vue du module correspondant (pas de nouveau module "analytics" séparé, RBAC réutilisé tel quel).
-- 🟡 **Phase 8 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
+- ✅ **Phase 8 — Recettes municipales** : recensement contribuables/commerçants, marchés et
+  emplacements (un seul occupant actif à la fois), tarification **versionnée** (une révision ne
+  modifie jamais un tarif existant — une facture garde pour toujours le tarif applicable au moment
+  de son émission), obligations/facturation, encaissement (espèces, virement, Mobile Money),
+  agents collecteurs et caisses (écarts détectés automatiquement à la clôture), reçus + QR,
+  contrôle anti-fraude (annulations excessives, écart de caisse, collecte hors zone, volume
+  suspect, double paiement — chaque alerte notifie le superviseur territorial concerné).
+- ✅ **Phase 9 — Paiement en ligne (portail contribuable)** : le contribuable consulte son solde et
+  paie ses factures directement depuis `/portail` (`Mes factures`, `Mes paiements`). Architecture
+  `PaymentProvider` indépendante de tout opérateur (voir
+  [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md)) : seul un adaptateur `MANUAL` est
+  branché à ce stade — **aucun succès de paiement n'est jamais simulé**, la confirmation reste un
+  acte humain explicite tant qu'aucun vrai prestataire n'est contractualisé. Callback webhook
+  idempotent, remboursement (`payments:refund`, motif obligatoire, jamais de suppression).
+- 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (32 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (64 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
-  matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes, audit, et
-  les cas d'erreur associés. Restent : chiffrement des champs sensibles, monitoring applicatif.
+  matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
+  remboursements, audit, et les cas d'erreur associés. Restent : chiffrement étendu à d'autres
+  champs sensibles, monitoring applicatif complet, relances automatiques (J-7/J-1/J+1/J+7),
+  tarification progressive — aucun des deux derniers points n'a de règle officielle à coder.
 
-Les Phases 1 à 7 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
+Les Phases 1 à 9 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
 compilées) : création de données réelles, isolation territoriale testée par accès direct à
 l'API/URL hors périmètre (403/404 confirmés), et workflows complets (ex. naissance → validation →
-émission du certificat → vérification publique → révocation) rejoués intégralement.
+émission du certificat → vérification publique → révocation, ou paiement en ligne → confirmation →
+reçu → vérification QR) rejoués intégralement.
 
 ## Documentation complémentaire
 
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — installation Ubuntu/Linux, service systemd, Nginx + HTTPS.
 - [`docs/BACKUP.md`](docs/BACKUP.md) — sauvegarde quotidienne, copie hors site, restauration, disaster recovery.
-- [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) — prise en main par rôle (agents, citoyens).
+- [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) — prise en main par rôle (agents, contribuables, citoyens).
+- [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md) — brancher un vrai opérateur de paiement (Mobile Money, carte...).
 - [`scripts/backup.sh`](scripts/backup.sh) / [`scripts/restore.sh`](scripts/restore.sh) — scripts exécutables.
 
 ### Notes importantes
 
-- Les **10 arrondissements** sont seedés avec des noms **placeholder** ("Arrondissement 1"...10) —
-  à renommer via `/admin/arrondissements` une fois les dénominations officielles confirmées par la
-  mairie (règle 39 : aucune donnée juridique/officielle n'est inventée).
-- Les **régimes matrimoniaux** et **types de taxes** (montants) seedés sont explicitement marqués
-  "(à valider)" pour la même raison.
-- Aucune API de paiement réelle n'est branchée (section 25) : les paiements sont enregistrés
-  manuellement par un agent (espèces, mobile money, virement) avec émission d'une quittance ; le
-  suivi des impayés (factures émises non réglées) nécessite un futur module de facturation.
+- Les **10 arrondissements** sont seedés avec des noms **placeholder** ("1er Arrondissement"...
+  "10e Arrondissement") — à renommer via `/admin/arrondissements` une fois les dénominations
+  officielles confirmées par la mairie (règle 39 : aucune donnée juridique/officielle n'est
+  inventée). Les **quartiers** (78, seedés depuis une liste de travail fournie hors cahier des
+  charges) portent la même réserve (`Quartier.sourceReference`, affichée comme avertissement dans
+  `/admin`) tant qu'ils n'ont pas été validés par la mairie.
+- Les **régimes matrimoniaux** et **types de taxes/tarifs** (montants) seedés sont explicitement
+  marqués "(à valider)" pour la même raison — **aucun tarif réel n'a été saisi** : la grille
+  officielle de la mairie n'a pas encore été fournie.
+- Aucun opérateur de paiement réel n'est branché (section 25) : voir
+  [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md). Les paiements physiques (espèces,
+  virement, Mobile Money confirmé manuellement par un agent) fonctionnent pleinement dès
+  aujourd'hui ; seul le branchement d'un vrai prestataire pour le paiement en ligne reste à faire.
 
 ## Démarrage local
 
@@ -183,10 +206,10 @@ simulation.
   contraints par une unicité — sinon le chiffrement (IV aléatoire à chaque appel) casse la requête.
 - **Endpoint de supervision** `/api/health` (public, minimal : disponibilité appli + base) — à
   brancher sur un load balancer ou un outil de monitoring externe (voir `docs/DEPLOYMENT.md`).
-- **Suite de tests automatisés** (`npm test`, Vitest, 37 tests) contre une base PostgreSQL de test
+- **Suite de tests automatisés** (`npm test`, Vitest, 64 tests) contre une base PostgreSQL de test
   dédiée — voir la section [Tests automatisés](#tests-automatisés) ci-dessus.
 
-Restent à couvrir pour la Phase 8 : chiffrement étendu à d'autres champs sensibles au choix (ex.
+Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix (ex.
 `Citizen.phone`), sauvegardes automatisées *testées en conditions réelles* (voir
 [`docs/BACKUP.md`](docs/BACKUP.md) pour la procédure, à exécuter au moins une fois avant mise en
 production), et un monitoring applicatif complet (métriques, alerting — `/api/health` n'en est que

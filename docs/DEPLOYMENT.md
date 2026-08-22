@@ -60,6 +60,10 @@ NODE_ENV="production"
 les champs déjà chiffrés (ex. cause de décès) ; la sauvegarder est donc **une étape du plan de
 sauvegarde**, séparément de la base de données (jamais dans le même dépôt que le code).
 
+Si un opérateur de paiement réel est branché (voir [`docs/PAYMENT_PROVIDERS.md`](./PAYMENT_PROVIDERS.md)),
+ses identifiants d'API/secrets de webhook viennent s'ajouter au même fichier `.env` — jamais en dur
+dans le code, jamais commités.
+
 Migrations, seed initial (une seule fois) et build :
 
 ```bash
