@@ -1114,16 +1114,35 @@ model ObligationPaiement {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  citizen        Citizen        @relation(fields: [citizenId], references: [id])
-  business       Business?      @relation(fields: [businessId], references: [id])
-  marketStall    MarketStall?   @relation(fields: [marketStallId], references: [id])
-  tarif          TarifMunicipal @relation(fields: [tarifId], references: [id])
-  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id])
+  citizen        Citizen              @relation(fields: [citizenId], references: [id])
+  business       Business?            @relation(fields: [businessId], references: [id])
+  marketStall    MarketStall?         @relation(fields: [marketStallId], references: [id])
+  tarif          TarifMunicipal       @relation(fields: [tarifId], references: [id])
+  arrondissement Arrondissement       @relation(fields: [arrondissementId], references: [id])
   payments       Payment[]
+  reminders      ObligationReminder[]
 
   @@index([arrondissementId])
   @@index([status])
   @@index([citizenId])
+}
+
+// Trace d'une relance envoyee (module paiement en ligne, section 19 :
+// J-7 rappel, J-1 rappel, J+1 facture echue, J+7 relance — echeancier fixe
+// par la note officielle, jamais invente ici). La contrainte d'unicite est
+// le mecanisme d'idempotence : executer runDueReminders() plusieurs fois le
+// meme jour (ex. cron redemarre) ne renvoie jamais deux fois la meme relance.
+model ObligationReminder {
+  id           String   @id @default(cuid())
+  obligationId String
+  type         String // J-7 | J-1 | J+1 | J+7
+  sentAt       DateTime @default(now())
+  notified     Boolean  @default(false) // true si une Notification in-app a bien ete creee
+  smsSent      Boolean  @default(false) // true si sendSms() a reellement transmis (jamais suppose)
+
+  obligation ObligationPaiement @relation(fields: [obligationId], references: [id])
+
+  @@unique([obligationId, type])
 }
 
 // Fiche agent collecteur (section 12), rattachee a un compte User existant

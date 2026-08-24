@@ -52,6 +52,7 @@ Créer `/opt/sigec-sm/app/.env` (jamais commité — voir `.gitignore`) :
 DATABASE_URL="postgresql://sigec:CHANGEZ_MOI@localhost:5432/sigec_sm?schema=public"
 SESSION_SECRET="<sortie de: openssl rand -base64 48>"
 ENCRYPTION_KEY="<sortie de: openssl rand -base64 32>"   # chiffrement des champs sensibles (section 32)
+CRON_SECRET="<sortie de: openssl rand -base64 32>"      # protege /api/cron/relances, voir section 7 ci-dessous
 APP_BASE_URL="https://sigec.ndjamena.td"   # domaine reel de production
 NODE_ENV="production"
 ```
@@ -171,7 +172,24 @@ sudo systemctl restart sigec-sm
 
 Toujours exécuter une [sauvegarde](./BACKUP.md) avant une migration en production.
 
-## 7. Supervision minimale
+## 7. Echeancier de relance (cron)
+
+Le module paiement en ligne envoie des rappels automatiques (section 19 : J-7, J-1 avant échéance ;
+J+1, J+7 après échéance — l'obligation passe alors `EN_RETARD`) via `POST /api/cron/relances`, un
+endpoint protégé par `CRON_SECRET` (pas une session utilisateur — voir `.env.example`). Idempotent :
+un déclenchement en double le même jour ne renvoie jamais deux fois la même relance
+(`ObligationReminder`, contrainte d'unicité `obligationId+type`), donc une fréquence horaire est sans
+risque.
+
+```cron
+0 * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/relances >> /var/log/sigec-sm-relances.log 2>&1
+```
+
+Préférez charger `CRON_SECRET` depuis `/etc/sigec-sm/backup.env` (ou un fichier équivalent en mode
+`600`) plutôt que de le relire dans `.env` à chaque exécution, pour la même raison que le mot de
+passe de sauvegarde (section [BACKUP.md](./BACKUP.md)).
+
+## 8. Supervision minimale
 
 ```bash
 sudo journalctl -u sigec-sm -f       # logs applicatifs

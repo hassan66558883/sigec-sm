@@ -78,15 +78,17 @@ acte réel (ex. déclaration de naissance).
   branché à ce stade — **aucun succès de paiement n'est jamais simulé**, la confirmation reste un
   acte humain explicite tant qu'aucun vrai prestataire n'est contractualisé. Callback webhook
   idempotent, remboursement (`payments:refund`, motif obligatoire, jamais de suppression).
+  Échéancier de relance J-7/J-1/J+1/J+7 (section 19) via `POST /api/cron/relances`
+  (protégé par `CRON_SECRET`, idempotent — voir [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §7).
 - 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (114 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (121 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
   matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
-  remboursements, audit, et les cas d'erreur associés. Restent : chiffrement étendu à d'autres
-  champs sensibles, monitoring applicatif complet, relances automatiques (J-7/J-1/J+1/J+7),
-  tarification progressive — aucun des deux derniers points n'a de règle officielle à coder.
+  remboursements, relances, audit, et les cas d'erreur associés. Restent : chiffrement étendu à
+  d'autres champs sensibles, monitoring applicatif complet, tarification progressive — ce dernier
+  point n'a aucune règle officielle à coder tant que la note du Maire n'est pas fournie.
 
 Les Phases 1 à 9 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
 compilées) : création de données réelles, isolation territoriale testée par accès direct à
@@ -206,7 +208,7 @@ simulation.
   contraints par une unicité — sinon le chiffrement (IV aléatoire à chaque appel) casse la requête.
 - **Endpoint de supervision** `/api/health` (public, minimal : disponibilité appli + base) — à
   brancher sur un load balancer ou un outil de monitoring externe (voir `docs/DEPLOYMENT.md`).
-- **Suite de tests automatisés** (`npm test`, Vitest, 114 tests) contre une base PostgreSQL de test
+- **Suite de tests automatisés** (`npm test`, Vitest, 121 tests) contre une base PostgreSQL de test
   dédiée — voir la section [Tests automatisés](#tests-automatisés) ci-dessus.
 
 Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix (ex.

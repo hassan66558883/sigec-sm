@@ -122,6 +122,10 @@ supplémentaires dans son menu :
 Le tableau de bord du portail (`/portail`) affiche en tête le solde total à payer et le nombre de
 factures en attente/échues.
 
+Des rappels automatiques sont envoyés (notification in-app, et SMS si un fournisseur est configuré) :
+7 et 1 jour avant l'échéance, puis le lendemain de l'échéance (la facture passe alors "En retard")
+et 7 jours après si elle reste impayée. Chaque rappel n'est envoyé qu'une seule fois par facture.
+
 ## 7. Tableau de bord des recettes (Finances)
 
 `Finances municipales → Tableau de bord recettes` affiche :
