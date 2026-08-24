@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { arrondissementScopeWhere, can } from "@/lib/rbac";
@@ -25,6 +26,15 @@ function StatCard({ label, value, hint }: { label: string; value: number | strin
 
 export default async function AdminDashboardPage() {
   const user = await getCurrentUser();
+
+  // Un compte TECHNOTCHAD (aucun acces aux modules municipaux) n'a rien a
+  // faire sur le tableau de bord municipal — evite d'exposer des agregats
+  // territoriaux (arrondissements/quartiers/affectations) a un role qui ne
+  // devrait voir que l'espace commercial (regle 23).
+  if (user && !can(user, "territorial", "view") && can(user, "technotchad_clients", "view")) {
+    redirect("/admin/technotchad");
+  }
+
   const scopeWhere = arrondissementScopeWhere(user);
 
   const canViewAudit = can(user, "audit", "view");

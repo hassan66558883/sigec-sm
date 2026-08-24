@@ -15,6 +15,7 @@ import { randomBytes } from "crypto";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { generateLicenseKey } from "../src/lib/ids";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
 const adapter = new PrismaPg(pool);
@@ -62,6 +63,48 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   mobile_money: ["view", "confirm"],
   fraud: ["view", "resolve"],
 };
+
+// Permissions commerciales de l'editeur TECHNOTCHAD (gestion des abonnements
+// et licences) — deliberement dans un objet SEPARE de MODULES_ACTIONS et
+// prefixees "technotchad_" : ce prefixe est ce qui permet de les EXCLURE de
+// l'expansion du role municipal SUPER_ADMIN (voir TECHNOTCHAD_PERMISSION_PREFIX
+// plus bas, regle 23 du cahier des charges — un administrateur municipal ne
+// doit jamais heriter automatiquement des donnees commerciales de l'editeur).
+const TECHNOTCHAD_MODULES_ACTIONS: Record<string, string[]> = {
+  technotchad_clients: ["view", "create", "edit", "delete"],
+  technotchad_products: ["view", "create", "edit"],
+  technotchad_plans: ["view", "create", "edit"],
+  technotchad_contracts: ["view", "create", "edit"],
+  technotchad_subscriptions: ["view", "create", "edit", "suspend", "terminate"],
+  technotchad_licenses: ["view", "create", "revoke"],
+  technotchad_billing: ["view"],
+  technotchad_audit: ["view", "export"],
+  technotchad_settings: ["view", "edit"],
+};
+
+const TECHNOTCHAD_PERMISSION_PREFIX = "technotchad_";
+
+// Modules activables du produit SIGEC-SM cote TECHNOTCHAD (miroir commercial
+// des phases fonctionnelles de l'application — pas les memes codes que
+// MODULES_ACTIONS, qui sont des permissions RBAC internes a l'application).
+const SIGEC_SM_PRODUCT_MODULES = [
+  { code: "CIVIL_STATUS", name: "Etat civil" },
+  { code: "CITIZEN_REGISTRATION", name: "Enregistrement des citoyens" },
+  { code: "RESIDENCE_CERTIFICATE", name: "Certificats de residence" },
+  { code: "MARKETS", name: "Marches municipaux" },
+  { code: "SHOPS", name: "Boutiques et commerces" },
+  { code: "MUNICIPAL_TAX", name: "Taxes municipales" },
+  { code: "REVENUE", name: "Recettes municipales" },
+  { code: "COLLECTION_AGENTS", name: "Agents collecteurs" },
+  { code: "MOBILE_MONEY", name: "Mobile Money" },
+  { code: "COMPLAINTS", name: "Plaintes et doleances" },
+  { code: "STATISTICS", name: "Statistiques et tableaux de bord" },
+  { code: "LAND_MANAGEMENT", name: "Gestion fonciere" },
+  { code: "DOCUMENT_MANAGEMENT", name: "Gestion documentaire" },
+  { code: "CITIZEN_PORTAL", name: "Portail citoyen" },
+  { code: "QR_VERIFICATION", name: "Verification par QR code" },
+  { code: "REPORTING", name: "Rapports et exports" },
+];
 
 // Liste de travail des quartiers de N'Djamena, fournie par l'utilisateur —
 // marquee "a valider" (voir sourceReference applique a la creation, regle
@@ -438,6 +481,53 @@ const ROLES: {
     ],
   },
   { code: "CITIZEN", name: "Citoyen", description: "Compte du portail citoyen (phase 3) — aucun acces a l'espace administratif.", permissions: [] },
+  // Roles TECHNOTCHAD (editeur) — jamais de permissions municipales SIGEC-SM,
+  // jamais de scoping territorial. Isolation stricte vis-a-vis des roles
+  // municipaux ci-dessus (regle 23).
+  {
+    code: "TECHNOTCHAD_SUPER_ADMIN",
+    name: "TECHNOTCHAD — Super Administrateur",
+    description: "Acces complet a la gestion des abonnements et licences TECHNOTCHAD (tous clients/produits).",
+    permissions: Object.entries(TECHNOTCHAD_MODULES_ACTIONS).flatMap(([module, actions]) =>
+      actions.map((action) => `${module}:${action}`)
+    ),
+  },
+  {
+    code: "TECHNOTCHAD_ADMIN",
+    name: "TECHNOTCHAD — Administrateur",
+    description: "Gestion operationnelle des clients, produits, plans, contrats, abonnements et licences.",
+    permissions: [
+      "technotchad_clients:view", "technotchad_clients:create", "technotchad_clients:edit",
+      "technotchad_products:view", "technotchad_products:create", "technotchad_products:edit",
+      "technotchad_plans:view", "technotchad_plans:create", "technotchad_plans:edit",
+      "technotchad_contracts:view", "technotchad_contracts:create", "technotchad_contracts:edit",
+      "technotchad_subscriptions:view", "technotchad_subscriptions:create", "technotchad_subscriptions:edit", "technotchad_subscriptions:suspend",
+      "technotchad_licenses:view", "technotchad_licenses:create", "technotchad_licenses:revoke",
+      "technotchad_billing:view",
+      "technotchad_audit:view",
+    ],
+  },
+  {
+    code: "TECHNOTCHAD_FINANCE",
+    name: "TECHNOTCHAD — Finance",
+    description: "Suivi commercial et facturation (lecture des clients/contrats/abonnements, facturation).",
+    permissions: [
+      "technotchad_clients:view",
+      "technotchad_contracts:view",
+      "technotchad_subscriptions:view",
+      "technotchad_billing:view",
+    ],
+  },
+  {
+    code: "TECHNOTCHAD_SUPPORT",
+    name: "TECHNOTCHAD — Support",
+    description: "Consultation des clients, abonnements et licences pour le support technique.",
+    permissions: [
+      "technotchad_clients:view",
+      "technotchad_subscriptions:view",
+      "technotchad_licenses:view",
+    ],
+  },
 ];
 
 async function main() {
@@ -521,7 +611,20 @@ async function main() {
       permissionIdByCode.set(code, perm.id);
     }
   }
-  console.log(`  ✓ ${permissionIdByCode.size} permissions`);
+  console.log(`  ✓ ${permissionIdByCode.size} permissions (municipales)`);
+
+  for (const [module, actions] of Object.entries(TECHNOTCHAD_MODULES_ACTIONS)) {
+    for (const action of actions) {
+      const code = `${module}:${action}`;
+      const perm = await prisma.permission.upsert({
+        where: { code },
+        update: {},
+        create: { module, action, code },
+      });
+      permissionIdByCode.set(code, perm.id);
+    }
+  }
+  console.log(`  ✓ ${Object.values(TECHNOTCHAD_MODULES_ACTIONS).flat().length} permissions (TECHNOTCHAD)`);
 
   for (const roleDef of ROLES) {
     const role = await prisma.role.upsert({
@@ -530,9 +633,16 @@ async function main() {
       create: { code: roleDef.code, name: roleDef.name, description: roleDef.description, isSystem: true },
     });
 
+    // "ALL" n'est utilise que par le SUPER_ADMIN municipal : il doit s'etendre
+    // a tous les modules SIGEC-SM mais JAMAIS aux permissions technotchad_*
+    // (donnees commerciales de l'editeur, regle 23 — separation stricte
+    // municipal/commercial). Sans cette exclusion, ajouter des permissions
+    // technotchad_* les accorderait automatiquement au super-admin municipal.
     const permissionIds =
       roleDef.permissions[0] === "ALL"
-        ? Array.from(permissionIdByCode.values())
+        ? Array.from(permissionIdByCode.entries())
+            .filter(([code]) => !code.startsWith(TECHNOTCHAD_PERMISSION_PREFIX))
+            .map(([, id]) => id)
         : roleDef.permissions.map((c) => permissionIdByCode.get(c)).filter((v): v is string => Boolean(v));
 
     await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
@@ -568,6 +678,139 @@ async function main() {
     console.log("    ⚠ A changer immediatement apres la premiere connexion.");
   } else {
     console.log("  · Compte SUPER_ADMIN deja present, inchange.");
+  }
+
+  // -- TECHNOTCHAD : produit SIGEC-SM + client reel Ville de N'Djamena -----
+  // Donnee commerciale reelle (le seul client actuel), pas un jeu de test —
+  // codes fixes (pas d'entropie aleatoire) pour rester idempotent au reseed,
+  // comme les autres referentiels de ce fichier.
+  const product = await prisma.technoProduct.upsert({
+    where: { productCode: "SIGEC-SM" },
+    update: {},
+    create: {
+      productCode: "SIGEC-SM",
+      name: "SIGEC-SM",
+      description: "Systeme Integre de Gestion de l'Etat Civil et des Services Municipaux.",
+      version: "1.0",
+      productType: "ERP_MUNICIPAL",
+      status: "ACTIVE",
+    },
+  });
+
+  const productModuleById = new Map<string, string>();
+  for (const m of SIGEC_SM_PRODUCT_MODULES) {
+    const pm = await prisma.technoProductModule.upsert({
+      where: { productId_moduleCode: { productId: product.id, moduleCode: m.code } },
+      update: { name: m.name },
+      create: { productId: product.id, moduleCode: m.code, name: m.name },
+    });
+    productModuleById.set(m.code, pm.id);
+  }
+  console.log(`  ✓ Produit TECHNOTCHAD "SIGEC-SM" et ${SIGEC_SM_PRODUCT_MODULES.length} modules`);
+
+  let client = await prisma.technoClient.findFirst({ where: { clientCode: "TECH-CLI-000001" } });
+  if (!client) {
+    client = await prisma.technoClient.create({
+      data: {
+        clientCode: "TECH-CLI-000001",
+        legalName: "Ville de N'Djamena",
+        commercialName: "Mairie Centrale de N'Djamena",
+        clientType: "MAIRIE",
+        country: "Tchad",
+        city: "N'Djamena",
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  const plan = await prisma.technoSubscriptionPlan.upsert({
+    where: { productId_planCode: { productId: product.id, planCode: "SIGEC-SM-GOUVERNEMENTAL" } },
+    update: {},
+    create: {
+      productId: product.id,
+      planCode: "SIGEC-SM-GOUVERNEMENTAL",
+      name: "SIGEC-SM — Plan Gouvernemental",
+      billingPeriod: "ANNUAL",
+      price: 0, // Placeholder — a valider avec la Mairie / la direction TECHNOTCHAD (facturation hors perimetre de cette phase).
+      currency: "XAF",
+      maxSites: 11,
+      gracePeriodDays: 30,
+      autoRenew: true,
+      status: "ACTIVE",
+    },
+  });
+
+  let contract = await prisma.technoContract.findFirst({ where: { contractNumber: "CTR-2026-00000001" } });
+  if (!contract) {
+    contract = await prisma.technoContract.create({
+      data: {
+        contractNumber: "CTR-2026-00000001",
+        clientId: client.id,
+        productId: product.id,
+        contractTitle: "Contrat de licence SIGEC-SM — Ville de N'Djamena",
+        startDate: new Date(),
+        renewalType: "MANUAL",
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  let subscription = await prisma.technoSubscription.findFirst({ where: { subscriptionNumber: "SUB-2026-00000001" } });
+  if (!subscription) {
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setFullYear(endDate.getFullYear() + 1);
+    subscription = await prisma.technoSubscription.create({
+      data: {
+        subscriptionNumber: "SUB-2026-00000001",
+        clientId: client.id,
+        productId: product.id,
+        planId: plan.id,
+        contractId: contract.id,
+        startDate,
+        endDate,
+        amount: plan.price,
+        currency: plan.currency,
+        status: "ACTIVE",
+        autoRenew: true,
+      },
+    });
+
+    await prisma.technoSubscriptionModule.createMany({
+      data: Array.from(productModuleById.values()).map((moduleId) => ({
+        subscriptionId: subscription!.id,
+        moduleId,
+        enabled: true,
+      })),
+    });
+
+    const sites = ["Mairie Centrale", ...Array.from({ length: 10 }, (_, i) => `${i + 1}${i === 0 ? "er" : "e"} Arrondissement`)];
+    await prisma.technoSubscriptionSite.createMany({
+      data: sites.map((siteName, i) => ({
+        subscriptionId: subscription!.id,
+        clientId: client!.id,
+        siteName,
+        siteCode: i === 0 ? "SITE-MC" : `SITE-A${String(i).padStart(2, "0")}`,
+      })),
+    });
+
+    await prisma.technoLicense.create({
+      data: {
+        licenseKey: generateLicenseKey("SIGEC-SM"),
+        subscriptionId: subscription.id,
+        clientId: client.id,
+        productId: product.id,
+        licenseType: "GOVERNMENT",
+        activatedAt: startDate,
+        expiresAt: endDate,
+        maxSites: 11,
+        status: "ACTIVE",
+      },
+    });
+
+    console.log("  ✓ Abonnement TECHNOTCHAD, licence, modules et sites crees pour Ville de N'Djamena");
+  } else {
+    console.log("  · Abonnement TECHNOTCHAD deja present pour Ville de N'Djamena, inchange.");
   }
 
   console.log("Termine.");

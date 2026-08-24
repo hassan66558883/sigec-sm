@@ -46,13 +46,14 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  department         Department?          @relation(fields: [departmentId], references: [id])
-  roles              UserRole[]
-  arrondissements    UserArrondissement[]
-  quartiers          UserQuartier[]
-  auditLogs          AuditLog[]
-  agentCollecteur    AgentCollecteur?
-  staffNotifications StaffNotification[]
+  department               Department?              @relation(fields: [departmentId], references: [id])
+  roles                    UserRole[]
+  arrondissements          UserArrondissement[]
+  quartiers                UserQuartier[]
+  auditLogs                AuditLog[]
+  agentCollecteur          AgentCollecteur?
+  staffNotifications       StaffNotification[]
+  technoSubscriptionAccess TechnoSubscriptionUser[]
 
   @@index([isActive])
   @@index([organizationLevel])
@@ -1396,4 +1397,283 @@ model SystemSetting {
   description String?
   updatedAt   DateTime @updatedAt
   updatedBy   String?
+}
+
+// =============================================================================
+// TECHNOTCHAD — GESTION DES ABONNEMENTS ET LICENCES (editeur logiciel)
+// =============================================================================
+// Sous-systeme COMMERCIAL de l'editeur TECHNOTCHAD, deliberement separe des
+// donnees METIER municipales de SIGEC-SM (regle absolue de la specification :
+// TECHNOTCHAD gere la commercialisation/licence, jamais les donnees
+// personnelles des citoyens). Acces controle exclusivement par des
+// permissions dediees "technotchad_*" — jamais incluses dans le "ALL" du
+// role municipal SUPER_ADMIN (voir l'exclusion explicite dans prisma/seed.ts).
+// Pas de scoping territorial (recordScopeWhere/arrondissementId) sur ces
+// tables : ce n'est pas une donnee d'arrondissement, c'est une donnee
+// "client logiciel" au sens commercial — l'isolation ici est par permission
+// de role technotchad_*, pas par perimetre geographique.
+//
+// PORTEE DE CETTE PREMIERE PHASE (sur ~40 tables/fonctions demandees par la
+// specification complete) : le modele de donnees central (client, produit,
+// plan, contrat, abonnement, licence, modules, sites, utilisateurs autorises)
+// + le RBAC dedie + un seed reel pour le seul client existant (Ville de
+// N'Djamena / SIGEC-SM). Explicitement PAS construits dans cette phase :
+// facturation/paiements/recus TECHNOTCHAD, moteur d'automatisation des
+// suspensions/relances, API de validation de licence + mode hors-ligne,
+// notifications, verification publique par QR, rapports/exports, application
+// de la limite max_users dans le flux de creation d'utilisateur existant —
+// a livrer en phases suivantes une fois ce socle valide.
+
+// TECH-CLI-000001 — Codes clients TECHNOTCHAD, jamais reutilises.
+model TechnoClient {
+  id             String   @id @default(cuid())
+  clientCode     String   @unique
+  legalName      String
+  commercialName String?
+  clientType     String // MAIRIE | ENTREPRISE | ADMINISTRATION | ONG | ASSOCIATION | PARTICULIER | AUTRE
+  country        String   @default("Tchad")
+  city           String?
+  address        String?
+  phone          String?
+  email          String?
+  contactPerson  String?
+  taxNumber      String?
+  status         String   @default("ACTIVE") // ACTIVE | INACTIVE | SUSPENDED | TERMINATED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contracts     TechnoContract[]
+  subscriptions TechnoSubscription[]
+  sites         TechnoSubscriptionSite[]
+  licenses      TechnoLicense[]
+
+  @@index([status])
+}
+
+// Un produit TECHNOTCHAD (SIGEC-SM aujourd'hui, d'autres ERP demain — le
+// meme moteur d'abonnement/licence doit servir tous les produits futurs).
+model TechnoProduct {
+  id          String   @id @default(cuid())
+  productCode String   @unique
+  name        String
+  description String?
+  version     String?
+  productType String?
+  status      String   @default("ACTIVE") // ACTIVE | INACTIVE | DEVELOPMENT | DISCONTINUED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules       TechnoProductModule[]
+  plans         TechnoSubscriptionPlan[]
+  subscriptions TechnoSubscription[]
+  contracts     TechnoContract[]
+  licenses      TechnoLicense[]
+
+  @@index([status])
+}
+
+// Referentiel des modules activables d'un produit (ex. CIVIL_STATUS,
+// MARKETS... pour SIGEC-SM) — configurable, jamais code en dur dans
+// l'application (meme regle que le referentiel d'activites economiques).
+model TechnoProductModule {
+  id          String  @id @default(cuid())
+  productId   String
+  moduleCode  String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  product             TechnoProduct              @relation(fields: [productId], references: [id])
+  subscriptionModules TechnoSubscriptionModule[]
+
+  @@unique([productId, moduleCode])
+}
+
+model TechnoSubscriptionPlan {
+  id              String   @id @default(cuid())
+  productId       String
+  planCode        String
+  name            String
+  description     String?
+  billingPeriod   String // MONTHLY | QUARTERLY | SEMIANNUAL | ANNUAL | CUSTOM
+  price           Float
+  currency        String   @default("XAF")
+  maxUsers        Int?
+  maxSites        Int?
+  maxModules      Int?
+  setupFee        Float?   @default(0)
+  gracePeriodDays Int      @default(0)
+  autoRenew       Boolean  @default(false)
+  status          String   @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product       TechnoProduct        @relation(fields: [productId], references: [id])
+  subscriptions TechnoSubscription[]
+
+  @@unique([productId, planCode])
+}
+
+// CTR-2026-000001
+model TechnoContract {
+  id             String    @id @default(cuid())
+  contractNumber String    @unique
+  clientId       String
+  productId      String
+  contractTitle  String
+  startDate      DateTime
+  endDate        DateTime?
+  contractAmount Float?
+  currency       String    @default("XAF")
+  paymentTerms   String?
+  renewalType    String? // AUTO | MANUAL | NONE
+  status         String    @default("ACTIVE") // DRAFT | ACTIVE | EXPIRED | TERMINATED
+  documentUrl    String?
+  signedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  client        TechnoClient         @relation(fields: [clientId], references: [id])
+  product       TechnoProduct        @relation(fields: [productId], references: [id])
+  subscriptions TechnoSubscription[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+// SUB-2026-000001. status: DRAFT | PENDING | ACTIVE | PAYMENT_DUE | OVERDUE |
+// GRACE_PERIOD | SUSPENDED | EXPIRED | CANCELLED | TERMINATED.
+model TechnoSubscription {
+  id                 String    @id @default(cuid())
+  subscriptionNumber String    @unique
+  clientId           String
+  productId          String
+  planId             String
+  contractId         String?
+  startDate          DateTime
+  endDate            DateTime
+  nextBillingDate    DateTime?
+  amount             Float
+  currency           String    @default("XAF")
+  status             String    @default("DRAFT")
+  autoRenew          Boolean   @default(false)
+  gracePeriodEnd     DateTime?
+  suspendedAt        DateTime?
+  terminatedAt       DateTime?
+  terminationReason  String?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  client   TechnoClient           @relation(fields: [clientId], references: [id])
+  product  TechnoProduct          @relation(fields: [productId], references: [id])
+  plan     TechnoSubscriptionPlan @relation(fields: [planId], references: [id])
+  contract TechnoContract?        @relation(fields: [contractId], references: [id])
+
+  licenses TechnoLicense[]
+  modules  TechnoSubscriptionModule[]
+  users    TechnoSubscriptionUser[]
+  sites    TechnoSubscriptionSite[]
+  renewals TechnoSubscriptionRenewal[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model TechnoSubscriptionModule {
+  subscriptionId String
+  moduleId       String
+  enabled        Boolean   @default(true)
+  activationDate DateTime  @default(now())
+  expirationDate DateTime?
+
+  subscription TechnoSubscription  @relation(fields: [subscriptionId], references: [id])
+  module       TechnoProductModule @relation(fields: [moduleId], references: [id])
+
+  @@id([subscriptionId, moduleId])
+}
+
+// Utilisateurs SIGEC-SM (User) couverts par un abonnement — sert de base au
+// controle "utilisateurs actifs <= max_users" (section 31), applique dans une
+// phase suivante une fois cette table peuplee via l'interface TECHNOTCHAD.
+model TechnoSubscriptionUser {
+  id             String    @id @default(cuid())
+  subscriptionId String
+  userId         String
+  assignedAt     DateTime  @default(now())
+  revokedAt      DateTime?
+  status         String    @default("ACTIVE") // ACTIVE | REVOKED
+
+  subscription TechnoSubscription @relation(fields: [subscriptionId], references: [id])
+  user         User               @relation(fields: [userId], references: [id])
+
+  @@unique([subscriptionId, userId])
+}
+
+// Sites couverts par l'abonnement (pour SIGEC-SM : Mairie Centrale + les
+// arrondissements). Champ libre (siteName) plutot qu'une FK vers
+// Arrondissement : un futur produit TECHNOTCHAD n'aura pas d'arrondissements.
+model TechnoSubscriptionSite {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  clientId       String
+  siteName       String
+  siteCode       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  subscription TechnoSubscription @relation(fields: [subscriptionId], references: [id])
+  client       TechnoClient       @relation(fields: [clientId], references: [id])
+
+  @@index([subscriptionId])
+}
+
+// Cle de licence generee par entropie aleatoire (voir generateLicenseKey()
+// dans lib/ids.ts), jamais reutilisee. status: GENERATED | ACTIVE |
+// SUSPENDED | EXPIRED | REVOKED. licenseType: TRIAL | STANDARD |
+// PROFESSIONAL | ENTERPRISE | GOVERNMENT | CUSTOM.
+model TechnoLicense {
+  id               String    @id @default(cuid())
+  licenseKey       String    @unique
+  subscriptionId   String    @unique
+  clientId         String
+  productId        String
+  licenseType      String
+  issuedAt         DateTime  @default(now())
+  activatedAt      DateTime?
+  expiresAt        DateTime
+  maxUsers         Int?
+  maxSites         Int?
+  status           String    @default("GENERATED")
+  activationToken  String?   @unique
+  lastValidationAt DateTime?
+  suspendedAt      DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  subscription TechnoSubscription @relation(fields: [subscriptionId], references: [id])
+  client       TechnoClient       @relation(fields: [clientId], references: [id])
+  product      TechnoProduct      @relation(fields: [productId], references: [id])
+
+  @@index([clientId])
+  @@index([status])
+}
+
+// Historique des renouvellements (section 16) : jamais ecrase, une ligne par
+// renouvellement reel.
+model TechnoSubscriptionRenewal {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  oldEndDate     DateTime
+  newStartDate   DateTime
+  newEndDate     DateTime
+  amount         Float?
+  renewedById    String?
+  renewedAt      DateTime @default(now())
+
+  subscription TechnoSubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
 }

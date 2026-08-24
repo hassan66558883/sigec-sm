@@ -13,6 +13,11 @@ const NAV_MODULES = [
   "associations", "complaints", "infrastructure",
   "tariffs", "obligations", "collectors", "receipts",
   "caisses", "versements", "mobile_money", "fraud",
+  // TECHNOTCHAD (editeur) — visible uniquement pour les roles technotchad_*,
+  // jamais pour les roles municipaux (voir l'exclusion "ALL" dans
+  // prisma/seed.ts, regle 23 : separation stricte commercial/municipal).
+  "technotchad_clients", "technotchad_products", "technotchad_plans",
+  "technotchad_subscriptions", "technotchad_licenses",
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

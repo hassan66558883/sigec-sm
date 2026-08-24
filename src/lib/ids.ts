@@ -49,3 +49,11 @@ export function generateObligationNumber() {
 export function generateAgentMatricule() {
   return generateRecordNumber("AGT");
 }
+
+// Cle de licence TECHNOTCHAD, ex: SIGEC-SM-9F3A-21B4-7C08-EE31. Entropie
+// aleatoire (jamais reutilisee), regroupee en blocs de 4 pour la lisibilite
+// lors d'une saisie manuelle d'activation.
+export function generateLicenseKey(productCode: string) {
+  const blocks = Array.from({ length: 4 }, () => randomBytes(2).toString("hex").toUpperCase());
+  return `${productCode}-${blocks.join("-")}`;
+}

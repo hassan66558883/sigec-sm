@@ -71,6 +71,15 @@ const NAV_SECTIONS: { title: string | null; items: { href: string; label: string
       { href: "/admin/audit", label: "Journal d'audit", module: "audit" },
     ],
   },
+  {
+    title: "TECHNOTCHAD",
+    items: [
+      { href: "/admin/technotchad", label: "Tableau de bord", exact: true, module: "technotchad_clients" },
+      { href: "/admin/technotchad/clients", label: "Clients", module: "technotchad_clients" },
+      { href: "/admin/technotchad/subscriptions", label: "Abonnements", module: "technotchad_subscriptions" },
+      { href: "/admin/technotchad/licenses", label: "Licences", module: "technotchad_licenses" },
+    ],
+  },
 ];
 
 export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) {

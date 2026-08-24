@@ -82,13 +82,20 @@ acte réel (ex. déclaration de naissance).
   (protégé par `CRON_SECRET`, idempotent — voir [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §7).
 - 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (124 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (130 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
   matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
   remboursements, relances, audit, et les cas d'erreur associés. Restent : chiffrement étendu à
   d'autres champs sensibles, monitoring applicatif complet, tarification progressive — ce dernier
   point n'a aucune règle officielle à coder tant que la note du Maire n'est pas fournie.
+- 🟡 **Phase 11 — TECHNOTCHAD (éditeur)** (partielle, voir
+  [`docs/TECHNOTCHAD.md`](docs/TECHNOTCHAD.md)) : socle de gestion des abonnements et licences de
+  l'éditeur TECHNOTCHAD, séparé et isolé des données métier municipales (RBAC dédié `technotchad_*`,
+  jamais accordé au `SUPER_ADMIN` municipal — vérifié par test contre la base réelle). Client réel
+  (Ville de N'Djamena), produit SIGEC-SM, abonnement + licence générée automatiquement,
+  `/admin/technotchad`. Facturation, automatisation des suspensions/renouvellements, API de
+  validation de licence, notifications, vérification QR publique et rapports restent à livrer.
 
 Les Phases 1 à 9 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
 compilées) : création de données réelles, isolation territoriale testée par accès direct à
@@ -102,6 +109,7 @@ reçu → vérification QR) rejoués intégralement.
 - [`docs/BACKUP.md`](docs/BACKUP.md) — sauvegarde quotidienne, copie hors site, restauration, disaster recovery.
 - [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) — prise en main par rôle (agents, contribuables, citoyens).
 - [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md) — brancher un vrai opérateur de paiement (Mobile Money, carte...).
+- [`docs/TECHNOTCHAD.md`](docs/TECHNOTCHAD.md) — gestion des abonnements et licences de l'éditeur TECHNOTCHAD, isolation vis-à-vis des données municipales.
 - [`scripts/backup.sh`](scripts/backup.sh) / [`scripts/restore.sh`](scripts/restore.sh) — scripts exécutables.
 
 ### Notes importantes
