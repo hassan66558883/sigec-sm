@@ -197,14 +197,25 @@ sudo systemctl status sigec-sm       # etat du service
 curl -f https://sigec.ndjamena.td/api/health   # verification rapide appli + base
 ```
 
-L'application expose `/api/health` (public, minimal — statut + disponibilité de la base, aucun
-détail d'infrastructure) : à brancher sur le health-check de votre load balancer/reverse proxy, ou
-sur un moniteur externe (UptimeRobot, cron + curl + alerte email...). Exemple de vérification cron
-simple :
+L'application expose `/api/health` (public, minimal — aucun détail d'infrastructure : pas de
+version, pas de nom d'hôte, pas de trace d'erreur) : à brancher sur le health-check de votre load
+balancer/reverse proxy, ou sur un moniteur externe (UptimeRobot, cron + curl + alerte email...).
+Réponse :
+
+```json
+{ "status": "ok", "database": { "up": true, "latencyMs": 12 }, "uptimeSeconds": 3701, "timestamp": "..." }
+```
+
+`status` vaut `"ok"`, `"degraded"` (base joignable mais latence anormale — HTTP 200, l'appli répond
+toujours, pas de failover à déclencher) ou `"error"` (base injoignable — HTTP 503). Exemple de
+vérification cron simple, alerte uniquement sur une vraie panne :
 
 ```cron
 */5 * * * * curl -sf https://sigec.ndjamena.td/api/health > /dev/null || echo "SIGEC-SM down" | mail -s "Alerte SIGEC-SM" admin@ndjamena.td
 ```
+
+Pour surveiller aussi l'état `"degraded"` (latence base qui se dégrade avant la panne complète),
+inspectez le champ `status` de la réponse JSON plutôt que le seul code HTTP.
 
 Un monitoring plus complet (Prometheus/Grafana, alerting structuré) est hors du périmètre de ce
 guide mais recommandé avant une mise en production à grande échelle.
