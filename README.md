@@ -82,7 +82,7 @@ acte réel (ex. déclaration de naissance).
   (protégé par `CRON_SECRET`, idempotent — voir [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §7).
 - 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (121 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (124 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
   matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
@@ -202,17 +202,19 @@ simulation.
   (un formulaire HTML cross-site classique ne peut ni fixer ce header ni faire suivre le cookie sur
   une requête POST cross-origin) — pas de jeton CSRF distinct à ce stade
 - **Chiffrement applicatif des champs sensibles** (`src/lib/encryption.ts`, AES-256-GCM) — appliqué
-  à `DeathRecord.cause` (donnée médicale, jamais recherchée/filtrée). Vérifié par requête SQL brute
-  directe : la valeur stockée n'est jamais le texte en clair. Convention documentée dans le fichier
-  pour étendre à d'autres champs *à condition* qu'ils ne soient ni recherchés (`contains`) ni
-  contraints par une unicité — sinon le chiffrement (IV aléatoire à chaque appel) casse la requête.
+  à `DeathRecord.cause` (donnée médicale) et `Citizen.phone` (donnée personnelle), tous deux jamais
+  recherchés/filtrés. Vérifié par requête SQL brute directe : la valeur stockée n'est jamais le
+  texte en clair. Rétrocompatible avec les numéros déjà en base avant le chiffrement (`decryptField`
+  renvoie la valeur telle quelle si elle n'est pas au format chiffré, plutôt que de planter).
+  Convention documentée dans le fichier pour étendre à d'autres champs *à condition* qu'ils ne
+  soient ni recherchés (`contains`) ni contraints par une unicité — sinon le chiffrement (IV
+  aléatoire à chaque appel) casse la requête.
 - **Endpoint de supervision** `/api/health` (public, minimal : disponibilité appli + base) — à
   brancher sur un load balancer ou un outil de monitoring externe (voir `docs/DEPLOYMENT.md`).
-- **Suite de tests automatisés** (`npm test`, Vitest, 121 tests) contre une base PostgreSQL de test
+- **Suite de tests automatisés** (`npm test`, Vitest, 124 tests) contre une base PostgreSQL de test
   dédiée — voir la section [Tests automatisés](#tests-automatisés) ci-dessus.
 
-Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix (ex.
-`Citizen.phone`), sauvegardes automatisées *testées en conditions réelles* (voir
-[`docs/BACKUP.md`](docs/BACKUP.md) pour la procédure, à exécuter au moins une fois avant mise en
-production), et un monitoring applicatif complet (métriques, alerting — `/api/health` n'en est que
-la brique de base).
+Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix,
+sauvegardes automatisées *testées en conditions réelles* (voir [`docs/BACKUP.md`](docs/BACKUP.md)
+pour la procédure, à exécuter au moins une fois avant mise en production), et un monitoring
+applicatif complet (métriques, alerting — `/api/health` n'en est que la brique de base).

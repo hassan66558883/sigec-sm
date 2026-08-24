@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/services/sms";
+import { decryptField } from "@/lib/encryption";
 
 // Echeancier de relance (module paiement en ligne, section 19) — fixe par
 // la note officielle du Maire, jamais invente ici :
@@ -82,8 +83,9 @@ export async function runDueReminders(now: Date = new Date()) {
       }
 
       let smsSent = false;
-      if (obligation.citizen.phone) {
-        const result = await sendSms(obligation.citizen.phone, message);
+      const citizenPhone = decryptField(obligation.citizen.phone);
+      if (citizenPhone) {
+        const result = await sendSms(citizenPhone, message);
         smsSent = result.sent;
       }
 

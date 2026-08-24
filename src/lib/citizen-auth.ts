@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { decryptField } from "@/lib/encryption";
 
 // Realm d'authentification separe des comptes agents (lib/auth.ts) : un
 // citoyen n'a aucune permission RBAC, uniquement acces a ses propres
@@ -51,5 +52,8 @@ export async function getCurrentCitizenAccount() {
     include: { citizen: { include: { arrondissement: true } } },
   });
   if (!account || !account.isActive) return null;
-  return account;
+  // Choix unique de dechiffrement pour tout le portail citoyen : chaque
+  // page/service qui appelle getCurrentCitizenAccount() recoit deja un
+  // numero en clair, sans avoir a connaitre le detail du chiffrement.
+  return { ...account, citizen: { ...account.citizen, phone: decryptField(account.citizen.phone) } };
 }

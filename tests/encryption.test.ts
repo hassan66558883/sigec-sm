@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { encryptField, decryptField } from "../src/lib/encryption";
 import { declareDeath, listDeathRecords } from "../src/lib/services/deaths";
+import { createCitizen, updateCitizen, getCitizen, listCitizens } from "../src/lib/services/citizens";
 import { createTestCity, createTestArrondissement, createTestUser, createTestCitizen, closeTestDb, testPrisma } from "./helpers/fixtures";
 
 describe("chiffrement des champs sensibles (section 32)", () => {
@@ -33,10 +34,6 @@ describe("chiffrement des champs sensibles (section 32)", () => {
     beforeAll(async () => {
       const city = await createTestCity();
       arrondissementId = (await createTestArrondissement(city.id, 1)).id;
-    });
-
-    afterAll(async () => {
-      await closeTestDb();
     });
 
     it("la cause du deces est stockee chiffree en base et dechiffree a la lecture via le service", async () => {
@@ -80,6 +77,71 @@ describe("chiffrement des champs sensibles (section 32)", () => {
 
       const raw = await testPrisma.deathRecord.findUniqueOrThrow({ where: { id: record.id } });
       expect(raw.cause).toBeNull();
+    });
+  });
+
+  afterAll(async () => {
+    await closeTestDb();
+  });
+
+  describe("integration avec Citizen.phone", () => {
+    let arrondissementId: string;
+
+    beforeAll(async () => {
+      const city = await createTestCity();
+      arrondissementId = (await createTestArrondissement(city.id, 1)).id;
+    });
+
+    it("le numero de telephone est stocke chiffre en base et dechiffre a la lecture via le service", async () => {
+      const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["citizens:create", "citizens:view"] });
+      const numeroReel = "+23566789012";
+
+      const created = await createCitizen(agent, {
+        firstName: "Test",
+        lastName: "Chiffrement",
+        sex: "M",
+        phone: numeroReel,
+        arrondissementId,
+      });
+      expect(created.phone).toBe(numeroReel); // le service renvoie deja le clair
+
+      const raw = await testPrisma.citizen.findUniqueOrThrow({ where: { id: created.id } });
+      expect(raw.phone).not.toBeNull();
+      expect(raw.phone).not.toBe(numeroReel);
+      expect(raw.phone).not.toContain(numeroReel);
+
+      const fetched = await getCitizen(agent, created.id);
+      expect(fetched.phone).toBe(numeroReel);
+
+      const listed = await listCitizens(agent, created.uniqueNumber);
+      expect(listed.find((c) => c.id === created.id)?.phone).toBe(numeroReel);
+    });
+
+    it("une mise a jour partielle qui n'inclut pas le telephone ne l'efface jamais", async () => {
+      const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["citizens:create", "citizens:edit", "citizens:view"] });
+      const numeroReel = "+23566000111";
+      const created = await createCitizen(agent, { firstName: "Test", lastName: "Partiel", sex: "F", phone: numeroReel, arrondissementId });
+
+      // Met a jour uniquement l'adresse — le champ phone n'est pas fourni.
+      await updateCitizen(agent, created.id, { address: "Nouvelle adresse" });
+
+      const fetched = await getCitizen(agent, created.id);
+      expect(fetched.phone).toBe(numeroReel); // toujours present, jamais efface
+      expect(fetched.address).toBe("Nouvelle adresse");
+    });
+
+    it("une mise a jour explicite du telephone le re-chiffre correctement", async () => {
+      const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["citizens:create", "citizens:edit", "citizens:view"] });
+      const created = await createCitizen(agent, { firstName: "Test", lastName: "Modif", sex: "M", phone: "+23566111222", arrondissementId });
+
+      const nouveauNumero = "+23566333444";
+      await updateCitizen(agent, created.id, { phone: nouveauNumero });
+
+      const fetched = await getCitizen(agent, created.id);
+      expect(fetched.phone).toBe(nouveauNumero);
+
+      const raw = await testPrisma.citizen.findUniqueOrThrow({ where: { id: created.id } });
+      expect(raw.phone).not.toBe(nouveauNumero);
     });
   });
 });

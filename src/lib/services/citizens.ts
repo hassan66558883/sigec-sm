@@ -4,9 +4,10 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { encryptField, decryptField } from "@/lib/encryption";
 
 export async function listCitizens(user: CurrentUser, search?: string) {
-  return prisma.citizen.findMany({
+  const rows = await prisma.citizen.findMany({
     where: {
       ...recordScopeWhere(user),
       ...(search
@@ -23,12 +24,13 @@ export async function listCitizens(user: CurrentUser, search?: string) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+  return rows.map((r) => ({ ...r, phone: decryptField(r.phone) }));
 }
 
 // Rapport (section 31) : meme perimetre territorial + recherche optionnelle,
 // plafond plus haut que listCitizens() (ecrans admin/recherche terrain).
 export async function listCitizensForReport(user: CurrentUser, search?: string) {
-  return prisma.citizen.findMany({
+  const rows = await prisma.citizen.findMany({
     where: {
       ...recordScopeWhere(user),
       ...(search
@@ -45,6 +47,7 @@ export async function listCitizensForReport(user: CurrentUser, search?: string) 
     orderBy: { createdAt: "desc" },
     take: 5000,
   });
+  return rows.map((r) => ({ ...r, phone: decryptField(r.phone) }));
 }
 
 export async function getCitizen(user: CurrentUser, id: string) {
@@ -67,7 +70,7 @@ export async function getCitizen(user: CurrentUser, id: string) {
   if (!canAccessArrondissement(user, citizen.arrondissementId)) {
     throw new ApiError(403, "Citoyen hors de votre perimetre.");
   }
-  return citizen;
+  return { ...citizen, phone: decryptField(citizen.phone) };
 }
 
 export type CreateCitizenInput = {
@@ -107,7 +110,7 @@ export async function createCitizen(actor: CurrentUser, input: CreateCitizenInpu
       dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
       placeOfBirth: input.placeOfBirth?.trim(),
       nationality: input.nationality?.trim() || "Tchadienne",
-      phone: input.phone?.trim(),
+      phone: encryptField(input.phone?.trim()),
       address: input.address?.trim(),
       arrondissementId: input.arrondissementId,
       quartierId: input.quartierId || null,
@@ -128,7 +131,7 @@ export async function createCitizen(actor: CurrentUser, input: CreateCitizenInpu
     newValue: { uniqueNumber: created.uniqueNumber, firstName, lastName },
   });
 
-  return created;
+  return { ...created, phone: decryptField(created.phone) };
 }
 
 export type UpdateCitizenInput = Partial<{
@@ -154,13 +157,21 @@ export async function updateCitizen(actor: CurrentUser, id: string, input: Updat
   const updated = await prisma.citizen.update({
     where: { id },
     data: {
-      phone: input.phone?.trim(),
+      // input.phone === undefined doit laisser le champ inchange (mise a
+      // jour partielle) : encryptField(undefined) renvoie null, ce qui
+      // effacerait le numero a chaque appel ne le fournissant pas — d'ou
+      // la distinction explicite ici plutot qu'un simple encryptField(...).
+      phone: input.phone !== undefined ? encryptField(input.phone.trim()) : undefined,
       address: input.address?.trim(),
       placeOfBirth: input.placeOfBirth?.trim(),
       photoUrl: input.photoUrl?.trim(),
     },
   });
 
+  // Le numero de telephone n'est jamais journalise en clair ni chiffre dans
+  // l'audit log (meme convention que DeathRecord.cause) : un blob chiffre
+  // n'y serait pas plus lisible, et le stocker en clair contournerait le
+  // chiffrement applicatif.
   await logAudit({
     user: actor,
     action: "UPDATE",
@@ -168,9 +179,9 @@ export async function updateCitizen(actor: CurrentUser, id: string, input: Updat
     entityType: "Citizen",
     entityId: id,
     arrondissementId: before.arrondissementId,
-    oldValue: { phone: before.phone, address: before.address },
-    newValue: { phone: updated.phone, address: updated.address },
+    oldValue: { address: before.address },
+    newValue: { address: updated.address },
   });
 
-  return updated;
+  return { ...updated, phone: decryptField(updated.phone) };
 }

@@ -8,6 +8,7 @@ import { generateReceiptForPayment } from "@/lib/services/receipts";
 import { raiseDuplicateAlert } from "@/lib/services/fraud";
 import { getPaymentProvider } from "@/lib/services/payment-provider";
 import { sendSms } from "@/lib/services/sms";
+import { decryptField } from "@/lib/encryption";
 
 type CitizenAccountWithCitizen = {
   id: string;
@@ -264,8 +265,9 @@ export async function handlePaymentCallback(providerCode: string, rawPayload: un
       },
     });
     const citizen = await prisma.citizen.findUnique({ where: { id: transaction.payment.payerId } });
-    if (citizen?.phone) {
-      await sendSms(citizen.phone, `Votre paiement de ${transaction.amount} FCFA a ete confirme. Reference : ${transaction.internalReference}.`);
+    const citizenPhone = decryptField(citizen?.phone);
+    if (citizenPhone) {
+      await sendSms(citizenPhone, `Votre paiement de ${transaction.amount} FCFA a ete confirme. Reference : ${transaction.internalReference}.`);
     }
   }
 
