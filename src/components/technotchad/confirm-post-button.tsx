@@ -35,13 +35,14 @@ export function ConfirmPostButton({
     router.refresh();
   }
 
-  const color = variant === "danger" ? "var(--color-danger)" : "var(--color-primary)";
+  const color = variant === "danger" ? "var(--color-danger)" : "var(--tc-accent-dark)";
+  const hoverBg = variant === "danger" ? "hover:bg-red-50" : "hover:bg-[var(--tc-accent-soft)]";
 
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-md border px-2.5 py-1 text-xs font-medium transition hover:bg-red-50"
+        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${hoverBg}`}
         style={{ borderColor: `${color}4d`, color }}
       >
         {label}
@@ -55,7 +56,7 @@ export function ConfirmPostButton({
       <button
         onClick={onConfirm}
         disabled={loading}
-        className="rounded-md px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60"
+        className="rounded-full px-3 py-1 text-xs font-medium text-white shadow-sm disabled:opacity-60"
         style={{ background: color }}
       >
         {loading ? "..." : confirmLabel}

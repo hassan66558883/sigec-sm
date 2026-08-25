@@ -1,8 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { getTechnoDashboardStats } from "@/lib/services/technotchad";
+import { TechnoPageHeader } from "@/components/technotchad/page-header";
+import { TechnoStatCard } from "@/components/technotchad/stat-card";
+import { IconBuilding, IconLayers, IconKey, IconClock, IconSparkles } from "@/components/technotchad/icons";
 
 // Tableau de bord TECHNOTCHAD — KPIs minimaux (phase 1). Facturation,
 // graphiques et alertes d'echeance sont hors perimetre de cette phase (voir
@@ -16,33 +18,47 @@ export default async function TechnotchadDashboardPage() {
 
   const { clientCount, activeSubscriptions, activeLicenses, expiringSoon } = await getTechnoDashboardStats();
 
-  const cards = [
-    { label: "Clients", value: clientCount, href: "/admin/technotchad/clients" },
-    { label: "Abonnements actifs", value: activeSubscriptions, href: "/admin/technotchad/subscriptions" },
-    { label: "Licences actives", value: activeLicenses, href: "/admin/technotchad/licenses" },
-    { label: "Echeances < 30 jours", value: expiringSoon, href: "/admin/technotchad/subscriptions" },
-  ];
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">TECHNOTCHAD — Abonnements &amp; licences</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Espace commercial de l&apos;editeur TECHNOTCHAD, separe des donnees metier municipales de SIGEC-SM.
-        </p>
-      </div>
+    <div className="tc-scope space-y-6">
+      <TechnoPageHeader
+        title="Abonnements & licences"
+        description="Espace commercial de l'editeur TECHNOTCHAD — clients, abonnements et licences du produit SIGEC-SM, isole des donnees metier municipales."
+        icon={<IconSparkles className="h-5 w-5" />}
+      />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {cards.map((c) => (
-          <Link
-            key={c.label}
-            href={c.href}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm transition hover:border-[var(--color-primary)]"
-          >
-            <div className="text-2xl font-semibold text-[var(--color-text)]">{c.value}</div>
-            <div className="text-xs text-[var(--color-text-muted)]">{c.label}</div>
-          </Link>
-        ))}
+        <TechnoStatCard
+          label="Clients"
+          value={clientCount}
+          hint="Organisations abonnees"
+          href="/admin/technotchad/clients"
+          icon={<IconBuilding className="h-5 w-5" />}
+          tone="indigo"
+        />
+        <TechnoStatCard
+          label="Abonnements actifs"
+          value={activeSubscriptions}
+          hint="Tous produits confondus"
+          href="/admin/technotchad/subscriptions"
+          icon={<IconLayers className="h-5 w-5" />}
+          tone="violet"
+        />
+        <TechnoStatCard
+          label="Licences actives"
+          value={activeLicenses}
+          hint="Cles en cours de validite"
+          href="/admin/technotchad/licenses"
+          icon={<IconKey className="h-5 w-5" />}
+          tone="emerald"
+        />
+        <TechnoStatCard
+          label="Echeances < 30 jours"
+          value={expiringSoon}
+          hint="A renouveler bientot"
+          href="/admin/technotchad/subscriptions"
+          icon={<IconClock className="h-5 w-5" />}
+          tone="amber"
+        />
       </div>
     </div>
   );

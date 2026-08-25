@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { IconPlus } from "./icons";
 
 const CLIENT_TYPES = [
   { value: "MAIRIE", label: "Mairie" },
@@ -12,6 +13,10 @@ const CLIENT_TYPES = [
   { value: "PARTICULIER", label: "Particulier" },
   { value: "AUTRE", label: "Autre" },
 ];
+
+const inputClass =
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] shadow-sm transition placeholder:text-[var(--color-text-muted)]/60 focus:border-[var(--tc-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--tc-accent-ring)]";
+const labelClass = "mb-1.5 block text-xs font-medium text-[var(--color-text-muted)]";
 
 export function TechnoClientForm() {
   const router = useRouter();
@@ -50,43 +55,51 @@ export function TechnoClientForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
+    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Raison sociale</label>
-        <input required value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="ex: Ville de N'Djamena" className="w-56 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Raison sociale</label>
+        <input required value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="ex: Ville de N'Djamena" className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Nom commercial</label>
-        <input value={commercialName} onChange={(e) => setCommercialName(e.target.value)} className="w-48 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Nom commercial</label>
+        <input value={commercialName} onChange={(e) => setCommercialName(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Type</label>
-        <select value={clientType} onChange={(e) => setClientType(e.target.value)} className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+        <label className={labelClass}>Type</label>
+        <select value={clientType} onChange={(e) => setClientType(e.target.value)} className={inputClass}>
           {CLIENT_TYPES.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Ville</label>
-        <input value={city} onChange={(e) => setCity(e.target.value)} className="w-32 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Ville</label>
+        <input value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Telephone</label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-36 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Telephone</label>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Email</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-48 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Email</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Contact</label>
-        <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className="w-40 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Contact</label>
+        <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className={inputClass} />
       </div>
-      <button type="submit" disabled={loading} className="rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60" style={{ background: "var(--color-primary)" }}>
-        {loading ? "Ajout..." : "Ajouter"}
-      </button>
-      {error && <span className="text-xs text-[var(--color-danger)]">{error}</span>}
+      <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-1">
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+          style={{ background: "linear-gradient(120deg, var(--tc-grad-from), var(--tc-grad-via))" }}
+        >
+          <IconPlus className="h-4 w-4" />
+          {loading ? "Ajout..." : "Ajouter le client"}
+        </button>
+      </div>
+      {error && <span className="text-xs text-[var(--color-danger)] sm:col-span-2 lg:col-span-3">{error}</span>}
     </form>
   );
 }

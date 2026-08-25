@@ -24,3 +24,32 @@ body {
   color: var(--color-text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Identite visuelle TECHNOTCHAD (espace editeur/commercial) — palette indigo
+   distincte du bleu institutionnel municipal, pour signaler visuellement
+   qu'on quitte l'espace metier SIGEC-SM tout en restant dans la meme coquille
+   applicative (meme layout, meme sidebar, memes composants de base). */
+.tc-scope {
+  --tc-accent: #6366f1;
+  --tc-accent-dark: #4338ca;
+  --tc-accent-soft: #eef2ff;
+  --tc-accent-ring: rgba(99, 102, 241, 0.35);
+  --tc-grad-from: #4338ca;
+  --tc-grad-via: #6366f1;
+  --tc-grad-to: #8b5cf6;
+}
+
+@keyframes tc-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tc-animate-in {
+  animation: tc-fade-in 0.35s ease-out both;
+}

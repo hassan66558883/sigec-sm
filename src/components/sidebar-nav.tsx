@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_SECTIONS: { title: string | null; items: { href: string; label: string; exact?: boolean; module: string | null }[] }[] = [
+const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: string; label: string; exact?: boolean; module: string | null }[] }[] = [
   {
     title: null,
     items: [
@@ -73,6 +73,7 @@ const NAV_SECTIONS: { title: string | null; items: { href: string; label: string
   },
   {
     title: "TECHNOTCHAD",
+    accent: true,
     items: [
       { href: "/admin/technotchad", label: "Tableau de bord", exact: true, module: "technotchad_clients" },
       { href: "/admin/technotchad/clients", label: "Clients", module: "technotchad_clients" },
@@ -91,9 +92,15 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
         const items = section.items.filter((item) => item.module === null || visibleModules.has(item.module));
         if (items.length === 0) return null;
         return (
-          <div key={section.title ?? "top"}>
+          <div key={section.title ?? "top"} className={section.accent ? "mt-1 border-t border-[var(--color-border)] pt-3" : undefined}>
             {section.title && (
-              <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              <div className="mb-1 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {section.accent && (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: "linear-gradient(135deg, #4338ca, #8b5cf6)" }}
+                  />
+                )}
                 {section.title}
               </div>
             )}
@@ -105,8 +112,13 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
                     key={item.href}
                     href={item.href}
                     className={`rounded-md px-3 py-1.5 text-sm transition ${
-                      active ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-text)] hover:bg-gray-100"
+                      active
+                        ? section.accent
+                          ? "text-white shadow-sm"
+                          : "bg-[var(--color-primary)] text-white"
+                        : "text-[var(--color-text)] hover:bg-gray-100"
                     }`}
+                    style={active && section.accent ? { background: "linear-gradient(120deg, #4338ca, #6366f1)" } : undefined}
                   >
                     {item.label}
                   </Link>

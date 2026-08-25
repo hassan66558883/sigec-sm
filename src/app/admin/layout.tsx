@@ -101,7 +101,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </aside>
 
-      <main className="flex-1 bg-[var(--color-bg)]">
+      <main className="min-w-0 flex-1 bg-[var(--color-bg)]">
         <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
       </main>
     </div>

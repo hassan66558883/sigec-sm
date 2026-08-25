@@ -2,10 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { IconPlus } from "./icons";
 
 type Client = { id: string; legalName: string };
 type Product = { id: string; name: string };
 type Plan = { id: string; productId: string; name: string; price: number };
+
+const inputClass =
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] shadow-sm transition placeholder:text-[var(--color-text-muted)]/60 focus:border-[var(--tc-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--tc-accent-ring)]";
+const labelClass = "mb-1.5 block text-xs font-medium text-[var(--color-text-muted)]";
 
 export function TechnoSubscriptionForm({
   clients,
@@ -68,24 +73,24 @@ export function TechnoSubscriptionForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
+    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Client</label>
-        <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-56 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+        <label className={labelClass}>Client</label>
+        <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputClass}>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>{c.legalName}</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Produit</label>
+        <label className={labelClass}>Produit</label>
         <select
           value={productId}
           onChange={(e) => {
             setProductId(e.target.value);
             setPlanId("");
           }}
-          className="w-40 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm"
+          className={inputClass}
         >
           {products.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
@@ -93,8 +98,8 @@ export function TechnoSubscriptionForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Plan</label>
-        <select value={selectedPlan?.id ?? ""} onChange={(e) => setPlanId(e.target.value)} className="w-56 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+        <label className={labelClass}>Plan</label>
+        <select value={selectedPlan?.id ?? ""} onChange={(e) => setPlanId(e.target.value)} className={inputClass}>
           {plansForProduct.length === 0 && <option value="">Aucun plan pour ce produit</option>}
           {plansForProduct.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
@@ -102,28 +107,36 @@ export function TechnoSubscriptionForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Debut</label>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Debut</label>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Fin</label>
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
+        <label className={labelClass}>Fin</label>
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Montant (XAF)</label>
+        <label className={labelClass}>Montant (XAF)</label>
         <input
           type="number"
           min="0"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
-          className="w-32 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm"
+          className={inputClass}
         />
       </div>
-      <button type="submit" disabled={loading || !selectedPlan} className="rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60" style={{ background: "var(--color-primary)" }}>
-        {loading ? "Creation..." : "Creer l'abonnement"}
-      </button>
-      {error && <span className="text-xs text-[var(--color-danger)]">{error}</span>}
+      <div className="flex items-end sm:col-span-2 lg:col-span-3">
+        <button
+          type="submit"
+          disabled={loading || !selectedPlan}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
+          style={{ background: "linear-gradient(120deg, var(--tc-grad-from), var(--tc-grad-via))" }}
+        >
+          <IconPlus className="h-4 w-4" />
+          {loading ? "Creation..." : "Creer l'abonnement"}
+        </button>
+        {error && <span className="ml-3 text-xs text-[var(--color-danger)]">{error}</span>}
+      </div>
     </form>
   );
 }
