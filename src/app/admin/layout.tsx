@@ -50,21 +50,30 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         .map((a) => a.name)
         .join(", ") || t("sidebar.noArrondissementAssigned");
 
-  return (
-    // dir="ltr" explicite ici : la coquille (sidebar a gauche, contenu a
-    // droite) reste physiquement fixe quelle que soit la langue — seul le
-    // texte a l'interieur de chaque zone traduite (aside, tableau de bord)
-    // change de sens via son propre dir={dir} local. Sans ce dir="ltr"
-    // explicite sur le conteneur flex racine, on depend d'un heritage
-    // implicite qui peut se faire piéger par le contenu (ex. detection
-    // heuristique de sens sur du texte arabe) — mieux vaut le figer.
-    <div dir="ltr" className="flex min-h-screen">
-      <aside
-        dir={dir}
-        lang={locale}
-        className="flex w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] shadow-[1px_0_0_0_rgb(15_23_42_/_0.03)]"
-      >
-        <div className="flex items-center gap-2.5 border-b border-[var(--color-border)] px-4 py-4">
+  // Cote physique de la sidebar : a droite en francais, a gauche en arabe
+  // (choix explicite du produit — pas la convention RTL habituelle qui
+  // mettrait plutot le menu a droite en arabe, mais c'est ce qui est demande
+  // ici). Realise par simple reordonnancement du DOM (aside en premier ou en
+  // second) a l'interieur d'un conteneur dir="ltr" fixe, plutot qu'en
+  // s'appuyant sur le retournement flex d'un dir="rtl" global — plus simple
+  // a prevoir et ne depend pas du sens de lecture du contenu interne.
+  const isRtl = dir === "rtl";
+
+  const sidebar = (
+    <aside
+      dir={dir}
+      lang={locale}
+      className={`flex w-64 flex-col bg-[var(--color-surface)] ${
+        isRtl
+          ? // Arabe : la sidebar est en premier dans le DOM -> a gauche a
+            // l'ecran, son bord droit touche le contenu principal.
+            "border-r border-[var(--color-border)] shadow-[1px_0_0_0_rgb(15_23_42_/_0.03)]"
+          : // Francais : la sidebar est en second dans le DOM -> a droite a
+            // l'ecran, son bord gauche touche le contenu principal.
+            "border-l border-[var(--color-border)] shadow-[-1px_0_0_0_rgb(15_23_42_/_0.03)]"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 border-b border-[var(--color-border)] px-4 py-4">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
             style={{ background: "var(--gradient-primary)" }}
@@ -130,10 +139,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <LogoutButton label={t("sidebar.logout")} />
         </div>
       </aside>
+  );
 
-      <main className="min-w-0 flex-1 bg-[var(--color-bg)]">
-        <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
-      </main>
+  const mainContent = (
+    <main className="min-w-0 flex-1 bg-[var(--color-bg)]">
+      <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
+    </main>
+  );
+
+  return (
+    <div dir="ltr" className="flex min-h-screen">
+      {isRtl ? (
+        <>
+          {sidebar}
+          {mainContent}
+        </>
+      ) : (
+        <>
+          {mainContent}
+          {sidebar}
+        </>
+      )}
     </div>
   );
 }
