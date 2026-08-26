@@ -1,17 +1,33 @@
 @import "tailwindcss";
 
+/* Redefinit les jetons de theme Tailwind (rounded-md/lg, shadow-sm/md) pour
+   toute l'application : chaque page utilise deja ces classes utilitaires
+   (457 rounded-md/lg, 135 shadow-sm au dernier comptage) — les affiner ici
+   adoucit instantanement chaque carte/bouton/input du site, sans toucher a
+   une seule page individuellement. */
+@theme {
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+}
+
 :root {
   --color-primary: #0f4c81; /* bleu institutionnel */
   --color-primary-dark: #0a3760;
+  --color-primary-light: #eaf2fb; /* teinte douce pour badges/survols */
   --color-accent: #c8a13a; /* or, rappel du sceau municipal */
-  --color-bg: #f5f7fa;
+  --color-accent-soft: #faf3e0;
+  --color-bg: #f4f6fa;
   --color-surface: #ffffff;
   --color-text: #1a2330;
   --color-text-muted: #5b6b7d;
-  --color-border: #e1e6ec;
+  --color-border: #e3e8ef;
   --color-success: #1e7d4b;
   --color-warning: #b8860b;
   --color-danger: #b3261e;
+  --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  --gradient-gold: linear-gradient(135deg, #d8b455, var(--color-accent));
 }
 
 html,
@@ -20,9 +36,13 @@ body {
 }
 
 body {
-  background: var(--color-bg);
+  background:
+    radial-gradient(1200px 480px at 15% -10%, rgb(15 76 129 / 0.05), transparent),
+    radial-gradient(900px 420px at 100% 0%, rgb(200 161 58 / 0.05), transparent),
+    var(--color-bg);
   color: var(--color-text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Identite visuelle TECHNOTCHAD (espace editeur/commercial) — palette indigo

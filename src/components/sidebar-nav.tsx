@@ -1,9 +1,16 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { IconUsersGroup, IconMapPin, IconCoins, IconBuildingOffice, IconShieldCheck } from "@/components/icons";
 
-const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: string; label: string; exact?: boolean; module: string | null }[] }[] = [
+const NAV_SECTIONS: {
+  title: string | null;
+  icon?: ReactNode;
+  accent?: boolean;
+  items: { href: string; label: string; exact?: boolean; module: string | null }[];
+}[] = [
   {
     title: null,
     items: [
@@ -13,6 +20,7 @@ const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: str
   },
   {
     title: "Etat civil",
+    icon: <IconUsersGroup className="h-3.5 w-3.5" />,
     items: [
       { href: "/admin/citizens", label: "Citoyens", module: "citizens" },
       { href: "/admin/households", label: "Menages", module: "households" },
@@ -27,6 +35,7 @@ const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: str
   },
   {
     title: "Foncier et urbanisme",
+    icon: <IconMapPin className="h-3.5 w-3.5" />,
     items: [
       { href: "/admin/land", label: "Parcelles & titres", module: "land" },
       { href: "/admin/urbanism", label: "Permis & autorisations", module: "urbanism" },
@@ -34,6 +43,7 @@ const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: str
   },
   {
     title: "Recettes municipales",
+    icon: <IconCoins className="h-3.5 w-3.5" />,
     items: [
       { href: "/admin/finances", label: "Tableau de bord recettes", module: "payments" },
       { href: "/admin/citizens", label: "Contribuables", module: "citizens" },
@@ -55,6 +65,7 @@ const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: str
   },
   {
     title: "Services municipaux",
+    icon: <IconBuildingOffice className="h-3.5 w-3.5" />,
     items: [
       { href: "/admin/associations", label: "Associations & ONG", module: "associations" },
       { href: "/admin/complaints", label: "Plaintes & doleances", module: "complaints" },
@@ -63,6 +74,7 @@ const NAV_SECTIONS: { title: string | null; accent?: boolean; items: { href: str
   },
   {
     title: "Administration",
+    icon: <IconShieldCheck className="h-3.5 w-3.5" />,
     items: [
       { href: "/admin/arrondissements", label: "Arrondissements & quartiers", module: "territorial" },
       { href: "/admin/departments", label: "Services centraux", module: "departments" },
@@ -95,11 +107,13 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
           <div key={section.title ?? "top"} className={section.accent ? "mt-1 border-t border-[var(--color-border)] pt-3" : undefined}>
             {section.title && (
               <div className="mb-1 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                {section.accent && (
+                {section.accent ? (
                   <span
                     className="h-1.5 w-1.5 rounded-full"
                     style={{ background: "linear-gradient(135deg, #4338ca, #8b5cf6)" }}
                   />
+                ) : (
+                  section.icon && <span className="text-[var(--color-primary)]/70">{section.icon}</span>
                 )}
                 {section.title}
               </div>
@@ -113,12 +127,14 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
                     href={item.href}
                     className={`rounded-md px-3 py-1.5 text-sm transition ${
                       active
-                        ? section.accent
-                          ? "text-white shadow-sm"
-                          : "bg-[var(--color-primary)] text-white"
-                        : "text-[var(--color-text)] hover:bg-gray-100"
+                        ? "text-white shadow-sm"
+                        : "text-[var(--color-text)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
                     }`}
-                    style={active && section.accent ? { background: "linear-gradient(120deg, #4338ca, #6366f1)" } : undefined}
+                    style={
+                      active
+                        ? { background: section.accent ? "linear-gradient(120deg, #4338ca, #6366f1)" : "var(--gradient-primary)" }
+                        : undefined
+                    }
                   >
                     {item.label}
                   </Link>
