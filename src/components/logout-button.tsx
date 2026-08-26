@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function LogoutButton() {
+export function LogoutButton({ label = "Se deconnecter", loadingLabel = "Deconnexion..." }: { label?: string; loadingLabel?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -18,9 +18,9 @@ export function LogoutButton() {
     <button
       onClick={onClick}
       disabled={loading}
-      className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-left text-sm text-[var(--color-text-muted)] transition hover:bg-gray-50 disabled:opacity-60"
+      className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-start text-sm text-[var(--color-text-muted)] transition hover:bg-gray-50 disabled:opacity-60"
     >
-      {loading ? "Deconnexion..." : "Se deconnecter"}
+      {loading ? loadingLabel : label}
     </button>
   );
 }

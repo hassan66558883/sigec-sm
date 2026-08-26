@@ -96,6 +96,11 @@ acte réel (ex. déclaration de naissance).
   (Ville de N'Djamena), produit SIGEC-SM, abonnement + licence générée automatiquement,
   `/admin/technotchad`. Facturation, automatisation des suspensions/renouvellements, API de
   validation de licence, notifications, vérification QR publique et rapports restent à livrer.
+- 🟡 **Phase 12 — Internationalisation** (partielle, voir [`docs/I18N.md`](docs/I18N.md)) : français
+  (défaut) et arabe, préférence stockée en cookie (pas de routes préfixées par langue). Traduits :
+  connexion, coquille admin (barre latérale, pied de page), tableau de bord principal — avec gestion
+  RTL locale (pas globale, pour ne pas casser les pages pas encore traduites). Les ~25 pages de
+  modules métier et le portail citoyen restent à traduire.
 
 Les Phases 1 à 9 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
 compilées) : création de données réelles, isolation territoriale testée par accès direct à
@@ -110,6 +115,7 @@ reçu → vérification QR) rejoués intégralement.
 - [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) — prise en main par rôle (agents, contribuables, citoyens).
 - [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md) — brancher un vrai opérateur de paiement (Mobile Money, carte...).
 - [`docs/TECHNOTCHAD.md`](docs/TECHNOTCHAD.md) — gestion des abonnements et licences de l'éditeur TECHNOTCHAD, isolation vis-à-vis des données municipales.
+- [`docs/I18N.md`](docs/I18N.md) — internationalisation français/arabe, architecture des traductions, gestion RTL.
 - [`scripts/backup.sh`](scripts/backup.sh) / [`scripts/restore.sh`](scripts/restore.sh) — scripts exécutables.
 
 ### Notes importantes

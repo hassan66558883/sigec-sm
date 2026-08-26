@@ -4,8 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { countUnreadNotifications } from "@/lib/services/notifications";
 import { IconMapPin } from "@/components/icons";
+import { getI18n } from "@/lib/i18n/server";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -35,9 +37,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const visibleModules = new Set(NAV_MODULES.filter((m) => user.permissions.has(`${m}:view`)));
 
   const unreadNotifications = await countUnreadNotifications(user);
+  const { locale, dir, dict, t } = await getI18n();
 
   const orgLabel = user.hasGlobalScope
-    ? "Mairie Centrale"
+    ? t("sidebar.centralCityHall")
     : (
         await prisma.arrondissement.findMany({
           where: { id: { in: user.arrondissementIds } },
@@ -45,11 +48,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         })
       )
         .map((a) => a.name)
-        .join(", ") || "Aucun arrondissement";
+        .join(", ") || t("sidebar.noArrondissementAssigned");
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] shadow-[1px_0_0_0_rgb(15_23_42_/_0.03)]">
+      <aside
+        dir={dir}
+        lang={locale}
+        className="flex w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] shadow-[1px_0_0_0_rgb(15_23_42_/_0.03)]"
+      >
         <div className="flex items-center gap-2.5 border-b border-[var(--color-border)] px-4 py-4">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
@@ -65,7 +72,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <div className="border-b border-[var(--color-border)] px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
               user.hasGlobalScope
@@ -76,9 +83,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <IconMapPin className="h-3 w-3" />
             {orgLabel}
           </span>
+          <LanguageSwitcher locale={locale} />
         </div>
 
-        <SidebarNav visibleModules={visibleModules} />
+        <SidebarNav visibleModules={visibleModules} dict={dict} />
 
         <div className="border-t border-[var(--color-border)] p-3">
           <div className="mb-2 flex items-center gap-2.5 px-1">
@@ -91,7 +99,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <div className="min-w-0">
               <div className="truncate text-sm font-medium">{user.name}</div>
               <div className="truncate text-xs text-[var(--color-text-muted)]">
-                {user.roles.map((r) => r.name).join(", ") || "Aucun role"}
+                {user.roles.map((r) => r.name).join(", ") || t("sidebar.noRole")}
               </div>
             </div>
           </div>
@@ -99,7 +107,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             href="/admin/notifications"
             className="mb-2 flex items-center justify-center gap-2 rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
           >
-            Notifications
+            {t("sidebar.notifications")}
             {unreadNotifications > 0 && (
               <span className="rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 {unreadNotifications}
@@ -110,9 +118,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             href="/admin/reset-password"
             className="mb-2 block rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
           >
-            Changer mon mot de passe
+            {t("sidebar.changePassword")}
           </Link>
-          <LogoutButton />
+          <LogoutButton label={t("sidebar.logout")} />
         </div>
       </aside>
 

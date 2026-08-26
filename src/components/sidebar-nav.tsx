@@ -4,108 +4,113 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconUsersGroup, IconMapPin, IconCoins, IconBuildingOffice, IconShieldCheck } from "@/components/icons";
+import { makeT, type Dictionary, type TranslationKey } from "@/lib/i18n/translate";
 
 const NAV_SECTIONS: {
-  title: string | null;
+  titleKey: TranslationKey | null;
   icon?: ReactNode;
   accent?: boolean;
-  items: { href: string; label: string; exact?: boolean; module: string | null }[];
+  items: { href: string; labelKey: TranslationKey; exact?: boolean; module: string | null }[];
 }[] = [
   {
-    title: null,
+    titleKey: null,
     items: [
-      { href: "/admin", label: "Tableau de bord", exact: true, module: null },
-      { href: "/admin/analytics", label: "Statistiques", module: null },
+      { href: "/admin", labelKey: "sidebar.dashboard", exact: true, module: null },
+      { href: "/admin/analytics", labelKey: "sidebar.statistics", module: null },
     ],
   },
   {
-    title: "Etat civil",
+    titleKey: "sidebar.sectionCivilStatus",
     icon: <IconUsersGroup className="h-3.5 w-3.5" />,
     items: [
-      { href: "/admin/citizens", label: "Citoyens", module: "citizens" },
-      { href: "/admin/households", label: "Menages", module: "households" },
-      { href: "/admin/births", label: "Naissances", module: "births" },
-      { href: "/admin/recognitions", label: "Reconnaissances", module: "recognitions" },
-      { href: "/admin/marriages", label: "Mariages", module: "marriages" },
-      { href: "/admin/divorces", label: "Divorces", module: "divorces" },
-      { href: "/admin/deaths", label: "Deces", module: "deaths" },
-      { href: "/admin/certificates", label: "Certificats", module: "certificates" },
-      { href: "/admin/applications", label: "Demandes citoyennes", module: "applications" },
+      { href: "/admin/citizens", labelKey: "sidebar.citizens", module: "citizens" },
+      { href: "/admin/households", labelKey: "sidebar.households", module: "households" },
+      { href: "/admin/births", labelKey: "sidebar.births", module: "births" },
+      { href: "/admin/recognitions", labelKey: "sidebar.recognitions", module: "recognitions" },
+      { href: "/admin/marriages", labelKey: "sidebar.marriages", module: "marriages" },
+      { href: "/admin/divorces", labelKey: "sidebar.divorces", module: "divorces" },
+      { href: "/admin/deaths", labelKey: "sidebar.deaths", module: "deaths" },
+      { href: "/admin/certificates", labelKey: "sidebar.certificates", module: "certificates" },
+      { href: "/admin/applications", labelKey: "sidebar.applications", module: "applications" },
     ],
   },
   {
-    title: "Foncier et urbanisme",
+    titleKey: "sidebar.sectionLand",
     icon: <IconMapPin className="h-3.5 w-3.5" />,
     items: [
-      { href: "/admin/land", label: "Parcelles & titres", module: "land" },
-      { href: "/admin/urbanism", label: "Permis & autorisations", module: "urbanism" },
+      { href: "/admin/land", labelKey: "sidebar.land", module: "land" },
+      { href: "/admin/urbanism", labelKey: "sidebar.urbanism", module: "urbanism" },
     ],
   },
   {
-    title: "Recettes municipales",
+    titleKey: "sidebar.sectionRevenue",
     icon: <IconCoins className="h-3.5 w-3.5" />,
     items: [
-      { href: "/admin/finances", label: "Tableau de bord recettes", module: "payments" },
-      { href: "/admin/citizens", label: "Contribuables", module: "citizens" },
-      { href: "/admin/activities", label: "Activites economiques", module: "tariffs" },
-      { href: "/admin/businesses", label: "Boutiques & commercants", module: "businesses" },
-      { href: "/admin/markets", label: "Marches & emplacements", module: "markets" },
-      { href: "/admin/tariffs", label: "Tarification", module: "tariffs" },
-      { href: "/admin/obligations", label: "Obligations", module: "obligations" },
-      { href: "/admin/collectors", label: "Agents collecteurs", module: "collectors" },
-      { href: "/admin/collecte", label: "Collecte (terrain)", module: "payments" },
-      { href: "/admin/payments", label: "Paiements", module: "payments" },
-      { href: "/admin/mobile-money", label: "Mobile Money", module: "mobile_money" },
-      { href: "/admin/receipts", label: "Recus", module: "receipts" },
-      { href: "/admin/caisses", label: "Caisses", module: "caisses" },
-      { href: "/admin/versements", label: "Versements", module: "versements" },
-      { href: "/admin/fraud", label: "Controle anti-fraude", module: "fraud" },
-      { href: "/admin/reports", label: "Rapports", module: "payments" },
+      { href: "/admin/finances", labelKey: "sidebar.financeDashboard", module: "payments" },
+      { href: "/admin/citizens", labelKey: "sidebar.taxpayers", module: "citizens" },
+      { href: "/admin/activities", labelKey: "sidebar.activities", module: "tariffs" },
+      { href: "/admin/businesses", labelKey: "sidebar.businesses", module: "businesses" },
+      { href: "/admin/markets", labelKey: "sidebar.markets", module: "markets" },
+      { href: "/admin/tariffs", labelKey: "sidebar.tariffs", module: "tariffs" },
+      { href: "/admin/obligations", labelKey: "sidebar.obligations", module: "obligations" },
+      { href: "/admin/collectors", labelKey: "sidebar.collectors", module: "collectors" },
+      { href: "/admin/collecte", labelKey: "sidebar.fieldCollection", module: "payments" },
+      { href: "/admin/payments", labelKey: "sidebar.payments", module: "payments" },
+      { href: "/admin/mobile-money", labelKey: "sidebar.mobileMoney", module: "mobile_money" },
+      { href: "/admin/receipts", labelKey: "sidebar.receipts", module: "receipts" },
+      { href: "/admin/caisses", labelKey: "sidebar.caisses", module: "caisses" },
+      { href: "/admin/versements", labelKey: "sidebar.versements", module: "versements" },
+      { href: "/admin/fraud", labelKey: "sidebar.fraud", module: "fraud" },
+      { href: "/admin/reports", labelKey: "sidebar.reports", module: "payments" },
     ],
   },
   {
-    title: "Services municipaux",
+    titleKey: "sidebar.sectionServices",
     icon: <IconBuildingOffice className="h-3.5 w-3.5" />,
     items: [
-      { href: "/admin/associations", label: "Associations & ONG", module: "associations" },
-      { href: "/admin/complaints", label: "Plaintes & doleances", module: "complaints" },
-      { href: "/admin/infrastructure", label: "Voirie & infrastructures", module: "infrastructure" },
+      { href: "/admin/associations", labelKey: "sidebar.associations", module: "associations" },
+      { href: "/admin/complaints", labelKey: "sidebar.complaints", module: "complaints" },
+      { href: "/admin/infrastructure", labelKey: "sidebar.infrastructure", module: "infrastructure" },
     ],
   },
   {
-    title: "Administration",
+    titleKey: "sidebar.sectionAdmin",
     icon: <IconShieldCheck className="h-3.5 w-3.5" />,
     items: [
-      { href: "/admin/arrondissements", label: "Arrondissements & quartiers", module: "territorial" },
-      { href: "/admin/departments", label: "Services centraux", module: "departments" },
-      { href: "/admin/users", label: "Utilisateurs", module: "users" },
-      { href: "/admin/roles", label: "Roles & permissions", module: "roles" },
-      { href: "/admin/audit", label: "Journal d'audit", module: "audit" },
+      { href: "/admin/arrondissements", labelKey: "sidebar.arrondissements", module: "territorial" },
+      { href: "/admin/departments", labelKey: "sidebar.departments", module: "departments" },
+      { href: "/admin/users", labelKey: "sidebar.users", module: "users" },
+      { href: "/admin/roles", labelKey: "sidebar.roles", module: "roles" },
+      { href: "/admin/audit", labelKey: "sidebar.audit", module: "audit" },
     ],
   },
   {
-    title: "TECHNOTCHAD",
+    titleKey: null,
     accent: true,
     items: [
-      { href: "/admin/technotchad", label: "Tableau de bord", exact: true, module: "technotchad_clients" },
-      { href: "/admin/technotchad/clients", label: "Clients", module: "technotchad_clients" },
-      { href: "/admin/technotchad/subscriptions", label: "Abonnements", module: "technotchad_subscriptions" },
-      { href: "/admin/technotchad/licenses", label: "Licences", module: "technotchad_licenses" },
+      { href: "/admin/technotchad", labelKey: "sidebar.technotchadDashboard", exact: true, module: "technotchad_clients" },
+      { href: "/admin/technotchad/clients", labelKey: "sidebar.technotchadClients", module: "technotchad_clients" },
+      { href: "/admin/technotchad/subscriptions", labelKey: "sidebar.technotchadSubscriptions", module: "technotchad_subscriptions" },
+      { href: "/admin/technotchad/licenses", labelKey: "sidebar.technotchadLicenses", module: "technotchad_licenses" },
     ],
   },
 ];
 
-export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) {
+const TECHNOTCHAD_TITLE = "TECHNOTCHAD";
+
+export function SidebarNav({ visibleModules, dict }: { visibleModules: Set<string>; dict: Dictionary }) {
   const pathname = usePathname();
+  const t = makeT(dict);
 
   return (
     <nav className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
-      {NAV_SECTIONS.map((section) => {
+      {NAV_SECTIONS.map((section, index) => {
         const items = section.items.filter((item) => item.module === null || visibleModules.has(item.module));
         if (items.length === 0) return null;
+        const title = section.accent ? TECHNOTCHAD_TITLE : section.titleKey ? t(section.titleKey) : null;
         return (
-          <div key={section.title ?? "top"} className={section.accent ? "mt-1 border-t border-[var(--color-border)] pt-3" : undefined}>
-            {section.title && (
+          <div key={section.titleKey ?? `top-${index}`} className={section.accent ? "mt-1 border-t border-[var(--color-border)] pt-3" : undefined}>
+            {title && (
               <div className="mb-1 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
                 {section.accent ? (
                   <span
@@ -115,7 +120,7 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
                 ) : (
                   section.icon && <span className="text-[var(--color-primary)]/70">{section.icon}</span>
                 )}
-                {section.title}
+                {title}
               </div>
             )}
             <div className="flex flex-col gap-0.5">
@@ -136,7 +141,7 @@ export function SidebarNav({ visibleModules }: { visibleModules: Set<string> }) 
                         : undefined
                     }
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}

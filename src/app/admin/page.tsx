@@ -9,6 +9,7 @@ import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
 import { getRecoveryStats } from "@/lib/services/analytics";
 import { PageHero } from "@/components/page-hero";
 import { StatCard } from "@/components/stat-card";
+import { getI18n } from "@/lib/i18n/server";
 import {
   IconGauge,
   IconMapPin,
@@ -32,6 +33,7 @@ function initials(name: string) {
 
 export default async function AdminDashboardPage() {
   const user = await getCurrentUser();
+  const { locale, dir, t } = await getI18n();
 
   // Un compte TECHNOTCHAD (aucun acces aux modules municipaux) n'a rien a
   // faire sur le tableau de bord municipal — evite d'exposer des agregats
@@ -64,32 +66,35 @@ export default async function AdminDashboardPage() {
   const userAssignmentTotal = arrondissements.reduce((sum, a) => sum + a._count.users, 0);
 
   return (
-    <div className="space-y-8">
+    <div dir={dir} lang={locale} className="space-y-8">
       <PageHero
-        eyebrow="SIGEC-SM"
-        title={user?.hasGlobalScope ? "Ville de N'Djamena — Mairie Centrale" : "Tableau de bord d'arrondissement"}
+        eyebrow={t("dashboard.eyebrow")}
+        title={user?.hasGlobalScope ? t("dashboard.titleGlobal") : t("dashboard.titleScoped")}
         description={
           user?.hasGlobalScope
-            ? `Bienvenue, ${user?.name}. Vision consolidee des 10 arrondissements municipaux.`
-            : `Bienvenue, ${user?.name}. Perimetre : ${arrondissements.map((a) => a.name).join(", ") || "aucun arrondissement rattache"}.`
+            ? t("dashboard.welcomeGlobal", { name: user?.name ?? "" })
+            : t("dashboard.welcomeScoped", {
+                name: user?.name ?? "",
+                scope: arrondissements.map((a) => a.name).join(", ") || t("dashboard.noScope"),
+              })
         }
         icon={<IconGauge className="h-5 w-5" />}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Arrondissements"
+          label={t("dashboard.statArrondissements")}
           value={arrondissements.length}
-          hint={user?.hasGlobalScope ? "sur 10 (N'Djamena)" : "dans votre perimetre"}
+          hint={user?.hasGlobalScope ? t("dashboard.hintOf10") : t("dashboard.hintInScope")}
           icon={<IconLandmark className="h-5 w-5" />}
           tone="primary"
         />
-        <StatCard label="Quartiers" value={quartierTotal} icon={<IconMapPin className="h-5 w-5" />} tone="gold" />
-        <StatCard label="Affectations d'utilisateurs" value={userAssignmentTotal} icon={<IconUsersGroup className="h-5 w-5" />} tone="success" />
+        <StatCard label={t("dashboard.statQuartiers")} value={quartierTotal} icon={<IconMapPin className="h-5 w-5" />} tone="gold" />
+        <StatCard label={t("dashboard.statUserAssignments")} value={userAssignmentTotal} icon={<IconUsersGroup className="h-5 w-5" />} tone="success" />
         {user?.hasGlobalScope ? (
-          <StatCard label="Services centraux actifs" value={departmentCount} icon={<IconBuildingOffice className="h-5 w-5" />} tone="warning" />
+          <StatCard label={t("dashboard.statActiveCentralServices")} value={departmentCount} icon={<IconBuildingOffice className="h-5 w-5" />} tone="warning" />
         ) : (
-          <StatCard label="Roles definis" value={roleCount} icon={<IconShieldCheck className="h-5 w-5" />} tone="warning" />
+          <StatCard label={t("dashboard.statDefinedRoles")} value={roleCount} icon={<IconShieldCheck className="h-5 w-5" />} tone="warning" />
         )}
       </div>
 
@@ -97,23 +102,23 @@ export default async function AdminDashboardPage() {
         <div>
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--color-text)]">
             <IconCoins className="h-4 w-4 text-[var(--color-accent)]" />
-            Recettes municipales {user?.hasGlobalScope ? "— Ville de N'Djamena" : "— votre perimetre"}
+            {user?.hasGlobalScope ? t("dashboard.revenueTitleGlobal") : t("dashboard.revenueTitleScoped")}
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            <StatCard label="Recettes aujourd'hui" value={formatFcfa(financeSummary.byPeriod.today)} />
-            <StatCard label="Recettes ce mois" value={formatFcfa(financeSummary.byPeriod.month)} />
-            <StatCard label="Contribuables" value={revenueOverview.citizens} />
-            <StatCard label="Boutiques" value={revenueOverview.businesses} />
-            <StatCard label="Marches" value={revenueOverview.markets} hint={`${revenueOverview.marketStalls} emplacement(s)`} />
-            <StatCard label="Agents actifs" value={revenueOverview.activeAgents} />
-            <StatCard label="Obligations impayees" value={revenueOverview.unpaidCount} hint={formatFcfa(revenueOverview.unpaidTotal)} />
+            <StatCard label={t("dashboard.statRevenueToday")} value={formatFcfa(financeSummary.byPeriod.today)} />
+            <StatCard label={t("dashboard.statRevenueMonth")} value={formatFcfa(financeSummary.byPeriod.month)} />
+            <StatCard label={t("dashboard.statTaxpayers")} value={revenueOverview.citizens} />
+            <StatCard label={t("dashboard.statBusinesses")} value={revenueOverview.businesses} />
+            <StatCard label={t("dashboard.statMarkets")} value={revenueOverview.markets} hint={t("dashboard.hintEmplacements", { count: revenueOverview.marketStalls })} />
+            <StatCard label={t("dashboard.statActiveAgents")} value={revenueOverview.activeAgents} />
+            <StatCard label={t("dashboard.statUnpaidObligations")} value={revenueOverview.unpaidCount} hint={formatFcfa(revenueOverview.unpaidTotal)} />
             {can(user, "fraud", "view") && (
               <StatCard
-                label="Anomalies ouvertes"
+                label={t("dashboard.statOpenFraud")}
                 value={revenueOverview.openFraudAlerts}
                 hint={
                   <Link href="/admin/fraud" className="inline-flex items-center gap-1 text-[var(--color-primary)] hover:underline">
-                    Voir le controle anti-fraude <IconArrowUpRight className="h-3 w-3" />
+                    {t("dashboard.viewFraud")} <IconArrowUpRight className="h-3 w-3" />
                   </Link>
                 }
               />
@@ -124,11 +129,11 @@ export default async function AdminDashboardPage() {
 
       {recoveryStats && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">Recouvrement &amp; paiement en ligne</h2>
+          <h2 className="mb-3 text-sm font-semibold text-[var(--color-text)]">{t("dashboard.recoveryTitle")}</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard label="Taux de recouvrement" value={`${recoveryStats.recoveryRate}%`} hint={formatFcfa(recoveryStats.totalPaidOnObligations)} tone="success" />
-            <StatCard label="Paiements en ligne" value={recoveryStats.online.count} hint={formatFcfa(recoveryStats.online.total)} tone="primary" />
-            <StatCard label="Paiements physiques" value={recoveryStats.physical.count} hint={formatFcfa(recoveryStats.physical.total)} tone="gold" />
+            <StatCard label={t("dashboard.statRecoveryRate")} value={`${recoveryStats.recoveryRate}%`} hint={formatFcfa(recoveryStats.totalPaidOnObligations)} tone="success" />
+            <StatCard label={t("dashboard.statOnlinePayments")} value={recoveryStats.online.count} hint={formatFcfa(recoveryStats.online.total)} tone="primary" />
+            <StatCard label={t("dashboard.statPhysicalPayments")} value={recoveryStats.physical.count} hint={formatFcfa(recoveryStats.physical.total)} tone="gold" />
           </div>
         </div>
       )}
@@ -137,11 +142,11 @@ export default async function AdminDashboardPage() {
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
           <IconLandmark className="h-4 w-4 text-[var(--color-text-muted)]" />
           <h2 className="text-sm font-semibold text-[var(--color-text)]">
-            {user?.hasGlobalScope ? "Repartition par arrondissement" : "Vos arrondissements"}
+            {user?.hasGlobalScope ? t("dashboard.arrondissementBreakdownGlobal") : t("dashboard.arrondissementBreakdownScoped")}
           </h2>
         </div>
         {arrondissements.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">Aucun arrondissement dans votre perimetre.</p>
+          <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">{t("dashboard.noArrondissements")}</p>
         ) : (
           <ul className="divide-y divide-[var(--color-border)]">
             {arrondissements.map((a) => (
@@ -158,7 +163,7 @@ export default async function AdminDashboardPage() {
                   </span>
                 </Link>
                 <span className="text-xs text-[var(--color-text-muted)]">
-                  {a._count.quartiers} quartier(s) · {a._count.users} utilisateur(s) affecte(s)
+                  {t("dashboard.quartierUserSuffix", { q: a._count.quartiers, u: a._count.users })}
                 </span>
               </li>
             ))}
@@ -170,10 +175,10 @@ export default async function AdminDashboardPage() {
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
           <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
             <IconActivity className="h-4 w-4 text-[var(--color-text-muted)]" />
-            <h2 className="text-sm font-semibold text-[var(--color-text)]">Activite recente</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">{t("dashboard.recentActivity")}</h2>
           </div>
           {recentAudit.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">Aucune activite enregistree.</p>
+            <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">{t("dashboard.noActivity")}</p>
           ) : (
             <ul className="divide-y divide-[var(--color-border)]">
               {recentAudit.map((log) => (
@@ -188,7 +193,7 @@ export default async function AdminDashboardPage() {
                       {log.entityType ? ` / ${log.entityType}` : ""}
                     </span>
                   </div>
-                  <time className="shrink-0 text-xs text-[var(--color-text-muted)]">
+                  <time className="shrink-0 text-xs text-[var(--color-text-muted)]" dir="ltr">
                     {new Date(log.createdAt).toLocaleString("fr-FR")}
                   </time>
                 </li>
@@ -198,11 +203,7 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
-      <p className="text-xs text-[var(--color-text-muted)]">
-        Tous les modules (etat civil, foncier, recettes municipales, services municipaux) partagent le meme
-        mecanisme d&apos;isolation territoriale (voir <code>recordScopeWhere</code>) — aucune donnee d&apos;un
-        autre arrondissement n&apos;est jamais exposee.
-      </p>
+      <p className="text-xs text-[var(--color-text-muted)]">{t("dashboard.footerNote")}</p>
     </div>
   );
 }
