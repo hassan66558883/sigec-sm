@@ -51,7 +51,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         .join(", ") || t("sidebar.noArrondissementAssigned");
 
   return (
-    <div className="flex min-h-screen">
+    // dir="ltr" explicite ici : la coquille (sidebar a gauche, contenu a
+    // droite) reste physiquement fixe quelle que soit la langue — seul le
+    // texte a l'interieur de chaque zone traduite (aside, tableau de bord)
+    // change de sens via son propre dir={dir} local. Sans ce dir="ltr"
+    // explicite sur le conteneur flex racine, on depend d'un heritage
+    // implicite qui peut se faire piéger par le contenu (ex. detection
+    // heuristique de sens sur du texte arabe) — mieux vaut le figer.
+    <div dir="ltr" className="flex min-h-screen">
       <aside
         dir={dir}
         lang={locale}
