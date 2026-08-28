@@ -7,6 +7,7 @@
 const fr = {
   login: {
     subtitle: "Ville de N'Djamena — Espace administratif",
+    welcomeBack: "Content de vous revoir",
     email: "Adresse email",
     password: "Mot de passe",
     submit: "Se connecter",
@@ -14,6 +15,14 @@ const fr = {
     footer: "Acces reserve aux agents et responsables municipaux autorises.",
     errorGeneric: "Impossible de se connecter.",
     errorNetwork: "Erreur reseau. Veuillez reessayer.",
+    brandTitle: "La gestion municipale, reunie en un seul systeme",
+    brandSubtitle:
+      "Etat civil, recettes municipales, foncier et services aux citoyens — une plateforme unique pour la Mairie Centrale et les 10 arrondissements.",
+    highlightArrondissements: "10 arrondissements geres depuis une seule plateforme",
+    highlightCitizens: "Dossier citoyen unique, de la naissance aux actes officiels",
+    highlightRevenue: "Recettes municipales suivies en temps reel",
+    highlightSecurity: "Acces securise, journal d'audit sur chaque action",
+    brandFooter: "Ville de N'Djamena — Republique du Tchad",
   },
   sidebar: {
     dashboard: "Tableau de bord",

@@ -6,6 +6,7 @@ import type { Dictionary } from "../translate";
 const ar: Dictionary = {
   login: {
     subtitle: "مدينة نجامينا — الفضاء الإداري",
+    welcomeBack: "سعداء بعودتك",
     email: "البريد الإلكتروني",
     password: "كلمة المرور",
     submit: "تسجيل الدخول",
@@ -13,6 +14,14 @@ const ar: Dictionary = {
     footer: "الوصول محصور على الموظفين والمسؤولين البلديين المخوّلين.",
     errorGeneric: "تعذر تسجيل الدخول.",
     errorNetwork: "خطأ في الشبكة. يرجى المحاولة مرة أخرى.",
+    brandTitle: "الإدارة البلدية، في نظام واحد متكامل",
+    brandSubtitle:
+      "الحالة المدنية، الإيرادات البلدية، العقارات وخدمات المواطنين - منصة واحدة للبلدية المركزية والدوائر العشر.",
+    highlightArrondissements: "10 دوائر تُدار من منصة واحدة",
+    highlightCitizens: "ملف مواطن واحد، من الولادة إلى الوثائق الرسمية",
+    highlightRevenue: "متابعة الإيرادات البلدية في الوقت الفعلي",
+    highlightSecurity: "وصول آمن، وسجل مراجعة على كل إجراء",
+    brandFooter: "مدينة نجامينا - جمهورية تشاد",
   },
   sidebar: {
     dashboard: "لوحة القيادة",

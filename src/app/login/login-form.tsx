@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { makeT, type Dictionary } from "@/lib/i18n/translate";
+import { IconMail, IconLock } from "@/components/icons";
 
 export function LoginForm({ dict }: { dict: Dictionary }) {
   const t = makeT(dict);
@@ -46,40 +47,46 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
         </div>
       )}
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-[var(--color-text)]">
+        <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--color-text)]">
           {t("login.email")}
         </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-          placeholder="prenom.nom@ndjamena.td"
-          dir="ltr"
-        />
+        <div className="relative">
+          <IconMail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg border border-[var(--color-border)] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            placeholder="prenom.nom@ndjamena.td"
+            dir="ltr"
+          />
+        </div>
       </div>
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-[var(--color-text)]">
+        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--color-text)]">
           {t("login.password")}
         </label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-          dir="ltr"
-        />
+        <div className="relative">
+          <IconLock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg border border-[var(--color-border)] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            dir="ltr"
+          />
+        </div>
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md py-2 text-sm font-medium text-white shadow-sm transition disabled:opacity-60"
+        className="w-full rounded-lg py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
         style={{ background: "var(--gradient-primary)" }}
       >
         {loading ? t("login.submitting") : t("login.submit")}
