@@ -22,7 +22,7 @@ export default async function LoginPage() {
 
       <div className="relative w-full max-w-sm" dir={dir} lang={locale}>
         <div className="mb-4 flex justify-center">
-          <LanguageSwitcher locale={locale} />
+          <LanguageSwitcher locale={locale} variant="onDark" />
         </div>
 
         <div className="mb-8 text-center text-white">
