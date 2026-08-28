@@ -1,0 +1,39 @@
+appId: td.ndjamena.sigecsm
+productName: SIGEC-SM
+copyright: "Copyright (C) 2026 Mairie de la Ville de N'Djamena"
+
+directories:
+  output: release
+  buildResources: build
+
+# Le code de l'app SIGEC-SM elle-meme n'est PAS embarque ici via `files` :
+# il est copie tel quel (sortie `next build` avec output:"standalone", voir
+# next.config.mjs) via extraResources ci-dessous. `files` ne contient que le
+# shell Electron (electron/) qui l'orchestre.
+files:
+  - electron/**/*
+  - package.json
+
+extraResources:
+  - from: .next/standalone
+    to: standalone
+  - from: .next/static
+    to: standalone/.next/static
+  # Ajouter ici `public` si le dossier est cree un jour (actuellement vide,
+  # voir next.config.mjs — Next.js n'exige pas sa presence).
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SIGEC-SM
+  artifactName: "SIGEC-SM-Setup-${version}.${ext}"
+
+asar: true

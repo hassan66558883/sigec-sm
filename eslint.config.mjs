@@ -5,7 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  // electron/** : processus principal Electron, CommonJS pur (pas de
+  // "type":"module" dans package.json — c'est la convention attendue par
+  // Electron pour main.js/preload.js), hors du perimetre TypeScript/ESM de
+  // l'app Next.js que ce eslint-config-next est cense verifier.
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "electron/**"]),
 ]);
 
 export default eslintConfig;

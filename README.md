@@ -10,6 +10,10 @@ centralisée techniquement et décentralisée fonctionnellement : une Mairie Cen
 - **PostgreSQL** via **Prisma 7** (driver adapter `@prisma/adapter-pg`, pas de connexion directe dans le schéma)
 - **Tailwind CSS v4**
 - Authentification par session JWT (cookies `httpOnly`) — deux realms séparés (agents vs citoyens)
+- **Application de bureau Windows** (`electron/`) — le même code applicatif, empaqueté et
+  piloté par Electron, installable comme une application Windows normale
+  (`SIGEC-SM-Setup-*.exe`) sur un poste "serveur central" ou un poste "client"
+  d'arrondissement. Voir [`docs/DEPLOYMENT_WINDOWS.md`](docs/DEPLOYMENT_WINDOWS.md).
 
 ## Architecture des données
 
@@ -101,6 +105,18 @@ acte réel (ex. déclaration de naissance).
   connexion, coquille admin (barre latérale, pied de page), tableau de bord principal — avec gestion
   RTL locale (pas globale, pour ne pas casser les pages pas encore traduites). Les ~25 pages de
   modules métier et le portail citoyen restent à traduire.
+- 🟡 **Phase 13 — Application de bureau Windows** (partielle, voir
+  [`docs/DEPLOYMENT_WINDOWS.md`](docs/DEPLOYMENT_WINDOWS.md)) : shell Electron (`electron/`)
+  autour de l'application existante — aucune réécriture du backend, même code, même base de
+  données. Rôle « serveur central » (empaquette et lance le serveur Next.js autonome,
+  `output: "standalone"`) ou « poste client » (se connecte au serveur central sur le réseau),
+  choisi une fois au premier lancement. Vérifié réellement : fenêtre Electron native lancée,
+  application réelle chargée et fonctionnelle à l'intérieur, serveur autonome démarré et
+  interrogé avec succès contre la vraie base PostgreSQL. Client léger pour l'instant (pas
+  d'écriture hors ligne — une coupure réseau bloque la saisie plutôt que de risquer un
+  doublon d'acte d'état civil, voir la section « Limites connues » du guide) ; la
+  synchronisation multi-site avec écriture hors ligne reste un chantier distinct, plus
+  important, non entamé.
 
 Les Phases 1 à 9 ont chacune été vérifiées de bout en bout dans le navigateur (pas seulement
 compilées) : création de données réelles, isolation territoriale testée par accès direct à
@@ -111,6 +127,7 @@ reçu → vérification QR) rejoués intégralement.
 ## Documentation complémentaire
 
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — installation Ubuntu/Linux, service systemd, Nginx + HTTPS.
+- [`docs/DEPLOYMENT_WINDOWS.md`](docs/DEPLOYMENT_WINDOWS.md) — application de bureau Windows (`SIGEC-SM.exe`), serveur central + postes d'arrondissement.
 - [`docs/BACKUP.md`](docs/BACKUP.md) — sauvegarde quotidienne, copie hors site, restauration, disaster recovery.
 - [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) — prise en main par rôle (agents, contribuables, citoyens).
 - [`docs/PAYMENT_PROVIDERS.md`](docs/PAYMENT_PROVIDERS.md) — brancher un vrai opérateur de paiement (Mobile Money, carte...).

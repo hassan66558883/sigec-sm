@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Systeme Integre de Gestion de l'Etat Civil et des Services Municipaux - Ville de N'Djamena",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -12,7 +13,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "vitest run"
+    "test": "vitest run",
+    "electron:dev": "cross-env ELECTRON_DEV_URL=http://localhost:3000 electron .",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -33,7 +36,10 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "prisma": "^7.9.1",

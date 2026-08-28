@@ -9,8 +9,12 @@
 /.next/
 /out/
 
-# production
-/build
+# electron-builder output (SIGEC-SM-Setup-*.exe etc.) — genere par `npm run
+# dist:win`, jamais commite. NB: /build lui-meme N'EST PLUS ignore : ce
+# dossier contient maintenant des assets source reels (build/icon.ico),
+# convention par defaut d'electron-builder (buildResources), pas une sortie
+# de build Next.js (qui va dans .next/, deja ignore ci-dessus).
+/release
 
 # misc
 .DS_Store

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>SIGEC-SM — Configuration</title>
+<style>
+  :root {
+    --color-primary: #0f4c81;
+    --color-primary-dark: #0a3760;
+    --color-accent: #c8a13a;
+    --color-bg: #f4f6fa;
+    --color-surface: #ffffff;
+    --color-text: #1a2330;
+    --color-text-muted: #5b6b7d;
+    --color-border: #e3e8ef;
+    --color-danger: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    width: 100%;
+    max-width: 520px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 8px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+    overflow: hidden;
+  }
+  .header {
+    padding: 24px 28px;
+    color: white;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  }
+  .header h1 { margin: 0 0 4px; font-size: 18px; }
+  .header p { margin: 0; font-size: 13px; opacity: 0.85; }
+  .body { padding: 24px 28px; }
+  .role-choice { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+  .role-option {
+    display: flex; align-items: flex-start; gap: 10px;
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 12px 14px;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .role-option:hover { border-color: var(--color-primary); background: #eaf2fb; }
+  .role-option input { margin-top: 3px; }
+  .role-option .title { font-weight: 600; font-size: 14px; }
+  .role-option .desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+  fieldset { border: none; padding: 0; margin: 0 0 14px; }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--color-text-muted); margin-bottom: 4px; }
+  input[type="text"], input[type="password"], input[type="number"] {
+    width: 100%; padding: 8px 10px; font-size: 13px;
+    border: 1px solid var(--color-border); border-radius: 6px; outline: none;
+  }
+  input:focus { border-color: var(--color-primary); }
+  .field { margin-bottom: 12px; }
+  .hint { font-size: 11px; color: var(--color-text-muted); margin-top: 4px; }
+  button[type="submit"] {
+    width: 100%; padding: 10px; margin-top: 8px; border: none; border-radius: 8px;
+    color: white; font-size: 14px; font-weight: 600; cursor: pointer;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  }
+  button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
+  .error { color: var(--color-danger); font-size: 13px; margin-top: 12px; display: none; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>SIGEC-SM — Configuration initiale</h1>
+      <p>Ville de N'Djamena — à configurer une seule fois sur ce poste.</p>
+    </div>
+    <div class="body">
+      <form id="setup-form">
+        <div class="role-choice">
+          <label class="role-option">
+            <input type="radio" name="role" value="server" checked />
+            <div>
+              <div class="title">Ce poste est le serveur central</div>
+              <div class="desc">Héberge la base de données et sert l'application aux autres postes du réseau.</div>
+            </div>
+          </label>
+          <label class="role-option">
+            <input type="radio" name="role" value="client" />
+            <div>
+              <div class="title">Se connecter à un serveur central</div>
+              <div class="desc">Poste d'un arrondissement — se connecte au serveur déjà en place.</div>
+            </div>
+          </label>
+        </div>
+
+        <fieldset id="server-fields">
+          <div class="field">
+            <label for="databaseUrl">Chaîne de connexion PostgreSQL</label>
+            <input type="text" id="databaseUrl" placeholder="postgresql://utilisateur:motdepasse@localhost:5432/sigec_sm" />
+            <div class="hint">Fournie lors de l'installation de PostgreSQL — voir docs/DEPLOYMENT_WINDOWS.md.</div>
+          </div>
+          <div class="field">
+            <label for="port">Port local de l'application</label>
+            <input type="number" id="port" value="3100" />
+          </div>
+        </fieldset>
+
+        <fieldset id="client-fields" class="hidden">
+          <div class="field">
+            <label for="serverUrl">Adresse du serveur central</label>
+            <input type="text" id="serverUrl" placeholder="http://192.168.1.10:3100" />
+            <div class="hint">Adresse réseau communiquée par l'administrateur du serveur central.</div>
+          </div>
+        </fieldset>
+
+        <button type="submit" id="submit-btn">Enregistrer et démarrer</button>
+        <div class="error" id="error"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("setup-form");
+    const serverFields = document.getElementById("server-fields");
+    const clientFields = document.getElementById("client-fields");
+    const errorEl = document.getElementById("error");
+    const submitBtn = document.getElementById("submit-btn");
+
+    for (const radio of form.querySelectorAll('input[name="role"]')) {
+      radio.addEventListener("change", () => {
+        const isServer = form.role.value === "server";
+        serverFields.classList.toggle("hidden", !isServer);
+        clientFields.classList.toggle("hidden", isServer);
+      });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.style.display = "none";
+      const role = form.role.value;
+
+      let config;
+      if (role === "server") {
+        const databaseUrl = document.getElementById("databaseUrl").value.trim();
+        const port = Number(document.getElementById("port").value) || 3100;
+        if (!databaseUrl) {
+          errorEl.textContent = "La chaîne de connexion PostgreSQL est requise.";
+          errorEl.style.display = "block";
+          return;
+        }
+        config = { role, server: { databaseUrl, port } };
+      } else {
+        const serverUrl = document.getElementById("serverUrl").value.trim();
+        if (!serverUrl) {
+          errorEl.textContent = "L'adresse du serveur central est requise.";
+          errorEl.style.display = "block";
+          return;
+        }
+        config = { role, client: { serverUrl } };
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Démarrage...";
+      try {
+        const result = await window.sigecSetup.submit(config);
+        if (result && result.error) {
+          errorEl.textContent = result.error;
+          errorEl.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Enregistrer et démarrer";
+        }
+        // En cas de succes, main.js ferme cette fenetre et ouvre l'application.
+      } catch (err) {
+        errorEl.textContent = "Erreur inattendue : " + (err && err.message ? err.message : String(err));
+        errorEl.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Enregistrer et démarrer";
+      }
+    });
+  </script>
+</body>
+</html>

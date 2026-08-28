@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Sortie autonome (server.js + seules les deps tracees, pas tout
+  // node_modules) — necessaire pour empaqueter l'app dans le shell Electron
+  // (voir electron/) sans embarquer des centaines de Mo inutiles. Sans effet
+  // sur `next dev` ni sur le web classique servi via `next start`.
+  output: "standalone",
   experimental: {
     // Active forbidden() (403 explicite pour "authentifie mais hors
     // perimetre territorial") — voir node_modules/next/dist/docs/.../forbidden.md
