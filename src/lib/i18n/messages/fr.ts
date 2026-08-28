@@ -15,7 +15,7 @@ const fr = {
     footer: "Acces reserve aux agents et responsables municipaux autorises.",
     errorGeneric: "Impossible de se connecter.",
     errorNetwork: "Erreur reseau. Veuillez reessayer.",
-    brandTitle: "La gestion municipale, reunie en un seul systeme",
+    brandTitle: "BIENVENUE AU SIGEC-SM",
     brandSubtitle:
       "Etat civil, recettes municipales, foncier et services aux citoyens — une plateforme unique pour la Mairie Centrale et les 10 arrondissements.",
     highlightArrondissements: "10 arrondissements geres depuis une seule plateforme",

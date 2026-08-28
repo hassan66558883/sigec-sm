@@ -36,14 +36,18 @@ export default async function LoginPage() {
             empiles (voir recherche design : "centered modal cards ... feel
             like a discrete, premium object"). */}
         <div className="overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between px-7 pt-6 sm:px-9">
-            <div className="flex items-center gap-2.5">
+          <div className="flex justify-end px-7 pt-6 sm:px-9">
+            <LanguageSwitcher locale={locale} variant="onDark" />
+          </div>
+
+          <div className="px-7 pt-4 text-center sm:px-9">
+            <div className="flex items-center justify-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white ring-1 ring-white/25">
                 SM
               </div>
               <span className="text-sm font-semibold uppercase tracking-[0.14em] text-white/80">SIGEC-SM</span>
             </div>
-            <LanguageSwitcher locale={locale} variant="onDark" />
+            <p className="mt-2 text-xs text-white/60">{t("login.subtitle")}</p>
           </div>
 
           <div className="px-7 pb-2 pt-6 text-center sm:px-9">
@@ -54,10 +58,6 @@ export default async function LoginPage() {
           <div className="mx-7 my-6 h-px bg-white/15 sm:mx-9" />
 
           <div className="px-7 pb-8 sm:px-9">
-            <div className="mb-5 text-center">
-              <h2 className="text-sm font-semibold text-white">{t("login.welcomeBack")}</h2>
-              <p className="mt-1 text-xs text-white/60">{t("login.subtitle")}</p>
-            </div>
             <Suspense fallback={null}>
               <LoginForm dict={dict} />
             </Suspense>
