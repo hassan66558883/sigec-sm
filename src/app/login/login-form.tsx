@@ -42,12 +42,12 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-md border border-[var(--color-danger)]/30 bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
+        <div className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-2 text-sm text-red-50">
           {error}
         </div>
       )}
       <div>
-        <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--color-text)]">
+        <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white/90">
           {t("login.email")}
         </label>
         <div className="relative">
@@ -59,14 +59,14 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
             autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-[var(--color-border)] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            className="w-full rounded-lg border border-white/30 bg-white/95 py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition focus:border-white focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/50"
             placeholder="prenom.nom@ndjamena.td"
             dir="ltr"
           />
         </div>
       </div>
       <div>
-        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--color-text)]">
+        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white/90">
           {t("login.password")}
         </label>
         <div className="relative">
@@ -78,7 +78,7 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-[var(--color-border)] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+            className="w-full rounded-lg border border-white/30 bg-white/95 py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition focus:border-white focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/50"
             dir="ltr"
           />
         </div>
@@ -86,8 +86,7 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-        style={{ background: "var(--gradient-primary)" }}
+        className="w-full rounded-lg bg-white py-2.5 text-sm font-semibold text-[var(--color-primary-dark)] shadow-lg transition hover:bg-white/90 disabled:opacity-60"
       >
         {loading ? t("login.submitting") : t("login.submit")}
       </button>

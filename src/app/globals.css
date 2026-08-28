@@ -73,3 +73,22 @@ body {
 .tc-animate-in {
   animation: tc-fade-in 0.35s ease-out both;
 }
+
+/* Derive lent et discret des formes floues en fond de la page de connexion
+   (login-blob) — mouvement ambiant tres subtil, jamais assez rapide pour
+   distraire d'un formulaire de saisie. */
+@keyframes login-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(3%, -4%) scale(1.06);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.login-blob {
+  animation: login-drift 22s ease-in-out infinite;
+}
