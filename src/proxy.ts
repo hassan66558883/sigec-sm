@@ -50,33 +50,58 @@ export async function proxy(req: NextRequest) {
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("next", pathname);
         response = NextResponse.redirect(loginUrl);
+        response.cookies.delete(SESSION_COOKIE);
       } else if (user.mustResetPwd) {
         response = NextResponse.redirect(new URL("/admin/reset-password", req.url));
       }
     }
   }
 
+  // "Deja connecte, redirige vers /admin" doit verifier la meme validite que
+  // le garde /admin ci-dessus (utilisateur toujours existant/actif), pas
+  // seulement la signature du jeton — sinon un compte desactive/supprime
+  // pendant qu'une session est encore active provoque une boucle infinie :
+  // /admin refuse (utilisateur invalide) -> /login accepte (signature
+  // valide) -> /admin refuse -> ... jusqu'a effacement manuel du cookie.
   if (!response && pathname === "/login") {
     const token = req.cookies.get(SESSION_COOKIE)?.value;
     const session = token ? await verifySessionToken(token) : null;
-    if (session) {
+    const user = session
+      ? await prisma.user.findUnique({ where: { id: session.sub }, select: { isActive: true } })
+      : null;
+    if (user && user.isActive) {
       response = NextResponse.redirect(new URL("/admin", req.url));
+    } else if (session) {
+      response = NextResponse.next();
+      response.cookies.delete(SESSION_COOKIE);
     }
   }
 
   if (!response && pathname.startsWith("/portail") && pathname !== "/portail/login" && pathname !== "/portail/register") {
     const token = req.cookies.get(CITIZEN_SESSION_COOKIE)?.value;
     const session = token ? await verifyCitizenSessionToken(token) : null;
-    if (!session) {
+    const account = session
+      ? await prisma.citizenAccount.findUnique({ where: { id: session.sub }, select: { isActive: true } })
+      : null;
+    if (!account || !account.isActive) {
       response = NextResponse.redirect(new URL("/portail/login", req.url));
+      if (session) response.cookies.delete(CITIZEN_SESSION_COOKIE);
     }
   }
 
+  // Meme raisonnement que pour /login ci-dessus (regle du meme bug pour le
+  // realm citoyen).
   if (!response && (pathname === "/portail/login" || pathname === "/portail/register")) {
     const token = req.cookies.get(CITIZEN_SESSION_COOKIE)?.value;
     const session = token ? await verifyCitizenSessionToken(token) : null;
-    if (session) {
+    const account = session
+      ? await prisma.citizenAccount.findUnique({ where: { id: session.sub }, select: { isActive: true } })
+      : null;
+    if (account && account.isActive) {
       response = NextResponse.redirect(new URL("/portail", req.url));
+    } else if (session) {
+      response = NextResponse.next();
+      response.cookies.delete(CITIZEN_SESSION_COOKIE);
     }
   }
 
