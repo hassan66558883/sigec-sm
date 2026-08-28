@@ -82,7 +82,7 @@ acte réel (ex. déclaration de naissance).
   (protégé par `CRON_SECRET`, idempotent — voir [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §7).
 - 🟡 **Phase 10 — Sécurité et production** (partielle, voir ci-dessous) : en-têtes de sécurité,
   changement de mot de passe obligatoire réellement appliqué, guides de déploiement/sauvegarde,
-  **suite de tests automatisés** (130 tests, Vitest, contre une base PostgreSQL de test dédiée)
+  **suite de tests automatisés** (136 tests, Vitest, contre une base PostgreSQL de test dédiée)
   couvrant les fonctions critiques listées section 38 : création citoyen, naissance → validation →
   certificat → vérification QR → révocation, mariage → divorce (mise à jour de la situation
   matrimoniale), décès, permissions, isolation entre arrondissements, paiements/recettes/en ligne/
@@ -212,9 +212,19 @@ simulation.
 - Validation de révocation avec motif obligatoire (pas de `window.prompt()` natif)
 - En-têtes de sécurité HTTP (`next.config.mjs`) : `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security`
-- Protection CSRF : cookies `sameSite=lax` + endpoints exigeant `Content-Type: application/json`
-  (un formulaire HTML cross-site classique ne peut ni fixer ce header ni faire suivre le cookie sur
-  une requête POST cross-origin) — pas de jeton CSRF distinct à ce stade
+- **Protection CSRF par jeton** (`src/lib/csrf-server.ts`, motif *double-submit cookie*) : un jeton
+  aléatoire (32 octets) posé dans un cookie non-`httpOnly` doit être renvoyé à l'identique dans
+  l'en-tête `X-CSRF-Token` sur toute requête `POST`/`PUT`/`PATCH`/`DELETE` vers `/api/*`, vérifié
+  dans `proxy.ts` avant toute autre logique (comparaison à temps constant,
+  `crypto.timingSafeEqual`). Un site tiers peut faire suivre le cookie de session mais ne peut pas
+  lire le cookie CSRF pour construire l'en-tête (politique de même origine) — s'ajoute en défense en
+  profondeur à `sameSite=lax` + `Content-Type: application/json`, déjà en place. Injecté
+  automatiquement sur tous les appels `fetch()` existants par un patch global côté client
+  (`src/components/csrf-init.tsx`) plutôt que de modifier individuellement chaque formulaire.
+  Exempté uniquement pour les endpoints sans session navigateur (`/api/payments/callback/*`,
+  `/api/cron/*`), protégés par leur propre vérification (signature prestataire / `CRON_SECRET`).
+  Vérifié en conditions réelles : requête sans jeton → 403, jeton erroné → 403, jeton valide → 200,
+  formulaire réel (agent connecté) → succès de bout en bout.
 - **Chiffrement applicatif des champs sensibles** (`src/lib/encryption.ts`, AES-256-GCM) — appliqué
   à `DeathRecord.cause` (donnée médicale) et `Citizen.phone` (donnée personnelle), tous deux jamais
   recherchés/filtrés. Vérifié par requête SQL brute directe : la valeur stockée n'est jamais le
@@ -225,7 +235,7 @@ simulation.
   aléatoire à chaque appel) casse la requête.
 - **Endpoint de supervision** `/api/health` (public, minimal : disponibilité appli + base) — à
   brancher sur un load balancer ou un outil de monitoring externe (voir `docs/DEPLOYMENT.md`).
-- **Suite de tests automatisés** (`npm test`, Vitest, 124 tests) contre une base PostgreSQL de test
+- **Suite de tests automatisés** (`npm test`, Vitest, 136 tests) contre une base PostgreSQL de test
   dédiée — voir la section [Tests automatisés](#tests-automatisés) ci-dessus.
 
 Restent à couvrir pour la Phase 10 : chiffrement étendu à d'autres champs sensibles au choix,

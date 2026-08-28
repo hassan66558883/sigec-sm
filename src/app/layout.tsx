@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CsrfInit } from "@/components/csrf-init";
 
 export const metadata: Metadata = {
   title: "SIGEC-SM — Ville de N'Djamena",
@@ -13,12 +14,15 @@ export const metadata: Metadata = {
 // traduites (citoyens, naissances, finances...) doivent rester en LTR meme
 // quand l'utilisateur choisit l'arabe, sinon leur texte francais s'afficherait
 // de droite a gauche. Chaque zone traduite pose donc son propre `dir` local
-// (voir lib/i18n/index.ts + les layouts admin/connexion) plutot que de
+// (voir lib/i18n/server.ts + les layouts admin/connexion) plutot que de
 // changer <html> globalement.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <CsrfInit />
+        {children}
+      </body>
     </html>
   );
 }
