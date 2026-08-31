@@ -63,65 +63,56 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <aside
       dir={dir}
       lang={locale}
-      className={`flex w-64 flex-col bg-[var(--color-surface)] ${
-        isRtl
-          ? // Arabe : la sidebar est en second dans le DOM -> a droite a
-            // l'ecran, son bord gauche touche le contenu principal.
-            "border-l border-[var(--color-border)] shadow-[-1px_0_0_0_rgb(15_23_42_/_0.03)]"
-          : // Francais : la sidebar est en premier dans le DOM -> a gauche a
-            // l'ecran, son bord droit touche le contenu principal.
-            "border-r border-[var(--color-border)] shadow-[1px_0_0_0_rgb(15_23_42_/_0.03)]"
-      }`}
+      className={`flex w-64 flex-col text-white ${isRtl ? "shadow-[-4px_0_16px_0_rgb(0_0_0_/_0.15)]" : "shadow-[4px_0_16px_0_rgb(0_0_0_/_0.15)]"}`}
+      style={{ background: "linear-gradient(180deg, var(--color-primary-dark), #072544)" }}
     >
-      <div className="flex items-center gap-2.5 border-b border-[var(--color-border)] px-4 py-4">
+      <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-4">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
-            style={{ background: "var(--gradient-primary)" }}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-white shadow-sm ring-1 ring-white/20"
           >
             SM
           </div>
           <div>
-            <div className="text-sm font-semibold leading-tight tracking-tight">SIGEC-SM</div>
-            <div className="text-xs leading-tight text-[var(--color-text-muted)]">
+            <div className="text-sm font-semibold leading-tight tracking-tight text-white">SIGEC-SM</div>
+            <div className="text-xs leading-tight text-white/55">
               Ville de N&apos;Djamena
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
               user.hasGlobalScope
-                ? "bg-[var(--color-accent-soft)] text-[var(--color-primary-dark)] ring-[var(--color-accent)]/30"
-                : "bg-gray-50 text-[var(--color-text-muted)] ring-[var(--color-border)]"
+                ? "bg-[var(--color-accent)]/20 text-[var(--color-accent)] ring-[var(--color-accent)]/30"
+                : "bg-white/10 text-white/70 ring-white/15"
             }`}
           >
             <IconMapPin className="h-3 w-3" />
             {orgLabel}
           </span>
-          <LanguageSwitcher locale={locale} />
+          <LanguageSwitcher locale={locale} variant="onDark" />
         </div>
 
         <SidebarNav visibleModules={visibleModules} dict={dict} />
 
-        <div className="border-t border-[var(--color-border)] p-3">
+        <div className="border-t border-white/10 p-3">
           <div className="mb-2 flex items-center gap-2.5 px-1">
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
-              style={{ background: "var(--gradient-primary)" }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white shadow-sm ring-1 ring-white/20"
             >
               {initials(user.name)}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-medium">{user.name}</div>
-              <div className="truncate text-xs text-[var(--color-text-muted)]">
+              <div className="truncate text-sm font-medium text-white">{user.name}</div>
+              <div className="truncate text-xs text-white/55">
                 {user.roles.map((r) => r.name).join(", ") || t("sidebar.noRole")}
               </div>
             </div>
           </div>
           <Link
             href="/admin/notifications"
-            className="mb-2 flex items-center justify-center gap-2 rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
+            className="mb-2 flex items-center justify-center gap-2 rounded-md border border-white/15 px-3 py-2 text-center text-sm text-white/75 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
           >
             {t("sidebar.notifications")}
             {unreadNotifications > 0 && (
@@ -132,11 +123,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
           <Link
             href="/admin/reset-password"
-            className="mb-2 block rounded-md border border-[var(--color-border)] px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
+            className="mb-2 block rounded-md border border-white/15 px-3 py-2 text-center text-sm text-white/75 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
           >
             {t("sidebar.changePassword")}
           </Link>
-          <LogoutButton label={t("sidebar.logout")} />
+          <LogoutButton label={t("sidebar.logout")} variant="onDark" />
         </div>
       </aside>
   );

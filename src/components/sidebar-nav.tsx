@@ -109,16 +109,16 @@ export function SidebarNav({ visibleModules, dict }: { visibleModules: Set<strin
         if (items.length === 0) return null;
         const title = section.accent ? TECHNOTCHAD_TITLE : section.titleKey ? t(section.titleKey) : null;
         return (
-          <div key={section.titleKey ?? `top-${index}`} className={section.accent ? "mt-1 border-t border-[var(--color-border)] pt-3" : undefined}>
+          <div key={section.titleKey ?? `top-${index}`} className={section.accent ? "mt-1 border-t border-white/10 pt-3" : undefined}>
             {title && (
-              <div className="mb-1 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              <div className="mb-1 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-white/45">
                 {section.accent ? (
                   <span
                     className="h-1.5 w-1.5 rounded-full"
                     style={{ background: "linear-gradient(135deg, #4338ca, #8b5cf6)" }}
                   />
                 ) : (
-                  section.icon && <span className="text-[var(--color-primary)]/70">{section.icon}</span>
+                  section.icon && <span className="text-white/50">{section.icon}</span>
                 )}
                 {title}
               </div>
@@ -130,16 +130,14 @@ export function SidebarNav({ visibleModules, dict }: { visibleModules: Set<strin
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-md px-3 py-1.5 text-sm transition ${
+                    className={`rounded-md py-1.5 text-sm transition ${
                       active
-                        ? "text-white shadow-sm"
-                        : "text-[var(--color-text)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
+                        ? section.accent
+                          ? "px-3 text-white shadow-sm"
+                          : "border-s-4 border-[var(--color-accent)] bg-white/12 ps-2 pe-3 font-medium text-white"
+                        : "px-3 text-white/75 hover:bg-white/10 hover:text-white"
                     }`}
-                    style={
-                      active
-                        ? { background: section.accent ? "linear-gradient(120deg, #4338ca, #6366f1)" : "var(--gradient-primary)" }
-                        : undefined
-                    }
+                    style={active && section.accent ? { background: "linear-gradient(120deg, #4338ca, #6366f1)" } : undefined}
                   >
                     {t(item.labelKey)}
                   </Link>
