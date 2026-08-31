@@ -3,15 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function LogoutButton({
-  label = "Se deconnecter",
-  loadingLabel = "Deconnexion...",
-  variant = "light",
-}: {
-  label?: string;
-  loadingLabel?: string;
-  variant?: "light" | "onDark";
-}) {
+export function LogoutButton({ label = "Se deconnecter", loadingLabel = "Deconnexion..." }: { label?: string; loadingLabel?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -22,16 +14,11 @@ export function LogoutButton({
     router.refresh();
   }
 
-  const variantClass =
-    variant === "onDark"
-      ? "border-white/15 text-white/75 hover:border-white/30 hover:bg-white/10 hover:text-white"
-      : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-gray-50";
-
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      className={`w-full rounded-md border px-3 py-2 text-start text-sm transition disabled:opacity-60 ${variantClass}`}
+      className="w-full rounded-lg px-3 py-2 text-start text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)] disabled:opacity-60"
     >
       {loading ? loadingLabel : label}
     </button>

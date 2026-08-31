@@ -63,71 +63,83 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <aside
       dir={dir}
       lang={locale}
-      className={`flex w-64 flex-col text-white ${isRtl ? "shadow-[-4px_0_16px_0_rgb(0_0_0_/_0.15)]" : "shadow-[4px_0_16px_0_rgb(0_0_0_/_0.15)]"}`}
-      style={{ background: "linear-gradient(180deg, var(--color-primary-dark), #072544)" }}
+      className={`flex w-64 flex-col ${
+        isRtl
+          ? // Arabe : la sidebar est en second dans le DOM -> a droite a
+            // l'ecran, son bord gauche touche le contenu principal.
+            "shadow-[-2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"
+          : // Francais : la sidebar est en premier dans le DOM -> a gauche a
+            // l'ecran, son bord droit touche le contenu principal.
+            "shadow-[2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"
+      }`}
+      style={{ background: "linear-gradient(180deg, #ffffff, #f6f8fc)" }}
     >
-      <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-4">
+      <div className="flex items-center gap-2.5 px-5 py-5">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-white shadow-sm ring-1 ring-white/20"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md"
+            style={{ background: "var(--gradient-primary)" }}
           >
             SM
           </div>
           <div>
-            <div className="text-sm font-semibold leading-tight tracking-tight text-white">SIGEC-SM</div>
-            <div className="text-xs leading-tight text-white/55">
+            <div className="text-sm font-semibold leading-tight tracking-tight text-[var(--color-text)]">SIGEC-SM</div>
+            <div className="text-xs leading-tight text-[var(--color-text-muted)]">
               Ville de N&apos;Djamena
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2 px-4 pb-3">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
               user.hasGlobalScope
-                ? "bg-[var(--color-accent)]/20 text-[var(--color-accent)] ring-[var(--color-accent)]/30"
-                : "bg-white/10 text-white/70 ring-white/15"
+                ? "bg-[var(--color-accent-soft)] text-[var(--color-primary-dark)] ring-[var(--color-accent)]/30"
+                : "bg-white text-[var(--color-text-muted)] ring-[var(--color-border)]"
             }`}
           >
             <IconMapPin className="h-3 w-3" />
             {orgLabel}
           </span>
-          <LanguageSwitcher locale={locale} variant="onDark" />
+          <LanguageSwitcher locale={locale} />
         </div>
 
         <SidebarNav visibleModules={visibleModules} dict={dict} />
 
-        <div className="border-t border-white/10 p-3">
-          <div className="mb-2 flex items-center gap-2.5 px-1">
+        <div className="p-3">
+          <div className="flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] bg-white p-2.5 shadow-sm">
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white shadow-sm ring-1 ring-white/20"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
+              style={{ background: "var(--gradient-primary)" }}
             >
               {initials(user.name)}
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-white">{user.name}</div>
-              <div className="truncate text-xs text-white/55">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-[var(--color-text)]">{user.name}</div>
+              <div className="truncate text-xs text-[var(--color-text-muted)]">
                 {user.roles.map((r) => r.name).join(", ") || t("sidebar.noRole")}
               </div>
             </div>
           </div>
-          <Link
-            href="/admin/notifications"
-            className="mb-2 flex items-center justify-center gap-2 rounded-md border border-white/15 px-3 py-2 text-center text-sm text-white/75 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
-          >
-            {t("sidebar.notifications")}
-            {unreadNotifications > 0 && (
-              <span className="rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                {unreadNotifications}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/admin/reset-password"
-            className="mb-2 block rounded-md border border-white/15 px-3 py-2 text-center text-sm text-white/75 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
-          >
-            {t("sidebar.changePassword")}
-          </Link>
-          <LogoutButton label={t("sidebar.logout")} variant="onDark" />
+          <div className="mt-2 flex flex-col gap-1.5">
+            <Link
+              href="/admin/notifications"
+              className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
+            >
+              {t("sidebar.notifications")}
+              {unreadNotifications > 0 && (
+                <span className="rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unreadNotifications}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/admin/reset-password"
+              className="block rounded-lg px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
+            >
+              {t("sidebar.changePassword")}
+            </Link>
+            <LogoutButton label={t("sidebar.logout")} />
+          </div>
         </div>
       </aside>
   );
