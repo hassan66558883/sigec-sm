@@ -306,7 +306,7 @@ export async function getFinanceSummary(user: CurrentUser) {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-  const [totalAgg, byArrondissement, byTaxType, todayAgg, monthAgg, yearAgg] = await Promise.all([
+  const [totalAgg, byArrondissement, byTaxType, todayAgg, monthAgg, yearAgg, byMethodToday] = await Promise.all([
     prisma.payment.aggregate({ where: scopeWhere, _sum: { amount: true } }),
     user.hasGlobalScope
       ? prisma.payment.groupBy({ by: ["arrondissementId"], where: scopeWhere, _sum: { amount: true } })
@@ -315,6 +315,7 @@ export async function getFinanceSummary(user: CurrentUser) {
     prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfDay } }, _sum: { amount: true } }),
     prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfMonth } }, _sum: { amount: true } }),
     prisma.payment.aggregate({ where: { ...scopeWhere, paymentDate: { gte: startOfYear } }, _sum: { amount: true } }),
+    prisma.payment.groupBy({ by: ["paymentMethod"], where: { ...scopeWhere, paymentDate: { gte: startOfDay } }, _sum: { amount: true } }),
   ]);
 
   let arrondissementBreakdown: { arrondissementId: string | null; name: string; total: number }[] = [];
@@ -348,6 +349,7 @@ export async function getFinanceSummary(user: CurrentUser) {
     },
     arrondissementBreakdown,
     taxTypeBreakdown,
+    byPaymentMethodToday: byMethodToday.map((row) => ({ method: row.paymentMethod, total: row._sum.amount ?? 0 })),
   };
 }
 

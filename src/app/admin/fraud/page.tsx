@@ -3,12 +3,15 @@ import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { listFraudAlerts } from "@/lib/services/fraud";
 import { ResolveAlertForm } from "@/components/finances/resolve-alert-form";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
-const SEVERITY_CLASS: Record<string, string> = {
-  LOW: "bg-gray-100 text-[var(--color-text-muted)]",
-  MEDIUM: "bg-amber-100 text-[var(--color-warning)]",
-  HIGH: "bg-orange-100 text-orange-700",
-  CRITICAL: "bg-red-100 text-[var(--color-danger)]",
+const SEVERITY_TONE: Record<string, StatusTone> = {
+  LOW: "neutral",
+  MEDIUM: "warning",
+  HIGH: "warning",
+  CRITICAL: "danger",
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -24,6 +27,8 @@ const TYPE_LABEL: Record<string, string> = {
   SUSPICIOUS_RECEIPT: "Reçu suspect",
 };
 
+type AlertRow = Awaited<ReturnType<typeof listFraudAlerts>>[number];
+
 export default async function FraudPage({ searchParams }: { searchParams: Promise<{ status?: string; severity?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -32,62 +37,42 @@ export default async function FraudPage({ searchParams }: { searchParams: Promis
 
   const alerts = await listFraudAlerts(user, { status: status ?? "OUVERTE", severity });
 
+  const columns: Column<AlertRow>[] = [
+    { key: "date", header: "Date", render: (a) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(a.createdAt).toLocaleString("fr-FR")}</span> },
+    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type] ?? a.type },
+    { key: "severity", header: "Severite", render: (a) => <StatusBadge label={a.severity} tone={SEVERITY_TONE[a.severity] ?? "neutral"} /> },
+    { key: "description", header: "Description", render: (a) => <span className="text-[var(--color-text-muted)]">{a.description}</span> },
+    { key: "agent", header: "Agent", render: (a) => <span className="text-[var(--color-text-muted)]">{a.agent?.user.name ?? "—"}</span> },
+    {
+      key: "actions",
+      header: "",
+      align: "end",
+      render: (a) => a.status === "OUVERTE" && can(user, "fraud", "resolve") && <ResolveAlertForm id={a.id} />,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Controle anti-fraude</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Alertes generees automatiquement (section 22) — jamais bloquantes, toujours journalisees et traitables.
-        </p>
-      </div>
+      <PageHeading title="Controle anti-fraude" description="Alertes generees automatiquement — jamais bloquantes, toujours journalisees et traitables." />
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <a href="/admin/fraud" className={`rounded-full px-3 py-1 font-medium ${(status ?? "OUVERTE") === "OUVERTE" ? "bg-[var(--color-primary)] text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)]"}`}>
-          Ouvertes
-        </a>
-        <a href="/admin/fraud?status=RESOLUE" className={`rounded-full px-3 py-1 font-medium ${status === "RESOLUE" ? "bg-[var(--color-primary)] text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)]"}`}>
-          Resolues
-        </a>
-        <a href="/admin/fraud?status=IGNOREE" className={`rounded-full px-3 py-1 font-medium ${status === "IGNOREE" ? "bg-[var(--color-primary)] text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)]"}`}>
-          Ignorees
-        </a>
+        {[
+          { href: "/admin/fraud", label: "Ouvertes", active: (status ?? "OUVERTE") === "OUVERTE" },
+          { href: "/admin/fraud?status=RESOLUE", label: "Resolues", active: status === "RESOLUE" },
+          { href: "/admin/fraud?status=IGNOREE", label: "Ignorees", active: status === "IGNOREE" },
+        ].map((tab) => (
+          <a
+            key={tab.href}
+            href={tab.href}
+            className={`rounded-full px-3 py-1 font-medium transition ${tab.active ? "text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"}`}
+            style={tab.active ? { background: "var(--gradient-primary)" } : undefined}
+          >
+            {tab.label}
+          </a>
+        ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Date</th>
-              <th className="px-4 py-2.5">Type</th>
-              <th className="px-4 py-2.5">Severite</th>
-              <th className="px-4 py-2.5">Description</th>
-              <th className="px-4 py-2.5">Agent</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {alerts.map((a) => (
-              <tr key={a.id}>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-[var(--color-text-muted)]">{new Date(a.createdAt).toLocaleString("fr-FR")}</td>
-                <td className="px-4 py-2.5">{TYPE_LABEL[a.type] ?? a.type}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_CLASS[a.severity] ?? ""}`}>{a.severity}</span>
-                </td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{a.description}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{a.agent?.user.name ?? "—"}</td>
-                <td className="px-4 py-2.5">
-                  {a.status === "OUVERTE" && can(user, "fraud", "resolve") && <ResolveAlertForm id={a.id} />}
-                </td>
-              </tr>
-            ))}
-            {alerts.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-text-muted)]">Aucune alerte.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={alerts} keyField="id" emptyLabel="Aucune alerte." />
     </div>
   );
 }

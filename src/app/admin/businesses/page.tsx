@@ -7,6 +7,9 @@ import { listCitizens } from "@/lib/services/citizens";
 import { listActivities } from "@/lib/services/activities";
 import { BusinessForm } from "@/components/finances/business-form";
 import { BusinessStatusSelect } from "@/components/finances/business-status-select";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Actif",
@@ -15,13 +18,15 @@ const STATUS_LABEL: Record<string, string> = {
   SUSPENDUE: "Suspendu",
   EN_ATTENTE_DE_VALIDATION: "En attente",
 };
-const STATUS_CLASS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-[var(--color-success)]",
-  INACTIVE: "bg-gray-100 text-[var(--color-text-muted)]",
-  FERMEE: "bg-gray-100 text-[var(--color-text-muted)]",
-  SUSPENDUE: "bg-amber-100 text-[var(--color-warning)]",
-  EN_ATTENTE_DE_VALIDATION: "bg-amber-100 text-[var(--color-warning)]",
+const STATUS_TONE: Record<string, StatusTone> = {
+  ACTIVE: "success",
+  INACTIVE: "neutral",
+  FERMEE: "neutral",
+  SUSPENDUE: "warning",
+  EN_ATTENTE_DE_VALIDATION: "warning",
 };
+
+type BusinessRow = Awaited<ReturnType<typeof listBusinesses>>[number];
 
 export default async function BusinessesPage() {
   const user = await getCurrentUser();
@@ -35,61 +40,41 @@ export default async function BusinessesPage() {
     listActivities(),
   ]);
 
+  const columns: Column<BusinessRow>[] = [
+    { key: "code", header: "Code", render: (b) => <span className="text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</span> },
+    { key: "name", header: "Nom", render: (b) => <span className="font-medium">{b.name}</span> },
+    { key: "activity", header: "Activite", render: (b) => <span className="text-[var(--color-text-muted)]">{b.activityRef?.name ?? b.activity ?? "—"}</span> },
+    { key: "owner", header: "Proprietaire", render: (b) => <>{b.owner.firstName} {b.owner.lastName}</> },
+    { key: "arrondissement", header: "Arrondissement", render: (b) => <span className="text-[var(--color-text-muted)]">{b.arrondissement.name}</span> },
+    {
+      key: "status",
+      header: "Statut",
+      render: (b) =>
+        can(user, "businesses", "edit") ? (
+          <BusinessStatusSelect id={b.id} status={b.status} />
+        ) : (
+          <StatusBadge label={STATUS_LABEL[b.status] ?? b.status} tone={STATUS_TONE[b.status] ?? "neutral"} />
+        ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">Boutiques & commercants</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">Redevables de patente et taxes municipales (module recensement).</p>
-        </div>
-        {can(user, "businesses", "create") && (
-          <BusinessForm
-            arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-            citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }))}
-            activities={activities.map((a) => ({ id: a.id, label: a.name }))}
-          />
-        )}
-      </div>
+      <PageHeading
+        title="Boutiques & commercants"
+        description="Redevables de patente et taxes municipales (module recensement)."
+        action={
+          can(user, "businesses", "create") && (
+            <BusinessForm
+              arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
+              citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }))}
+              activities={activities.map((a) => ({ id: a.id, label: a.name }))}
+            />
+          )
+        }
+      />
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Code</th>
-              <th className="px-4 py-2.5">Nom</th>
-              <th className="px-4 py-2.5">Activite</th>
-              <th className="px-4 py-2.5">Proprietaire</th>
-              <th className="px-4 py-2.5">Arrondissement</th>
-              <th className="px-4 py-2.5">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {businesses.map((b) => (
-              <tr key={b.id}>
-                <td className="px-4 py-2.5 text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</td>
-                <td className="px-4 py-2.5 font-medium">{b.name}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{b.activityRef?.name ?? b.activity ?? "—"}</td>
-                <td className="px-4 py-2.5">{b.owner.firstName} {b.owner.lastName}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{b.arrondissement.name}</td>
-                <td className="px-4 py-2.5">
-                  {can(user, "businesses", "edit") ? (
-                    <BusinessStatusSelect id={b.id} status={b.status} />
-                  ) : (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[b.status]}`}>{STATUS_LABEL[b.status] ?? b.status}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {businesses.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
-                  Aucune boutique enregistree.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={businesses} keyField="id" emptyLabel="Aucune boutique enregistree." />
     </div>
   );
 }

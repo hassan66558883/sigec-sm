@@ -7,6 +7,10 @@ import { listMarkets } from "@/lib/services/markets";
 import { CollectorForm } from "@/components/collectors/collector-form";
 import { AssignZoneForm } from "@/components/collectors/assign-zone-form";
 import { CollectorStatusSelect } from "@/components/collectors/collector-status-select";
+import { PageHeading } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export default async function CollectorsPage() {
   const user = await getCurrentUser();
@@ -23,24 +27,22 @@ export default async function CollectorsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">Agents collecteurs</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Fiches agents et affectations de zones (section 12), historisees a chaque changement.
-          </p>
-        </div>
-        {can(user, "collectors", "create") && (
-          <CollectorForm
-            users={eligibleUsers.map((u) => ({ id: u.id, label: `${u.name} (${u.email})` }))}
-            arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-          />
-        )}
-      </div>
+      <PageHeading
+        title="Agents collecteurs"
+        description="Fiches agents et affectations de zones, historisees a chaque changement."
+        action={
+          can(user, "collectors", "create") && (
+            <CollectorForm
+              users={eligibleUsers.map((u) => ({ id: u.id, label: `${u.name} (${u.email})` }))}
+              arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
+            />
+          )
+        }
+      />
 
       <div className="space-y-3">
         {collectors.map((agent) => (
-          <div key={agent.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+          <Card key={agent.id}>
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">{agent.user.name}</div>
@@ -53,9 +55,7 @@ export default async function CollectorsPage() {
                 {can(user, "collectors", "edit") ? (
                   <CollectorStatusSelect id={agent.id} status={agent.status} />
                 ) : (
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${agent.status === "ACTIF" ? "bg-green-100 text-[var(--color-success)]" : "bg-gray-100 text-[var(--color-text-muted)]"}`}>
-                    {agent.status}
-                  </span>
+                  <StatusBadge label={agent.status} tone={agent.status === "ACTIF" ? "success" : "neutral"} />
                 )}
               </div>
             </div>
@@ -74,12 +74,12 @@ export default async function CollectorsPage() {
                 markets={markets.map((m) => ({ id: m.id, label: m.name }))}
               />
             )}
-          </div>
+          </Card>
         ))}
         {collectors.length === 0 && (
-          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)]">
-            Aucun agent collecteur enregistre.
-          </p>
+          <Card>
+            <EmptyState title="Aucun agent collecteur enregistre." />
+          </Card>
         )}
       </div>
     </div>
