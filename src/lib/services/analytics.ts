@@ -159,7 +159,7 @@ export async function getRecoveryStats(user: CurrentUser) {
 export async function getArrondissementStatsReport(user: CurrentUser) {
   const scope = recordScopeWhere(user);
 
-  const [arrondissements, citizens, households, births, marriages, divorces, deaths, revenue, unpaid] =
+  const [arrondissements, citizens, households, births, marriages, divorces, deaths, revenue, unpaid, markets, businesses, applications] =
     await Promise.all([
       prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
       can(user, "citizens", "view")
@@ -190,6 +190,15 @@ export async function getArrondissementStatsReport(user: CurrentUser) {
             _count: true,
           })
         : null,
+      can(user, "markets", "view")
+        ? prisma.market.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "businesses", "view")
+        ? prisma.business.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
+      can(user, "applications", "view")
+        ? prisma.application.groupBy({ by: ["arrondissementId"], where: scope, _count: true })
+        : null,
     ]);
 
   const countMap = (rows: { arrondissementId: string | null; _count: number }[] | null) =>
@@ -205,6 +214,9 @@ export async function getArrondissementStatsReport(user: CurrentUser) {
   const deathsMap = countMap(deaths);
   const revenueMap = sumMap(revenue);
   const unpaidMap = countMap(unpaid);
+  const marketsMap = countMap(markets);
+  const businessesMap = countMap(businesses);
+  const applicationsMap = countMap(applications);
 
   return arrondissements.map((a) => ({
     id: a.id,
@@ -218,6 +230,9 @@ export async function getArrondissementStatsReport(user: CurrentUser) {
     deces: deathsMap ? deathsMap.get(a.id) ?? 0 : null,
     recettes: revenueMap ? revenueMap.get(a.id) ?? 0 : null,
     impayes: unpaidMap ? unpaidMap.get(a.id) ?? 0 : null,
+    marches: marketsMap ? marketsMap.get(a.id) ?? 0 : null,
+    commerces: businessesMap ? businessesMap.get(a.id) ?? 0 : null,
+    demandes: applicationsMap ? applicationsMap.get(a.id) ?? 0 : null,
   }));
 }
 

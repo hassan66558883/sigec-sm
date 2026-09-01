@@ -22,6 +22,9 @@ export async function GET() {
     if (can(user, "deaths", "view")) columns.push({ header: "Deces", value: (r) => r.deces });
     if (can(user, "payments", "view")) columns.push({ header: "Recettes (FCFA)", value: (r) => r.recettes });
     if (can(user, "obligations", "view")) columns.push({ header: "Impayes", value: (r) => r.impayes });
+    if (can(user, "markets", "view")) columns.push({ header: "Marches", value: (r) => r.marches });
+    if (can(user, "businesses", "view")) columns.push({ header: "Commerces", value: (r) => r.commerces });
+    if (can(user, "applications", "view")) columns.push({ header: "Demandes", value: (r) => r.demandes });
 
     const csv = toCsv(rows, columns);
     return csvResponse(`statistiques_arrondissements_${new Date().toISOString().slice(0, 10)}.csv`, csv);
