@@ -1,12 +1,15 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 
-// Coquille de tableau partagee — pensee pour la Phase 2+ (migration des 47
-// pages de liste qui reimplementent aujourd'hui un <table> a la main).
-// Non utilisee cette phase-ci ; l'API est fixee maintenant pour que
-// l'adoption future n'exige aucune reecriture.
+// Coquille de tableau partagee, adoptee progressivement par les pages de
+// liste (Phase 2+) en remplacement du <table> reimplemente a la main sur
+// chaque page. Volontairement un composant SERVEUR (pas "use client") :
+// `render(row)` est appele pendant le rendu serveur, comme n'importe quel
+// autre sous-composant serveur — aucune fonction ne traverse jamais la
+// frontiere RSC/client (ce qui casserait, une fonction n'etant pas
+// serialisable en tant que prop d'un Client Component). L'interactivite
+// (boutons de validation/revocation, etc.) reste geree par les composants
+// client existants passes dans `render`, pas par DataTable lui-meme.
 export type Column<T> = {
   key: string;
   header: ReactNode;
@@ -20,13 +23,11 @@ export function DataTable<T extends Record<string, unknown>>({
   rows,
   keyField,
   emptyLabel = "Aucune donnee.",
-  onRowClick,
 }: {
   columns: Column<T>[];
   rows: T[];
   keyField: keyof T;
   emptyLabel?: string;
-  onRowClick?: (row: T) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -56,11 +57,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </thead>
           <tbody className="divide-y divide-[var(--color-border-subtle)]">
             {rows.map((row) => (
-              <tr
-                key={String(row[keyField])}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`transition ${onRowClick ? "cursor-pointer hover:bg-[var(--color-surface-hover)]" : "hover:bg-[var(--color-surface-hover)]"}`}
-              >
+              <tr key={String(row[keyField])} className="transition hover:bg-[var(--color-surface-hover)]">
                 {columns.map((col) => (
                   <td
                     key={col.key}

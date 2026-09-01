@@ -4,6 +4,22 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { periodBounds } from "@/lib/date-buckets";
+
+// KPI d'en-tete (tableau de bord Naissances, Phase 2) : compteurs
+// aujourd'hui/semaine/mois/annee, meme convention que
+// getFinanceSummary.byPeriod (src/lib/services/payments.ts).
+export async function getBirthsPeriodStats(user: CurrentUser) {
+  const scope = recordScopeWhere(user);
+  const { startOfDay, startOfWeek, startOfMonth, startOfYear } = periodBounds();
+  const [today, week, month, year] = await Promise.all([
+    prisma.birthRecord.count({ where: { ...scope, createdAt: { gte: startOfDay } } }),
+    prisma.birthRecord.count({ where: { ...scope, createdAt: { gte: startOfWeek } } }),
+    prisma.birthRecord.count({ where: { ...scope, createdAt: { gte: startOfMonth } } }),
+    prisma.birthRecord.count({ where: { ...scope, createdAt: { gte: startOfYear } } }),
+  ]);
+  return { today, week, month, year };
+}
 
 export async function listBirthRecords(user: CurrentUser) {
   return prisma.birthRecord.findMany({

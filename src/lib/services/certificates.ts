@@ -4,6 +4,21 @@ import { ApiError } from "@/lib/api";
 import { can, canAccessArrondissement, recordScopeWhere } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber, generateVerificationToken } from "@/lib/ids";
+import { periodBounds } from "@/lib/date-buckets";
+
+// KPI d'en-tete (Certificats delivres, Phase 2) — base sur issuedAt (date de
+// delivrance), pas createdAt, memes conventions que getCivilStatusTrend.
+export async function getCertificatesPeriodStats(user: CurrentUser) {
+  const scope = { ...recordScopeWhere(user), status: "VALID" as const };
+  const { startOfDay, startOfWeek, startOfMonth, startOfYear } = periodBounds();
+  const [today, week, month, year] = await Promise.all([
+    prisma.certificate.count({ where: { ...scope, issuedAt: { gte: startOfDay } } }),
+    prisma.certificate.count({ where: { ...scope, issuedAt: { gte: startOfWeek } } }),
+    prisma.certificate.count({ where: { ...scope, issuedAt: { gte: startOfMonth } } }),
+    prisma.certificate.count({ where: { ...scope, issuedAt: { gte: startOfYear } } }),
+  ]);
+  return { today, week, month, year };
+}
 
 export async function listCertificateTypes() {
   return prisma.certificateType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });

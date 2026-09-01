@@ -12,12 +12,15 @@ export default async function VerifyReceiptPage({ params }: { params: Promise<{ 
   const result = await verifyReceiptPublic(token);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4">
-      <div className="w-full max-w-md rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
-        <div className="mb-6 text-center">
+    <div
+      className="flex min-h-screen items-center justify-center px-4 py-10"
+      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #156ab0)" }}
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+        <div className="px-8 pb-6 pt-8 text-center">
           <div
-            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white"
-            style={{ background: "var(--color-primary)" }}
+            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md"
+            style={{ background: "var(--gradient-primary)" }}
           >
             SM
           </div>
@@ -26,48 +29,42 @@ export default async function VerifyReceiptPage({ params }: { params: Promise<{ 
         </div>
 
         {!result.found ? (
-          <div className="rounded-md border border-[var(--color-danger)]/30 bg-red-50 p-4 text-center">
+          <div className="mx-8 mb-8 rounded-xl border border-rose-200 bg-rose-50 p-5 text-center">
             <div className="text-lg font-semibold text-[var(--color-danger)]">REÇU INTROUVABLE</div>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              Aucun reçu ne correspond a ce code de verification.
-            </p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">Aucun reçu ne correspond a ce code de verification.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div
-              className={`rounded-md p-4 text-center ${
-                result.valid ? "border border-[var(--color-success)]/30 bg-green-50" : "border border-[var(--color-danger)]/30 bg-red-50"
-              }`}
-            >
+          <div className="px-8 pb-8">
+            <div className={`rounded-xl p-5 text-center ${result.valid ? "border border-emerald-200 bg-emerald-50" : "border border-rose-200 bg-rose-50"}`}>
               <div className={`text-lg font-semibold ${result.valid ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
-                {result.valid ? "REÇU AUTHENTIQUE" : "REÇU ANNULE"}
+                {result.valid ? "✓ REÇU AUTHENTIQUE" : "REÇU ANNULE"}
               </div>
             </div>
 
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <dl className="mt-5 space-y-0 text-sm">
+              <div className="flex justify-between border-b border-[var(--color-border-subtle)] py-2.5">
                 <dt className="text-[var(--color-text-muted)]">Numero</dt>
-                <dd className="font-medium">{result.number}</dd>
+                <dd className="font-medium text-[var(--color-text)]">{result.number}</dd>
               </div>
-              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+              <div className="flex justify-between border-b border-[var(--color-border-subtle)] py-2.5">
                 <dt className="text-[var(--color-text-muted)]">Montant</dt>
-                <dd className="font-medium">{formatFcfa(result.amount)}</dd>
+                <dd className="font-medium text-[var(--color-text)]">{formatFcfa(result.amount)}</dd>
               </div>
-              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+              <div className="flex justify-between border-b border-[var(--color-border-subtle)] py-2.5">
                 <dt className="text-[var(--color-text-muted)]">Date</dt>
-                <dd className="font-medium">{new Date(result.paymentDate).toLocaleDateString("fr-FR")}</dd>
+                <dd className="font-medium text-[var(--color-text)]">{new Date(result.paymentDate).toLocaleDateString("fr-FR")}</dd>
               </div>
-              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+              <div className="flex justify-between border-b border-[var(--color-border-subtle)] py-2.5">
                 <dt className="text-[var(--color-text-muted)]">Mode de paiement</dt>
-                <dd className="font-medium">{result.paymentMethod}</dd>
+                <dd className="font-medium text-[var(--color-text)]">{result.paymentMethod}</dd>
               </div>
-              <div className="flex justify-between pb-2">
+              <div className="flex justify-between py-2.5">
                 <dt className="text-[var(--color-text-muted)]">Autorite</dt>
-                <dd className="font-medium">{result.authority}</dd>
+                <dd className="font-medium text-[var(--color-text)]">{result.authority}</dd>
               </div>
             </dl>
 
-            <p className="text-center text-xs text-[var(--color-text-muted)]">
+            <p className="mt-4 text-center text-xs text-[var(--color-text-muted)]">
               {result.valid ? "Reçu authentique." : "Ce reçu a ete annule et n'est plus valable."}
             </p>
           </div>

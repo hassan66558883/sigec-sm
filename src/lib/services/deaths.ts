@@ -5,6 +5,20 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { encryptField, decryptField } from "@/lib/encryption";
+import { periodBounds } from "@/lib/date-buckets";
+
+// KPI d'en-tete (tableau de bord Deces, Phase 2).
+export async function getDeathsPeriodStats(user: CurrentUser) {
+  const scope = recordScopeWhere(user);
+  const { startOfDay, startOfWeek, startOfMonth, startOfYear } = periodBounds();
+  const [today, week, month, year] = await Promise.all([
+    prisma.deathRecord.count({ where: { ...scope, createdAt: { gte: startOfDay } } }),
+    prisma.deathRecord.count({ where: { ...scope, createdAt: { gte: startOfWeek } } }),
+    prisma.deathRecord.count({ where: { ...scope, createdAt: { gte: startOfMonth } } }),
+    prisma.deathRecord.count({ where: { ...scope, createdAt: { gte: startOfYear } } }),
+  ]);
+  return { today, week, month, year };
+}
 
 export async function listDeathRecords(user: CurrentUser) {
   const records = await prisma.deathRecord.findMany({

@@ -47,3 +47,28 @@ export function PageHeader({
     </div>
   );
 }
+
+// En-tete leger pour les pages de liste/module (par opposition au grand
+// bandeau degrade de PageHeader, reserve aux vrais tableaux de bord) —
+// titre + description + actions, sans fond colore. Evite la fatigue
+// visuelle d'un degrade repete sur chacune des ~40 pages de liste de
+// l'application.
+export function PageHeading({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight text-[var(--color-text)]">{title}</h1>
+        {description && <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">{description}</p>}
+      </div>
+      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+    </div>
+  );
+}

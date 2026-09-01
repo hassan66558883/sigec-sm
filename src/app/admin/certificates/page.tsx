@@ -2,76 +2,58 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listCertificates } from "@/lib/services/certificates";
+import { listCertificates, getCertificatesPeriodStats } from "@/lib/services/certificates";
 import { RevokeButton } from "@/components/civil-status/revoke-button";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { IconActivity } from "@/components/icons";
+
+type CertificateRow = Awaited<ReturnType<typeof listCertificates>>[number];
 
 export default async function CertificatesPage() {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "certificates", "view")) redirect("/admin");
 
-  const certificates = await listCertificates(user);
+  const [certificates, periodStats] = await Promise.all([listCertificates(user), getCertificatesPeriodStats(user)]);
+
+  const columns: Column<CertificateRow>[] = [
+    { key: "documentNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.documentNumber}</span> },
+    { key: "type", header: "Type", render: (c) => c.certificateType.name },
+    { key: "citizen", header: "Titulaire", render: (c) => (c.citizen ? `${c.citizen.firstName} ${c.citizen.lastName}` : "—") },
+    { key: "issuedAt", header: "Delivre le", render: (c) => <span className="text-[var(--color-text-muted)]">{new Date(c.issuedAt).toLocaleDateString("fr-FR")}</span> },
+    { key: "status", header: "Statut", render: (c) => <StatusBadge label={c.status === "VALID" ? "Valide" : "Revoque"} tone={c.status === "VALID" ? "success" : "danger"} /> },
+    {
+      key: "verify",
+      header: "Verification",
+      render: (c) => (
+        <Link href={`/verify/${c.qrToken}`} target="_blank" className="text-xs text-[var(--color-primary)] hover:underline">
+          Verifier →
+        </Link>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "end",
+      render: (c) => c.status === "VALID" && can(user, "certificates", "revoke") && <RevokeButton endpoint={`/api/certificates/${c.id}`} label="Revoquer" />,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Certificats delivres</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Documents officiels avec verification publique par QR code / lien.
-        </p>
+      <PageHeading title="Certificats delivres" description="Documents officiels avec verification publique par QR code / lien." />
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Aujourd'hui" value={periodStats.today} icon={<IconActivity className="h-5 w-5" />} />
+        <StatCard label="Cette semaine" value={periodStats.week} icon={<IconActivity className="h-5 w-5" />} tone="gold" />
+        <StatCard label="Ce mois" value={periodStats.month} icon={<IconActivity className="h-5 w-5" />} tone="success" />
+        <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Numero</th>
-              <th className="px-4 py-2.5">Type</th>
-              <th className="px-4 py-2.5">Titulaire</th>
-              <th className="px-4 py-2.5">Delivre le</th>
-              <th className="px-4 py-2.5">Statut</th>
-              <th className="px-4 py-2.5">Verification</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {certificates.map((c) => (
-              <tr key={c.id}>
-                <td className="px-4 py-2.5 text-xs text-[var(--color-text-muted)]">{c.documentNumber}</td>
-                <td className="px-4 py-2.5">{c.certificateType.name}</td>
-                <td className="px-4 py-2.5">{c.citizen ? `${c.citizen.firstName} ${c.citizen.lastName}` : "—"}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{new Date(c.issuedAt).toLocaleDateString("fr-FR")}</td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      c.status === "VALID" ? "bg-green-100 text-[var(--color-success)]" : "bg-red-100 text-[var(--color-danger)]"
-                    }`}
-                  >
-                    {c.status === "VALID" ? "Valide" : "Revoque"}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5">
-                  <Link href={`/verify/${c.qrToken}`} target="_blank" className="text-xs text-[var(--color-primary)] hover:underline">
-                    Verifier →
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5">
-                  {c.status === "VALID" && can(user, "certificates", "revoke") && (
-                    <RevokeButton endpoint={`/api/certificates/${c.id}`} label="Revoquer" />
-                  )}
-                </td>
-              </tr>
-            ))}
-            {certificates.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
-                  Aucun certificat delivre.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={certificates} keyField="id" emptyLabel="Aucun certificat delivre." />
     </div>
   );
 }

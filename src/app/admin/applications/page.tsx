@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { listApplicationsForStaff } from "@/lib/services/applications";
 import { ApplicationActions } from "@/components/civil-status/application-actions";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const TYPE_LABEL: Record<string, string> = {
   BIRTH_CERTIFICATE_COPY: "Copie d'acte de naissance",
@@ -16,13 +19,15 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: "Rejetee",
   COMPLETED: "Terminee",
 };
-const STATUS_CLASS: Record<string, string> = {
-  SUBMITTED: "bg-amber-100 text-[var(--color-warning)]",
-  IN_REVIEW: "bg-amber-100 text-[var(--color-warning)]",
-  APPROVED: "bg-green-100 text-[var(--color-success)]",
-  COMPLETED: "bg-green-100 text-[var(--color-success)]",
-  REJECTED: "bg-red-100 text-[var(--color-danger)]",
+const STATUS_TONE: Record<string, StatusTone> = {
+  SUBMITTED: "warning",
+  IN_REVIEW: "warning",
+  APPROVED: "success",
+  COMPLETED: "success",
+  REJECTED: "danger",
 };
+
+type ApplicationRow = Awaited<ReturnType<typeof listApplicationsForStaff>>[number];
 
 export default async function ApplicationsPage() {
   const user = await getCurrentUser();
@@ -31,58 +36,27 @@ export default async function ApplicationsPage() {
 
   const applications = await listApplicationsForStaff(user);
 
+  const columns: Column<ApplicationRow>[] = [
+    { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span> },
+    { key: "citizen", header: "Citoyen", render: (a) => <>{a.citizenAccount.citizen.firstName} {a.citizenAccount.citizen.lastName}</> },
+    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type] },
+    { key: "status", header: "Statut", render: (a) => <StatusBadge label={STATUS_LABEL[a.status]} tone={STATUS_TONE[a.status]} /> },
+    {
+      key: "actions",
+      header: "",
+      align: "end",
+      render: (a) =>
+        (a.status === "SUBMITTED" || a.status === "IN_REVIEW") && (
+          <ApplicationActions id={a.id} canApprove={can(user, "applications", "approve")} canReject={can(user, "applications", "reject")} />
+        ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Demandes citoyennes</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          File de traitement des demandes soumises depuis le portail citoyen.
-        </p>
-      </div>
+      <PageHeading title="Demandes citoyennes" description="File de traitement des demandes soumises depuis le portail citoyen." />
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Numero</th>
-              <th className="px-4 py-2.5">Citoyen</th>
-              <th className="px-4 py-2.5">Type</th>
-              <th className="px-4 py-2.5">Statut</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {applications.map((a) => (
-              <tr key={a.id}>
-                <td className="px-4 py-2.5 text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</td>
-                <td className="px-4 py-2.5">
-                  {a.citizenAccount.citizen.firstName} {a.citizenAccount.citizen.lastName}
-                </td>
-                <td className="px-4 py-2.5">{TYPE_LABEL[a.type]}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[a.status]}`}>{STATUS_LABEL[a.status]}</span>
-                </td>
-                <td className="px-4 py-2.5">
-                  {(a.status === "SUBMITTED" || a.status === "IN_REVIEW") && (
-                    <ApplicationActions
-                      id={a.id}
-                      canApprove={can(user, "applications", "approve")}
-                      canReject={can(user, "applications", "reject")}
-                    />
-                  )}
-                </td>
-              </tr>
-            ))}
-            {applications.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
-                  Aucune demande a traiter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." />
     </div>
   );
 }

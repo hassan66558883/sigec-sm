@@ -4,6 +4,20 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { periodBounds } from "@/lib/date-buckets";
+
+// KPI d'en-tete (tableau de bord Mariages, Phase 2).
+export async function getMarriagesPeriodStats(user: CurrentUser) {
+  const scope = recordScopeWhere(user);
+  const { startOfDay, startOfWeek, startOfMonth, startOfYear } = periodBounds();
+  const [today, week, month, year] = await Promise.all([
+    prisma.marriage.count({ where: { ...scope, createdAt: { gte: startOfDay } } }),
+    prisma.marriage.count({ where: { ...scope, createdAt: { gte: startOfWeek } } }),
+    prisma.marriage.count({ where: { ...scope, createdAt: { gte: startOfMonth } } }),
+    prisma.marriage.count({ where: { ...scope, createdAt: { gte: startOfYear } } }),
+  ]);
+  return { today, week, month, year };
+}
 
 export async function listMarriages(user: CurrentUser) {
   return prisma.marriage.findMany({
