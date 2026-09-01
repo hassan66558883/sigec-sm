@@ -1,18 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { LogoutButton } from "@/components/logout-button";
-import { LanguageSwitcher } from "@/components/language-switcher";
+import { SidebarDrawerProvider, SidebarFrame } from "@/components/admin/sidebar-drawer";
+import { Topbar } from "@/components/admin/topbar";
 import { countUnreadNotifications } from "@/lib/services/notifications";
-import { IconMapPin } from "@/components/icons";
 import { getI18n } from "@/lib/i18n/server";
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return (parts.length >= 2 ? [parts[0][0], parts[1][0]] : [name.slice(0, 2)]).join("").toUpperCase();
-}
 
 const NAV_MODULES = [
   "territorial", "departments", "users", "roles", "audit",
@@ -56,25 +49,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // reordonnancement du DOM (aside en premier ou en second) a l'interieur
   // d'un conteneur dir="ltr" fixe, plutot qu'en s'appuyant sur le
   // retournement flex d'un dir="rtl" global — plus simple a prevoir et ne
-  // depend pas du sens de lecture du contenu interne.
+  // depend pas du sens de lecture du contenu interne. SidebarFrame
+  // applique la meme convention pour le tiroir mobile (voir
+  // components/admin/sidebar-drawer.tsx).
   const isRtl = dir === "rtl";
 
+  // Sidebar : desormais uniquement la navigation (logo + SidebarNav). Le
+  // badge de perimetre, le selecteur de langue, la carte utilisateur et la
+  // deconnexion vivent maintenant dans la barre superieure (Topbar) —
+  // section 5/6 de la refonte premium.
   const sidebar = (
-    <aside
+    <SidebarFrame
       dir={dir}
-      lang={locale}
-      className={`flex w-64 flex-col ${
-        isRtl
-          ? // Arabe : la sidebar est en second dans le DOM -> a droite a
-            // l'ecran, son bord gauche touche le contenu principal.
-            "shadow-[-2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"
-          : // Francais : la sidebar est en premier dans le DOM -> a gauche a
-            // l'ecran, son bord droit touche le contenu principal.
-            "shadow-[2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"
-      }`}
-      style={{ background: "linear-gradient(180deg, #ffffff, #f6f8fc)" }}
+      locale={locale}
+      isRtl={isRtl}
+      className={isRtl ? "shadow-[-2px_0_24px_-4px_rgb(15_23_42_/_0.08)]" : "shadow-[2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"}
     >
-      <div className="flex items-center gap-2.5 px-5 py-5">
+      <div className="flex h-full flex-col" style={{ background: "linear-gradient(180deg, #ffffff, #f6f8fc)" }}>
+        <div className="flex items-center gap-2.5 px-5 py-5">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md"
             style={{ background: "var(--gradient-primary)" }}
@@ -83,86 +75,43 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           <div>
             <div className="text-sm font-semibold leading-tight tracking-tight text-[var(--color-text)]">SIGEC-SM</div>
-            <div className="text-xs leading-tight text-[var(--color-text-muted)]">
-              Ville de N&apos;Djamena
-            </div>
+            <div className="text-xs leading-tight text-[var(--color-text-muted)]">Ville de N&apos;Djamena</div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 px-4 pb-3">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-              user.hasGlobalScope
-                ? "bg-[var(--color-accent-soft)] text-[var(--color-primary-dark)] ring-[var(--color-accent)]/30"
-                : "bg-white text-[var(--color-text-muted)] ring-[var(--color-border)]"
-            }`}
-          >
-            <IconMapPin className="h-3 w-3" />
-            {orgLabel}
-          </span>
-          <LanguageSwitcher locale={locale} />
         </div>
 
         <SidebarNav visibleModules={visibleModules} dict={dict} />
 
-        <div className="p-3">
-          <div className="flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] bg-white p-2.5 shadow-sm">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              {initials(user.name)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-[var(--color-text)]">{user.name}</div>
-              <div className="truncate text-xs text-[var(--color-text-muted)]">
-                {user.roles.map((r) => r.name).join(", ") || t("sidebar.noRole")}
-              </div>
-            </div>
-          </div>
-          <div className="mt-2 flex flex-col gap-1.5">
-            <Link
-              href="/admin/notifications"
-              className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
-            >
-              {t("sidebar.notifications")}
-              {unreadNotifications > 0 && (
-                <span className="rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {unreadNotifications}
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/admin/reset-password"
-              className="block rounded-lg px-3 py-2 text-center text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary-dark)]"
-            >
-              {t("sidebar.changePassword")}
-            </Link>
-            <LogoutButton label={t("sidebar.logout")} />
-          </div>
+        <div className="border-t border-[var(--color-border-subtle)] px-5 py-3 text-center text-[10px] text-[var(--color-text-muted)]">
+          Ville de N&apos;Djamena — Republique du Tchad
         </div>
-      </aside>
+      </div>
+    </SidebarFrame>
   );
 
   const mainContent = (
-    <main className="min-w-0 flex-1 bg-[var(--color-bg)]">
-      <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
-    </main>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <Topbar user={user} orgLabel={orgLabel} dict={dict} locale={locale} dir={dir} t={t} unreadNotifications={unreadNotifications} />
+      <main className="min-w-0 flex-1 bg-[var(--color-bg)]">
+        <div className="mx-auto max-w-6xl p-6 md:p-8">{children}</div>
+      </main>
+    </div>
   );
 
   return (
-    <div dir="ltr" className="flex min-h-screen">
-      {isRtl ? (
-        <>
-          {mainContent}
-          {sidebar}
-        </>
-      ) : (
-        <>
-          {sidebar}
-          {mainContent}
-        </>
-      )}
-    </div>
+    <SidebarDrawerProvider>
+      <div dir="ltr" className="flex min-h-screen">
+        {isRtl ? (
+          <>
+            {mainContent}
+            {sidebar}
+          </>
+        ) : (
+          <>
+            {sidebar}
+            {mainContent}
+          </>
+        )}
+      </div>
+    </SidebarDrawerProvider>
   );
 }

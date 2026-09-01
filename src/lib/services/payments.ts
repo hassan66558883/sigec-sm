@@ -1,7 +1,10 @@
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
+import { scopeSql } from "@/lib/rbac-sql";
+import { monthBuckets, monthKey } from "@/lib/date-buckets";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { applyPaymentToObligation } from "@/lib/services/obligations";
@@ -346,4 +349,24 @@ export async function getFinanceSummary(user: CurrentUser) {
     arrondissementBreakdown,
     taxTypeBreakdown,
   };
+}
+
+// Tendance des recettes mensuelles (tableau de bord, section 10). Payment
+// est deja indexe sur paymentDate — agregation Postgres, pas de
+// regroupement cote Node.
+export async function getRevenueTrend(user: CurrentUser, months = 12) {
+  if (!can(user, "payments", "view")) return [];
+  const buckets = monthBuckets(months);
+  const since = buckets[0].date;
+
+  const rows = await prisma.$queryRaw<{ bucket: Date; total: number | null }[]>(Prisma.sql`
+    SELECT date_trunc('month', "paymentDate") AS bucket, SUM(amount) AS total
+    FROM "Payment"
+    WHERE status = 'PAID' AND ${scopeSql(user)} AND "paymentDate" >= ${since}
+    GROUP BY bucket
+    ORDER BY bucket ASC
+  `);
+
+  const byMonth = new Map(rows.map((r) => [monthKey(new Date(r.bucket)), Number(r.total ?? 0)]));
+  return buckets.map((b) => ({ month: b.label, recettes: byMonth.get(b.key) ?? 0 }));
 }

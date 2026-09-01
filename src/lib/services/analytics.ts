@@ -1,6 +1,9 @@
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
 import { can, recordScopeWhere, arrondissementScopeWhere } from "@/lib/rbac";
+import { scopeSql } from "@/lib/rbac-sql";
+import { monthBuckets, monthKey } from "@/lib/date-buckets";
 
 // Statistiques consolidees (section 20/21). Chaque section n'est calculee
 // que si l'utilisateur a la permission de vue du module correspondant —
@@ -204,6 +207,7 @@ export async function getArrondissementStatsReport(user: CurrentUser) {
   const unpaidMap = countMap(unpaid);
 
   return arrondissements.map((a) => ({
+    id: a.id,
     name: a.name,
     code: a.code,
     population: citizensMap ? citizensMap.get(a.id) ?? 0 : null,
@@ -214,5 +218,69 @@ export async function getArrondissementStatsReport(user: CurrentUser) {
     deces: deathsMap ? deathsMap.get(a.id) ?? 0 : null,
     recettes: revenueMap ? revenueMap.get(a.id) ?? 0 : null,
     impayes: unpaidMap ? unpaidMap.get(a.id) ?? 0 : null,
+  }));
+}
+
+type MonthCountRow = { bucket: Date; count: bigint };
+
+async function monthlyCounts(table: string, dateColumn: string, user: CurrentUser, since: Date) {
+  const col = Prisma.raw(`"${dateColumn}"`);
+  const tbl = Prisma.raw(`"${table}"`);
+  const rows = await prisma.$queryRaw<MonthCountRow[]>(Prisma.sql`
+    SELECT date_trunc('month', ${col}) AS bucket, COUNT(*) AS count
+    FROM ${tbl}
+    WHERE ${scopeSql(user)} AND ${col} >= ${since}
+    GROUP BY bucket
+    ORDER BY bucket ASC
+  `);
+  return new Map(rows.map((r) => [monthKey(new Date(r.bucket)), Number(r.count)]));
+}
+
+// Evolution de la population enregistree (tableau de bord, section 8) :
+// total cumule mois par mois, ancre sur le total reel actuel (pas seulement
+// les inscriptions du dernier mois) — Citizen.createdAt = date
+// d'enregistrement dans SIGEC-SM. Agregation Postgres (date_trunc), pas de
+// regroupement cote Node : le graphique n'a besoin que de ~12-36 points,
+// alors que la table Citizen grossit sans limite.
+export async function getPopulationTrend(user: CurrentUser, months = 12) {
+  if (!can(user, "citizens", "view")) return [];
+  const buckets = monthBuckets(months);
+  const since = buckets[0].date;
+
+  const [baseline, byMonth] = await Promise.all([
+    prisma.citizen.count({ where: { ...recordScopeWhere(user), createdAt: { lt: since } } }),
+    monthlyCounts("Citizen", "createdAt", user, since),
+  ]);
+
+  let running = baseline;
+  return buckets.map((b) => {
+    running += byMonth.get(b.key) ?? 0;
+    return { month: b.label, population: running };
+  });
+}
+
+// Activite mensuelle de l'etat civil (tableau de bord, section 9) :
+// naissances/mariages/deces/actes delivres par mois — chaque serie n'est
+// calculee que si l'utilisateur a la permission de vue du module
+// correspondant (meme logique que getCivilStatusStats).
+export async function getCivilStatusTrend(user: CurrentUser, months = 12) {
+  const buckets = monthBuckets(months);
+  const since = buckets[0].date;
+
+  const [births, marriages, deaths, certificates] = await Promise.all([
+    can(user, "births", "view") ? monthlyCounts("BirthRecord", "createdAt", user, since) : null,
+    can(user, "marriages", "view") ? monthlyCounts("Marriage", "createdAt", user, since) : null,
+    can(user, "deaths", "view") ? monthlyCounts("DeathRecord", "createdAt", user, since) : null,
+    can(user, "certificates", "view") ? monthlyCounts("Certificate", "issuedAt", user, since) : null,
+  ]);
+
+  if (!births && !marriages && !deaths && !certificates) return [];
+
+  return buckets.map((b) => ({
+    month: b.label,
+    ...(births ? { naissances: births.get(b.key) ?? 0 } : {}),
+    ...(marriages ? { mariages: marriages.get(b.key) ?? 0 } : {}),
+    ...(deaths ? { deces: deaths.get(b.key) ?? 0 } : {}),
+    ...(certificates ? { certificats: certificates.get(b.key) ?? 0 } : {}),
   }));
 }

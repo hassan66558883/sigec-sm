@@ -1,15 +1,20 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { arrondissementScopeWhere, can } from "@/lib/rbac";
 import { listAuditLogs } from "@/lib/audit";
-import { getFinanceSummary } from "@/lib/services/payments";
+import { getFinanceSummary, getRevenueTrend } from "@/lib/services/payments";
 import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
-import { getRecoveryStats } from "@/lib/services/analytics";
-import { PageHero } from "@/components/page-hero";
-import { StatCard } from "@/components/stat-card";
+import { getRecoveryStats, getPopulationTrend, getCivilStatusTrend, getArrondissementStatsReport } from "@/lib/services/analytics";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { ChartCard } from "@/components/ui/chart-card";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { chartColors } from "@/components/admin/charts/chart-colors";
 import { getI18n } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n/translate";
 import {
   IconGauge,
   IconMapPin,
@@ -20,7 +25,13 @@ import {
   IconShieldCheck,
   IconActivity,
   IconArrowUpRight,
+  IconArrowDownRight,
 } from "@/components/icons";
+
+import { LineTrendChart } from "@/components/admin/charts/line-trend-chart";
+import { BarTrendChart } from "@/components/admin/charts/bar-trend-chart";
+
+type Tr = (key: TranslationKey, vars?: Record<string, string | number>) => string;
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
@@ -29,6 +40,96 @@ function formatFcfa(amount: number) {
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return (parts.length >= 2 ? [parts[0][0], parts[1][0]] : [name.slice(0, 2)]).join("").toUpperCase();
+}
+
+function trendBadge(pct: number, label: string) {
+  if (pct === 0) return undefined;
+  const up = pct > 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-emerald-600" : "text-rose-600"}`}>
+      {up ? <IconArrowUpRight className="h-3 w-3" /> : <IconArrowDownRight className="h-3 w-3" />}
+      {up ? "+" : ""}
+      {pct}% {label}
+    </span>
+  );
+}
+
+// Chaque section de tendance est un composant serveur async independant,
+// enveloppe dans son propre <Suspense> (voir le rendu principal) :
+// deliberement PAS regroupe dans le Promise.all rapide existant, pour que
+// ces nouvelles requetes $queryRaw (plus lourdes que les compteurs simples
+// deja affiches) ne ralentissent jamais le premier rendu du tableau de
+// bord.
+async function PopulationTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
+  const data = await getPopulationTrend(user, 12);
+  if (data.length === 0) {
+    return (
+      <ChartCard title={t("dashboard.populationTrendTitle")} subtitle={t("dashboard.populationTrendSubtitle")} icon={<IconUsersGroup className="h-4 w-4" />} isEmpty>
+        <span />
+      </ChartCard>
+    );
+  }
+  const last = data[data.length - 1].population;
+  const prev = data.length > 1 ? data[data.length - 2].population : last;
+  const pct = prev > 0 ? Math.round(((last - prev) / prev) * 1000) / 10 : 0;
+  return (
+    <ChartCard
+      title={t("dashboard.populationTrendTitle")}
+      subtitle={t("dashboard.populationTrendSubtitle")}
+      icon={<IconUsersGroup className="h-4 w-4" />}
+      action={trendBadge(pct, t("dashboard.trendVsLastMonth"))}
+    >
+      <LineTrendChart data={data} series={[{ key: "population", label: t("dashboard.statPopulation"), color: chartColors.primary }]} valueFormat="number" />
+    </ChartCard>
+  );
+}
+
+async function CivilStatusTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
+  const data = await getCivilStatusTrend(user, 12);
+  const first = data[0];
+  const series = first
+    ? [
+        "naissances" in first && { key: "naissances", label: t("sidebar.births"), color: chartColors.primary },
+        "mariages" in first && { key: "mariages", label: t("sidebar.marriages"), color: chartColors.accent },
+        "deces" in first && { key: "deces", label: t("sidebar.deaths"), color: chartColors.danger },
+        "certificats" in first && { key: "certificats", label: t("sidebar.certificates"), color: chartColors.success },
+      ].filter((s): s is { key: string; label: string; color: string } => Boolean(s))
+    : [];
+
+  return (
+    <ChartCard
+      title={t("dashboard.civilStatusTrendTitle")}
+      subtitle={t("dashboard.civilStatusTrendSubtitle")}
+      icon={<IconActivity className="h-4 w-4" />}
+      isEmpty={series.length === 0}
+    >
+      {series.length > 0 && <BarTrendChart data={data} series={series} />}
+    </ChartCard>
+  );
+}
+
+async function RevenueTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
+  const data = await getRevenueTrend(user, 12);
+  if (data.length === 0) {
+    return (
+      <ChartCard title={t("dashboard.revenueTrendTitle")} subtitle={t("dashboard.revenueTrendSubtitle")} icon={<IconCoins className="h-4 w-4" />} isEmpty>
+        <span />
+      </ChartCard>
+    );
+  }
+  const last = data[data.length - 1].recettes;
+  const prev = data.length > 1 ? data[data.length - 2].recettes : last;
+  const pct = prev > 0 ? Math.round(((last - prev) / prev) * 1000) / 10 : 0;
+  return (
+    <ChartCard
+      title={t("dashboard.revenueTrendTitle")}
+      subtitle={t("dashboard.revenueTrendSubtitle")}
+      icon={<IconCoins className="h-4 w-4" />}
+      action={trendBadge(pct, t("dashboard.trendVsLastMonth"))}
+    >
+      <LineTrendChart data={data} series={[{ key: "recettes", label: t("dashboard.revenueTrendTitle"), color: chartColors.accent }]} valueFormat="thousandsFcfa" />
+    </ChartCard>
+  );
 }
 
 export default async function AdminDashboardPage() {
@@ -48,26 +149,33 @@ export default async function AdminDashboardPage() {
   const canViewAudit = can(user, "audit", "view");
   const canViewRevenue = can(user, "payments", "view");
 
-  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview, recoveryStats] = await Promise.all([
-    prisma.arrondissement.findMany({
-      where: scopeWhere,
-      orderBy: { number: "asc" },
-      include: { _count: { select: { quartiers: true, users: true } } },
-    }),
-    prisma.role.count(),
-    prisma.department.count({ where: { isActive: true } }),
-    canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
-    canViewRevenue && user ? getFinanceSummary(user) : Promise.resolve(null),
-    canViewRevenue && user ? getMunicipalRevenueOverview(user) : Promise.resolve(null),
-    user ? getRecoveryStats(user) : Promise.resolve(null),
-  ]);
+  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview, recoveryStats, arrondissementStats] =
+    await Promise.all([
+      prisma.arrondissement.findMany({
+        where: scopeWhere,
+        orderBy: { number: "asc" },
+        include: { _count: { select: { quartiers: true, users: true } } },
+      }),
+      prisma.role.count(),
+      prisma.department.count({ where: { isActive: true } }),
+      canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
+      canViewRevenue && user ? getFinanceSummary(user) : Promise.resolve(null),
+      canViewRevenue && user ? getMunicipalRevenueOverview(user) : Promise.resolve(null),
+      user ? getRecoveryStats(user) : Promise.resolve(null),
+      user ? getArrondissementStatsReport(user) : Promise.resolve([]),
+    ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);
   const userAssignmentTotal = arrondissements.reduce((sum, a) => sum + a._count.users, 0);
 
+  const ranking = arrondissementStats
+    .filter((r) => r.population !== null)
+    .sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
+  const maxPopulation = ranking.length > 0 ? Math.max(...ranking.map((r) => r.population ?? 0), 1) : 1;
+
   return (
     <div dir={dir} lang={locale} className="space-y-8">
-      <PageHero
+      <PageHeader
         eyebrow={t("dashboard.eyebrow")}
         title={user?.hasGlobalScope ? t("dashboard.titleGlobal") : t("dashboard.titleScoped")}
         description={
@@ -138,8 +246,55 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Suspense fallback={<SkeletonCard />}>
+          <PopulationTrendCard user={user!} t={t} />
+        </Suspense>
+        <Suspense fallback={<SkeletonCard />}>
+          <CivilStatusTrendCard user={user!} t={t} />
+        </Suspense>
+        {canViewRevenue && (
+          <div className="lg:col-span-2">
+            <Suspense fallback={<SkeletonCard />}>
+              <RevenueTrendCard user={user!} t={t} />
+            </Suspense>
+          </div>
+        )}
+      </div>
+
+      {ranking.length > 0 && (
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] px-5 py-3.5">
+            <IconLandmark className="h-4 w-4 text-[var(--color-text-muted)]" />
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--color-text)]">{t("dashboard.rankingTitle")}</h2>
+              <p className="text-xs text-[var(--color-text-muted)]">{t("dashboard.rankingSubtitle")}</p>
+            </div>
+          </div>
+          <ul className="divide-y divide-[var(--color-border-subtle)]">
+            {ranking.map((r, index) => (
+              <li key={r.id}>
+                <Link href={`/admin/arrondissements/${r.id}`} className="flex items-center gap-3 px-5 py-3 text-sm transition hover:bg-[var(--color-surface-hover)]">
+                  <span className="w-5 shrink-0 text-xs font-semibold text-[var(--color-text-muted)]">{index + 1}</span>
+                  <span className="w-40 shrink-0 truncate font-medium text-[var(--color-text)]">
+                    {r.name} <span className="font-normal text-[var(--color-text-muted)]">({r.code})</span>
+                  </span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{ width: `${Math.max(4, Math.round(((r.population ?? 0) / maxPopulation) * 100))}%`, background: "var(--gradient-primary)" }}
+                    />
+                  </span>
+                  <span className="w-20 shrink-0 text-end text-xs font-semibold text-[var(--color-text)]">{(r.population ?? 0).toLocaleString("fr-FR")}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
+        <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] px-5 py-3">
           <IconLandmark className="h-4 w-4 text-[var(--color-text-muted)]" />
           <h2 className="text-sm font-semibold text-[var(--color-text)]">
             {user?.hasGlobalScope ? t("dashboard.arrondissementBreakdownGlobal") : t("dashboard.arrondissementBreakdownScoped")}
@@ -148,9 +303,9 @@ export default async function AdminDashboardPage() {
         {arrondissements.length === 0 ? (
           <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">{t("dashboard.noArrondissements")}</p>
         ) : (
-          <ul className="divide-y divide-[var(--color-border)]">
+          <ul className="divide-y divide-[var(--color-border-subtle)]">
             {arrondissements.map((a) => (
-              <li key={a.id} className="flex items-center justify-between px-5 py-3 text-sm transition hover:bg-[var(--color-primary-light)]/50">
+              <li key={a.id} className="flex items-center justify-between px-5 py-3 text-sm transition hover:bg-[var(--color-surface-hover)]">
                 <Link href={`/admin/arrondissements/${a.id}`} className="flex items-center gap-3 font-medium text-[var(--color-text)]">
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
@@ -173,16 +328,16 @@ export default async function AdminDashboardPage() {
 
       {canViewAudit && (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-          <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] px-5 py-3">
             <IconActivity className="h-4 w-4 text-[var(--color-text-muted)]" />
             <h2 className="text-sm font-semibold text-[var(--color-text)]">{t("dashboard.recentActivity")}</h2>
           </div>
           {recentAudit.length === 0 ? (
             <p className="px-5 py-6 text-sm text-[var(--color-text-muted)]">{t("dashboard.noActivity")}</p>
           ) : (
-            <ul className="divide-y divide-[var(--color-border)]">
+            <ul className="divide-y divide-[var(--color-border-subtle)]">
               {recentAudit.map((log) => (
-                <li key={log.id} className="flex items-center gap-3 px-5 py-3 text-sm transition hover:bg-[var(--color-primary-light)]/50">
+                <li key={log.id} className="flex items-center gap-3 px-5 py-3 text-sm transition hover:bg-[var(--color-surface-hover)]">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)] text-[10px] font-semibold text-[var(--color-primary)]">
                     {initials(log.userName)}
                   </span>
