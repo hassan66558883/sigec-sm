@@ -20,13 +20,13 @@ export function PageHero({
   return (
     <div
       className="relative overflow-hidden rounded-2xl px-6 py-7 text-white shadow-md sm:px-8"
-      style={{ background: "linear-gradient(120deg, var(--color-primary-dark), var(--color-primary) 60%, #156ab0)" }}
+      style={{ background: "linear-gradient(120deg, var(--color-primary-dark), var(--color-primary) 60%, #3aa8e0)" }}
     >
       <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full blur-2xl"
-        style={{ background: "rgb(200 161 58 / 0.18)" }}
+        style={{ background: "rgb(242 169 0 / 0.18)" }}
       />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">

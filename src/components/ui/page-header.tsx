@@ -22,8 +22,8 @@ export function PageHeader({
   const background =
     variant === "technotchad"
       ? "linear-gradient(120deg, var(--tc-grad-from), var(--tc-grad-via) 55%, var(--tc-grad-to))"
-      : "linear-gradient(120deg, var(--color-primary-dark), var(--color-primary) 60%, #156ab0)";
-  const blobColor = variant === "technotchad" ? "rgb(139 92 246 / 0.18)" : "rgb(200 161 58 / 0.18)";
+      : "linear-gradient(120deg, var(--color-primary-dark), var(--color-primary) 60%, #3aa8e0)";
+  const blobColor = variant === "technotchad" ? "rgb(139 92 246 / 0.18)" : "rgb(242 169 0 / 0.18)";
 
   return (
     <div className="relative overflow-hidden rounded-2xl px-6 py-7 text-white shadow-md sm:px-8" style={{ background }}>

@@ -14,7 +14,7 @@ export default async function VerifyReceiptPage({ params }: { params: Promise<{ 
   return (
     <div
       className="flex min-h-screen items-center justify-center px-4 py-10"
-      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #156ab0)" }}
+      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #3aa8e0)" }}
     >
       <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
         <div className="px-8 pb-6 pt-8 text-center">

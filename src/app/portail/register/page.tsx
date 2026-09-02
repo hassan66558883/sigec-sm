@@ -5,13 +5,13 @@ export default function CitizenRegisterPage() {
   return (
     <div
       className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10"
-      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #156ab0)" }}
+      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #3aa8e0)" }}
     >
       <div aria-hidden className="login-blob pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl" />
       <div
         aria-hidden
         className="login-blob pointer-events-none absolute -bottom-40 -left-24 h-[26rem] w-[26rem] rounded-full blur-3xl"
-        style={{ background: "rgb(200 161 58 / 0.25)", animationDelay: "-7s" }}
+        style={{ background: "rgb(242 169 0 / 0.25)", animationDelay: "-7s" }}
       />
 
       <div className="relative w-full max-w-sm">

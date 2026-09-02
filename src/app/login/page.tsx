@@ -11,7 +11,7 @@ export default async function LoginPage() {
   return (
     <div
       className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10"
-      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #156ab0)" }}
+      style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #3aa8e0)" }}
     >
       {/* Formes floues en fond, derive lente (voir .login-blob, globals.css) —
           profondeur et mouvement ambiant sans jamais distraire de la saisie. */}
@@ -22,7 +22,7 @@ export default async function LoginPage() {
       <div
         aria-hidden
         className="login-blob pointer-events-none absolute -bottom-40 -left-24 h-[26rem] w-[26rem] rounded-full blur-3xl"
-        style={{ background: "rgb(200 161 58 / 0.25)", animationDelay: "-7s" }}
+        style={{ background: "rgb(242 169 0 / 0.25)", animationDelay: "-7s" }}
       />
       <div
         aria-hidden

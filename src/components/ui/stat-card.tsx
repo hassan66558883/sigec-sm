@@ -5,14 +5,14 @@ import { IconArrowUpRight, IconArrowDownRight } from "@/components/icons";
 const TONE_CLASSES: Record<string, string> = {
   primary: "bg-[var(--color-primary-light)] text-[var(--color-primary)] group-hover:bg-[var(--color-primary)]/15",
   gold: "bg-[var(--color-accent-soft)] text-[var(--color-accent)] group-hover:bg-[var(--color-accent)]/20",
-  success: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-  warning: "bg-amber-50 text-amber-600 group-hover:bg-amber-100",
-  danger: "bg-rose-50 text-rose-600 group-hover:bg-rose-100",
+  success: "bg-[var(--color-success)]/10 text-[var(--color-success)] group-hover:bg-[var(--color-success)]/20",
+  warning: "bg-[var(--color-warning)]/10 text-[#8a6200] group-hover:bg-[var(--color-warning)]/20",
+  danger: "bg-[var(--color-danger)]/10 text-[var(--color-danger)] group-hover:bg-[var(--color-danger)]/20",
 };
 
 const TREND_TONE_CLASSES: Record<string, string> = {
-  success: "text-emerald-600",
-  danger: "text-rose-600",
+  success: "text-[var(--color-success)]",
+  danger: "text-[var(--color-danger)]",
   neutral: "text-[var(--color-text-muted)]",
 };
 

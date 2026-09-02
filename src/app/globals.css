@@ -13,24 +13,24 @@
 }
 
 :root {
-  --color-primary: #0f4c81; /* bleu institutionnel */
-  --color-primary-dark: #0a3760;
-  --color-primary-light: #eaf2fb; /* teinte douce pour badges/survols */
-  --color-accent: #c8a13a; /* or, rappel du sceau municipal */
-  --color-accent-soft: #faf3e0;
-  --color-bg: #f4f6fa;
-  --color-bg-subtle: #fafbfd; /* chrome (topbar) plus clair que le fond de contenu */
+  --color-primary: #1c83c5; /* bleu institutionnel */
+  --color-primary-dark: #126a9f;
+  --color-primary-light: #eaf5fb; /* teinte douce pour badges/survols */
+  --color-accent: #f2a900; /* or, mis en avant / rappel du sceau municipal */
+  --color-accent-soft: #fff4dc;
+  --color-bg: #f5f8fa;
+  --color-bg-subtle: #fafbfc; /* chrome plus clair que le fond de contenu */
   --color-surface: #ffffff;
-  --color-surface-hover: #f0f5fb; /* survol des lignes/menus deroulants */
-  --color-text: #1a2330;
-  --color-text-muted: #5b6b7d;
-  --color-border: #e3e8ef;
-  --color-border-subtle: #edf1f6; /* separateurs internes (cartes, menus) */
-  --color-success: #1e7d4b;
-  --color-warning: #b8860b;
-  --color-danger: #b3261e;
+  --color-surface-hover: #e6f2fa; /* survol des lignes/menus deroulants */
+  --color-text: #263238;
+  --color-text-muted: #607d8b;
+  --color-border: #dce6eb;
+  --color-border-subtle: #eaf0f3; /* separateurs internes (cartes, menus) */
+  --color-success: #2e9d68;
+  --color-warning: #f2a900;
+  --color-danger: #d9534f;
   --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  --gradient-gold: linear-gradient(135deg, #d8b455, var(--color-accent));
+  --gradient-gold: linear-gradient(135deg, #ffc94d, var(--color-accent));
 }
 
 html,
@@ -40,8 +40,8 @@ body {
 
 body {
   background:
-    radial-gradient(1200px 480px at 15% -10%, rgb(15 76 129 / 0.05), transparent),
-    radial-gradient(900px 420px at 100% 0%, rgb(200 161 58 / 0.05), transparent),
+    radial-gradient(1200px 480px at 15% -10%, rgb(28 131 197 / 0.05), transparent),
+    radial-gradient(900px 420px at 100% 0%, rgb(242 169 0 / 0.05), transparent),
     var(--color-bg);
   color: var(--color-text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

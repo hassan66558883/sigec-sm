@@ -3,12 +3,12 @@
 // dupliquer les jetons de src/app/globals.css. A garder synchronise si la
 // palette change.
 export const chartColors = {
-  primary: "#0f4c81",
-  primaryLight: "#5b8fc4",
-  accent: "#c8a13a",
-  success: "#1e7d4b",
-  warning: "#b8860b",
-  danger: "#b3261e",
-  muted: "#5b6b7d",
-  grid: "#e3e8ef",
+  primary: "#1c83c5",
+  primaryLight: "#5ab4e0",
+  accent: "#f2a900",
+  success: "#2e9d68",
+  warning: "#f2a900",
+  danger: "#d9534f",
+  muted: "#607d8b",
+  grid: "#dce6eb",
 };

@@ -1,18 +1,18 @@
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral" | "primary";
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  success: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  warning: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  danger: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  success: "bg-[var(--color-success)]/10 text-[var(--color-success)] ring-[var(--color-success)]/25",
+  warning: "bg-[var(--color-warning)]/10 text-[#8a6200] ring-[var(--color-warning)]/30",
+  danger: "bg-[var(--color-danger)]/10 text-[var(--color-danger)] ring-[var(--color-danger)]/25",
   info: "bg-sky-50 text-sky-700 ring-sky-600/20",
   neutral: "bg-gray-100 text-gray-600 ring-gray-500/20",
   primary: "bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-primary)]/20",
 };
 
 const DOT_CLASSES: Record<StatusTone, string> = {
-  success: "bg-emerald-500",
-  warning: "bg-amber-500",
-  danger: "bg-rose-500",
+  success: "bg-[var(--color-success)]",
+  warning: "bg-[var(--color-warning)]",
+  danger: "bg-[var(--color-danger)]",
   info: "bg-sky-500",
   neutral: "bg-gray-400",
   primary: "bg-[var(--color-primary)]",
