@@ -50,10 +50,24 @@ export default async function UrbanismPage() {
           {c.caseNumber}
         </Link>
       ),
+      sortable: true,
+      sortValue: (c) => c.caseNumber,
     },
-    { key: "type", header: "Type", render: (c) => TYPE_LABEL[c.type] },
-    { key: "applicant", header: "Demandeur", render: (c) => <>{c.applicant.firstName} {c.applicant.lastName}</> },
-    { key: "status", header: "Statut", render: (c) => <StatusBadge label={STATUS_LABEL[c.status]} tone={STATUS_TONE[c.status]} /> },
+    { key: "type", header: "Type", render: (c) => TYPE_LABEL[c.type], sortable: true, sortValue: (c) => c.type },
+    {
+      key: "applicant",
+      header: "Demandeur",
+      render: (c) => <>{c.applicant.firstName} {c.applicant.lastName}</>,
+      sortable: true,
+      sortValue: (c) => `${c.applicant.lastName} ${c.applicant.firstName}`,
+    },
+    {
+      key: "status",
+      header: "Statut",
+      render: (c) => <StatusBadge label={STATUS_LABEL[c.status]} tone={STATUS_TONE[c.status]} />,
+      sortable: true,
+      sortValue: (c) => c.status,
+    },
     {
       key: "actions",
       header: "",

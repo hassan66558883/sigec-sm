@@ -40,7 +40,7 @@ export default async function BirthsPage() {
   ]);
 
   const columns: Column<BirthRow>[] = [
-    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span> },
+    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
     {
       key: "child",
       header: "Enfant",
@@ -49,9 +49,11 @@ export default async function BirthsPage() {
           {r.child.firstName} {r.child.lastName}
         </Link>
       ),
+      sortable: true,
+      sortValue: (r) => `${r.child.lastName} ${r.child.firstName}`,
     },
-    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.dateOfBirth).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} /> },
+    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.dateOfBirth).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (r) => new Date(r.dateOfBirth).getTime() },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />, sortable: true, sortValue: (r) => STATUS_LABEL[r.status] },
     {
       key: "actions",
       header: "",

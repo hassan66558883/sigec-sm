@@ -22,9 +22,15 @@ export default async function QuartierDetailPage({ params }: { params: Promise<{
   const sectors = await listSectors(user, id);
 
   const columns: Column<SectorRow>[] = [
-    { key: "name", header: "Secteur/Zone", render: (s) => s.name },
-    { key: "code", header: "Code", render: (s) => <span className="text-[var(--color-text-muted)]">{s.code}</span> },
-    { key: "status", header: "Statut", render: (s) => <StatusBadge label={s.isActive ? "Actif" : "Inactif"} tone={s.isActive ? "success" : "neutral"} /> },
+    { key: "name", header: "Secteur/Zone", render: (s) => s.name, sortable: true, sortValue: (s) => s.name },
+    { key: "code", header: "Code", render: (s) => <span className="text-[var(--color-text-muted)]">{s.code}</span>, sortable: true, sortValue: (s) => s.code },
+    {
+      key: "status",
+      header: "Statut",
+      render: (s) => <StatusBadge label={s.isActive ? "Actif" : "Inactif"} tone={s.isActive ? "success" : "neutral"} />,
+      sortable: true,
+      sortValue: (s) => (s.isActive ? 1 : 0),
+    },
   ];
 
   return (

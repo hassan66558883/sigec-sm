@@ -37,7 +37,7 @@ export default async function ArrondissementsPage() {
   const ranking = [...stats].filter((s) => s.population !== null).sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
 
   const columns: Column<ArrondissementRow>[] = [
-    { key: "number", header: "N°", render: (a) => a.number },
+    { key: "number", header: "N°", render: (a) => a.number, sortable: true, sortValue: (a) => a.number },
     {
       key: "name",
       header: "Nom",
@@ -46,10 +46,12 @@ export default async function ArrondissementsPage() {
           {a.name}
         </Link>
       ),
+      sortable: true,
+      sortValue: (a) => a.name,
     },
-    { key: "code", header: "Code", render: (a) => <span className="text-[var(--color-text-muted)]">{a.code}</span> },
-    { key: "quartiers", header: "Quartiers", render: (a) => a._count.quartiers },
-    { key: "status", header: "Statut", render: (a) => <StatusBadge label={a.isActive ? "Actif" : "Inactif"} tone={a.isActive ? "success" : "neutral"} /> },
+    { key: "code", header: "Code", render: (a) => <span className="text-[var(--color-text-muted)]">{a.code}</span>, sortable: true, sortValue: (a) => a.code },
+    { key: "quartiers", header: "Quartiers", render: (a) => a._count.quartiers, sortable: true, sortValue: (a) => a._count.quartiers },
+    { key: "status", header: "Statut", render: (a) => <StatusBadge label={a.isActive ? "Actif" : "Inactif"} tone={a.isActive ? "success" : "neutral"} />, sortable: true, sortValue: (a) => (a.isActive ? "Actif" : "Inactif") },
     {
       key: "actions",
       header: "",

@@ -32,11 +32,35 @@ export default async function LandPage() {
   const citizenOptions = citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }));
 
   const parcelColumns: Column<ParcelRow>[] = [
-    { key: "parcelNumber", header: "Numero", render: (p) => <span className="text-xs text-[var(--color-text-muted)]">{p.parcelNumber}</span> },
-    { key: "location", header: "Localisation", render: (p) => p.location || "—" },
-    { key: "area", header: "Superficie", render: (p) => <span className="text-[var(--color-text-muted)]">{p.area ? `${p.area} m²` : "—"}</span> },
-    { key: "owner", header: "Occupant", render: (p) => (p.owner ? `${p.owner.firstName} ${p.owner.lastName}` : "—") },
-    { key: "status", header: "Statut", render: (p) => <StatusBadge label={STATUS_LABEL[p.status]} tone={STATUS_TONE[p.status]} /> },
+    {
+      key: "parcelNumber",
+      header: "Numero",
+      render: (p) => <span className="text-xs text-[var(--color-text-muted)]">{p.parcelNumber}</span>,
+      sortable: true,
+      sortValue: (p) => p.parcelNumber,
+    },
+    { key: "location", header: "Localisation", render: (p) => p.location || "—", sortable: true, sortValue: (p) => p.location || "" },
+    {
+      key: "area",
+      header: "Superficie",
+      render: (p) => <span className="text-[var(--color-text-muted)]">{p.area ? `${p.area} m²` : "—"}</span>,
+      sortable: true,
+      sortValue: (p) => p.area ?? 0,
+    },
+    {
+      key: "owner",
+      header: "Occupant",
+      render: (p) => (p.owner ? `${p.owner.firstName} ${p.owner.lastName}` : "—"),
+      sortable: true,
+      sortValue: (p) => (p.owner ? `${p.owner.lastName} ${p.owner.firstName}` : ""),
+    },
+    {
+      key: "status",
+      header: "Statut",
+      render: (p) => <StatusBadge label={STATUS_LABEL[p.status]} tone={STATUS_TONE[p.status]} />,
+      sortable: true,
+      sortValue: (p) => p.status,
+    },
     {
       key: "title",
       header: "",
@@ -53,10 +77,16 @@ export default async function LandPage() {
   ];
 
   const subdivisionColumns: Column<SubdivisionRow>[] = [
-    { key: "name", header: "Projet", render: (s) => <span className="font-medium">{s.name}</span> },
-    { key: "zone", header: "Zone", render: (s) => <span className="text-[var(--color-text-muted)]">{s.zone || "—"}</span> },
-    { key: "arrondissement", header: "Arrondissement", render: (s) => <span className="text-[var(--color-text-muted)]">{s.arrondissement.name}</span> },
-    { key: "parcels", header: "Parcelles", render: (s) => s._count.parcels },
+    { key: "name", header: "Projet", render: (s) => <span className="font-medium">{s.name}</span>, sortable: true, sortValue: (s) => s.name },
+    { key: "zone", header: "Zone", render: (s) => <span className="text-[var(--color-text-muted)]">{s.zone || "—"}</span>, sortable: true, sortValue: (s) => s.zone || "" },
+    {
+      key: "arrondissement",
+      header: "Arrondissement",
+      render: (s) => <span className="text-[var(--color-text-muted)]">{s.arrondissement.name}</span>,
+      sortable: true,
+      sortValue: (s) => s.arrondissement.name,
+    },
+    { key: "parcels", header: "Parcelles", render: (s) => s._count.parcels, sortable: true, sortValue: (s) => s._count.parcels },
   ];
 
   return (

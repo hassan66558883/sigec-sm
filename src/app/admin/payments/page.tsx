@@ -37,13 +37,13 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   ]);
 
   const columns: Column<PaymentRow>[] = [
-    { key: "receiptNumber", header: "Quittance", render: (p) => <span className="text-xs text-[var(--color-text-muted)]">{p.receiptNumber}</span> },
-    { key: "payer", header: "Payeur", render: (p) => <>{p.payer.firstName} {p.payer.lastName}</> },
-    { key: "type", header: "Type", render: (p) => <span className="text-[var(--color-text-muted)]">{p.taxType?.name ?? "—"}</span> },
-    { key: "origin", header: "Origine", render: (p) => <span className="text-[var(--color-text-muted)]">{p.arrondissement?.name ?? "Mairie Centrale"}</span> },
-    { key: "amount", header: "Montant", render: (p) => <span className="font-medium">{p.amount.toLocaleString("fr-FR")} FCFA</span> },
-    { key: "date", header: "Date", render: (p) => <span className="text-[var(--color-text-muted)]">{new Date(p.paymentDate).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (p) => <StatusBadge label={p.status} tone={STATUS_TONE[p.status] ?? "neutral"} /> },
+    { key: "receiptNumber", header: "Quittance", render: (p) => <span className="text-xs text-[var(--color-text-muted)]">{p.receiptNumber}</span>, sortable: true, sortValue: (p) => p.receiptNumber },
+    { key: "payer", header: "Payeur", render: (p) => <>{p.payer.firstName} {p.payer.lastName}</>, sortable: true, sortValue: (p) => `${p.payer.lastName} ${p.payer.firstName}` },
+    { key: "type", header: "Type", render: (p) => <span className="text-[var(--color-text-muted)]">{p.taxType?.name ?? "—"}</span>, sortable: true, sortValue: (p) => p.taxType?.name ?? "" },
+    { key: "origin", header: "Origine", render: (p) => <span className="text-[var(--color-text-muted)]">{p.arrondissement?.name ?? "Mairie Centrale"}</span>, sortable: true, sortValue: (p) => p.arrondissement?.name ?? "Mairie Centrale" },
+    { key: "amount", header: "Montant", render: (p) => <span className="font-medium">{p.amount.toLocaleString("fr-FR")} FCFA</span>, sortable: true, sortValue: (p) => p.amount },
+    { key: "date", header: "Date", render: (p) => <span className="text-[var(--color-text-muted)]">{new Date(p.paymentDate).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (p) => new Date(p.paymentDate).getTime() },
+    { key: "status", header: "Statut", render: (p) => <StatusBadge label={p.status} tone={STATUS_TONE[p.status] ?? "neutral"} />, sortable: true, sortValue: (p) => p.status },
     {
       key: "actions",
       header: "",

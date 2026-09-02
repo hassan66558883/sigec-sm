@@ -41,11 +41,11 @@ export default async function BusinessesPage() {
   ]);
 
   const columns: Column<BusinessRow>[] = [
-    { key: "code", header: "Code", render: (b) => <span className="text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</span> },
-    { key: "name", header: "Nom", render: (b) => <span className="font-medium">{b.name}</span> },
-    { key: "activity", header: "Activite", render: (b) => <span className="text-[var(--color-text-muted)]">{b.activityRef?.name ?? b.activity ?? "—"}</span> },
-    { key: "owner", header: "Proprietaire", render: (b) => <>{b.owner.firstName} {b.owner.lastName}</> },
-    { key: "arrondissement", header: "Arrondissement", render: (b) => <span className="text-[var(--color-text-muted)]">{b.arrondissement.name}</span> },
+    { key: "code", header: "Code", render: (b) => <span className="text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</span>, sortable: true, sortValue: (b) => b.code ?? "" },
+    { key: "name", header: "Nom", render: (b) => <span className="font-medium">{b.name}</span>, sortable: true, sortValue: (b) => b.name },
+    { key: "activity", header: "Activite", render: (b) => <span className="text-[var(--color-text-muted)]">{b.activityRef?.name ?? b.activity ?? "—"}</span>, sortable: true, sortValue: (b) => b.activityRef?.name ?? b.activity ?? "" },
+    { key: "owner", header: "Proprietaire", render: (b) => <>{b.owner.firstName} {b.owner.lastName}</>, sortable: true, sortValue: (b) => `${b.owner.lastName} ${b.owner.firstName}` },
+    { key: "arrondissement", header: "Arrondissement", render: (b) => <span className="text-[var(--color-text-muted)]">{b.arrondissement.name}</span>, sortable: true, sortValue: (b) => b.arrondissement.name },
     {
       key: "status",
       header: "Statut",
@@ -55,6 +55,8 @@ export default async function BusinessesPage() {
         ) : (
           <StatusBadge label={STATUS_LABEL[b.status] ?? b.status} tone={STATUS_TONE[b.status] ?? "neutral"} />
         ),
+      sortable: true,
+      sortValue: (b) => b.status,
     },
   ];
 

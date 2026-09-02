@@ -21,11 +21,11 @@ export default async function ReceiptsPage() {
   const receipts = await listReceipts(user);
 
   const columns: Column<ReceiptRow>[] = [
-    { key: "number", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.number}</span> },
-    { key: "payer", header: "Payeur", render: (r) => <>{r.payment.payer.firstName} {r.payment.payer.lastName}</> },
-    { key: "amount", header: "Montant", render: (r) => <span className="font-medium">{formatFcfa(r.payment.amount)}</span> },
-    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.payment.paymentDate).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={r.status} tone={r.status === "VALIDE" ? "success" : "danger"} /> },
+    { key: "number", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.number}</span>, sortable: true, sortValue: (r) => r.number },
+    { key: "payer", header: "Payeur", render: (r) => <>{r.payment.payer.firstName} {r.payment.payer.lastName}</>, sortable: true, sortValue: (r) => `${r.payment.payer.lastName} ${r.payment.payer.firstName}` },
+    { key: "amount", header: "Montant", render: (r) => <span className="font-medium">{formatFcfa(r.payment.amount)}</span>, sortable: true, sortValue: (r) => r.payment.amount },
+    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.payment.paymentDate).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (r) => new Date(r.payment.paymentDate).getTime() },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={r.status} tone={r.status === "VALIDE" ? "success" : "danger"} />, sortable: true, sortValue: (r) => r.status },
     {
       key: "qr",
       header: "QR",

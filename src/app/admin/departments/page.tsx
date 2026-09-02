@@ -18,10 +18,16 @@ export default async function DepartmentsPage() {
   const departments = await listDepartments();
 
   const columns: Column<DepartmentRow>[] = [
-    { key: "name", header: "Direction", render: (d) => <span className="font-medium">{d.name}</span> },
-    { key: "code", header: "Code", render: (d) => <span className="text-[var(--color-text-muted)]">{d.code}</span> },
-    { key: "users", header: "Utilisateurs", render: (d) => d._count.users },
-    { key: "status", header: "Statut", render: (d) => <StatusBadge label={d.isActive ? "Actif" : "Inactif"} tone={d.isActive ? "success" : "neutral"} /> },
+    { key: "name", header: "Direction", render: (d) => <span className="font-medium">{d.name}</span>, sortable: true, sortValue: (d) => d.name },
+    { key: "code", header: "Code", render: (d) => <span className="text-[var(--color-text-muted)]">{d.code}</span>, sortable: true, sortValue: (d) => d.code },
+    { key: "users", header: "Utilisateurs", render: (d) => d._count.users, sortable: true, sortValue: (d) => d._count.users },
+    {
+      key: "status",
+      header: "Statut",
+      render: (d) => <StatusBadge label={d.isActive ? "Actif" : "Inactif"} tone={d.isActive ? "success" : "neutral"} />,
+      sortable: true,
+      sortValue: (d) => (d.isActive ? 1 : 0),
+    },
     {
       key: "actions",
       header: "",

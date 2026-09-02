@@ -38,12 +38,12 @@ export default async function MobileMoneyPage() {
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
 
   const columns: Column<TransactionRow>[] = [
-    { key: "ref", header: "Reference", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.externalReference ?? "—"}</span> },
-    { key: "payer", header: "Payeur", render: (t) => <>{t.payment.payer.firstName} {t.payment.payer.lastName}</> },
-    { key: "phone", header: "Telephone", render: (t) => <span className="text-[var(--color-text-muted)]">{t.phoneNumber ?? "—"}</span> },
-    { key: "amount", header: "Montant", render: (t) => <span className="font-medium">{formatFcfa(t.amount)}</span> },
-    { key: "initiated", header: "Initiee", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{new Date(t.initiatedAt).toLocaleString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (t) => <StatusBadge label={t.status} tone={STATUS_TONE[t.status] ?? "neutral"} /> },
+    { key: "ref", header: "Reference", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.externalReference ?? "—"}</span>, sortable: true, sortValue: (t) => t.externalReference ?? "" },
+    { key: "payer", header: "Payeur", render: (t) => <>{t.payment.payer.firstName} {t.payment.payer.lastName}</>, sortable: true, sortValue: (t) => `${t.payment.payer.lastName} ${t.payment.payer.firstName}` },
+    { key: "phone", header: "Telephone", render: (t) => <span className="text-[var(--color-text-muted)]">{t.phoneNumber ?? "—"}</span>, sortable: true, sortValue: (t) => t.phoneNumber ?? "" },
+    { key: "amount", header: "Montant", render: (t) => <span className="font-medium">{formatFcfa(t.amount)}</span>, sortable: true, sortValue: (t) => t.amount },
+    { key: "initiated", header: "Initiee", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{new Date(t.initiatedAt).toLocaleString("fr-FR")}</span>, sortable: true, sortValue: (t) => new Date(t.initiatedAt).getTime() },
+    { key: "status", header: "Statut", render: (t) => <StatusBadge label={t.status} tone={STATUS_TONE[t.status] ?? "neutral"} />, sortable: true, sortValue: (t) => t.status },
     {
       key: "actions",
       header: "",

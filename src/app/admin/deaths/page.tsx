@@ -33,10 +33,10 @@ export default async function DeathsPage({ searchParams }: { searchParams: Promi
   ]);
 
   const columns: Column<DeathRow>[] = [
-    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span> },
-    { key: "deceased", header: "Defunt", render: (r) => <span className="font-medium">{r.deceased.firstName} {r.deceased.lastName}</span> },
-    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.dateOfDeath).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} /> },
+    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
+    { key: "deceased", header: "Defunt", render: (r) => <span className="font-medium">{r.deceased.firstName} {r.deceased.lastName}</span>, sortable: true, sortValue: (r) => `${r.deceased.lastName} ${r.deceased.firstName}` },
+    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.dateOfDeath).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (r) => new Date(r.dateOfDeath).getTime() },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />, sortable: true, sortValue: (r) => STATUS_LABEL[r.status] },
     {
       key: "actions",
       header: "",

@@ -41,10 +41,10 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
   const [applications, stats] = await Promise.all([listApplicationsForStaff(user, search), getApplicationsProcessingStats(user)]);
 
   const columns: Column<ApplicationRow>[] = [
-    { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span> },
-    { key: "citizen", header: "Citoyen", render: (a) => <>{a.citizenAccount.citizen.firstName} {a.citizenAccount.citizen.lastName}</> },
-    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type] },
-    { key: "status", header: "Statut", render: (a) => <StatusBadge label={STATUS_LABEL[a.status]} tone={STATUS_TONE[a.status]} /> },
+    { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span>, sortable: true, sortValue: (a) => a.applicationNumber },
+    { key: "citizen", header: "Citoyen", render: (a) => <>{a.citizenAccount.citizen.firstName} {a.citizenAccount.citizen.lastName}</>, sortable: true, sortValue: (a) => `${a.citizenAccount.citizen.lastName} ${a.citizenAccount.citizen.firstName}` },
+    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type], sortable: true, sortValue: (a) => TYPE_LABEL[a.type] },
+    { key: "status", header: "Statut", render: (a) => <StatusBadge label={STATUS_LABEL[a.status]} tone={STATUS_TONE[a.status]} />, sortable: true, sortValue: (a) => STATUS_LABEL[a.status] },
     {
       key: "actions",
       header: "",

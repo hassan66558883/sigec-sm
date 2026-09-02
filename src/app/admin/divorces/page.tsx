@@ -30,7 +30,7 @@ export default async function DivorcesPage() {
   ]);
 
   const columns: Column<DivorceRow>[] = [
-    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span> },
+    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
     {
       key: "couple",
       header: "Couple",
@@ -39,9 +39,11 @@ export default async function DivorcesPage() {
           {r.marriage.husband.firstName} {r.marriage.husband.lastName} × {r.marriage.wife.firstName} {r.marriage.wife.lastName}
         </>
       ),
+      sortable: true,
+      sortValue: (r) => `${r.marriage.husband.lastName} ${r.marriage.husband.firstName} ${r.marriage.wife.lastName} ${r.marriage.wife.firstName}`,
     },
-    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.divorceDate).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} /> },
+    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.divorceDate).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (r) => new Date(r.divorceDate).getTime() },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />, sortable: true, sortValue: (r) => STATUS_LABEL[r.status] },
     {
       key: "actions",
       header: "",

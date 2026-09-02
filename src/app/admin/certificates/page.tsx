@@ -22,11 +22,11 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   const [certificates, periodStats] = await Promise.all([listCertificates(user, search), getCertificatesPeriodStats(user)]);
 
   const columns: Column<CertificateRow>[] = [
-    { key: "documentNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.documentNumber}</span> },
-    { key: "type", header: "Type", render: (c) => c.certificateType.name },
-    { key: "citizen", header: "Titulaire", render: (c) => (c.citizen ? `${c.citizen.firstName} ${c.citizen.lastName}` : "—") },
-    { key: "issuedAt", header: "Delivre le", render: (c) => <span className="text-[var(--color-text-muted)]">{new Date(c.issuedAt).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (c) => <StatusBadge label={c.status === "VALID" ? "Valide" : "Revoque"} tone={c.status === "VALID" ? "success" : "danger"} /> },
+    { key: "documentNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.documentNumber}</span>, sortable: true, sortValue: (c) => c.documentNumber },
+    { key: "type", header: "Type", render: (c) => c.certificateType.name, sortable: true, sortValue: (c) => c.certificateType.name },
+    { key: "citizen", header: "Titulaire", render: (c) => (c.citizen ? `${c.citizen.firstName} ${c.citizen.lastName}` : "—"), sortable: true, sortValue: (c) => (c.citizen ? `${c.citizen.lastName} ${c.citizen.firstName}` : "") },
+    { key: "issuedAt", header: "Delivre le", render: (c) => <span className="text-[var(--color-text-muted)]">{new Date(c.issuedAt).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (c) => new Date(c.issuedAt).getTime() },
+    { key: "status", header: "Statut", render: (c) => <StatusBadge label={c.status === "VALID" ? "Valide" : "Revoque"} tone={c.status === "VALID" ? "success" : "danger"} />, sortable: true, sortValue: (c) => (c.status === "VALID" ? "Valide" : "Revoque") },
     {
       key: "verify",
       header: "Verification",

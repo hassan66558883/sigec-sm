@@ -30,17 +30,37 @@ export default async function AuditPage({
   ]);
 
   const columns: Column<LogRow>[] = [
-    { key: "date", header: "Date", render: (log) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(log.createdAt).toLocaleString("fr-FR")}</span> },
-    { key: "user", header: "Utilisateur", render: (log) => log.userName },
-    { key: "action", header: "Action", render: (log) => log.action },
-    { key: "module", header: "Module", render: (log) => <span className="text-[var(--color-text-muted)]">{log.module}</span> },
+    {
+      key: "date",
+      header: "Date",
+      render: (log) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(log.createdAt).toLocaleString("fr-FR")}</span>,
+      sortable: true,
+      sortValue: (log) => new Date(log.createdAt).getTime(),
+    },
+    { key: "user", header: "Utilisateur", render: (log) => log.userName, sortable: true, sortValue: (log) => log.userName },
+    { key: "action", header: "Action", render: (log) => log.action, sortable: true, sortValue: (log) => log.action },
+    { key: "module", header: "Module", render: (log) => <span className="text-[var(--color-text-muted)]">{log.module}</span>, sortable: true, sortValue: (log) => log.module },
     {
       key: "entity",
       header: "Objet",
       render: (log) => <span className="text-[var(--color-text-muted)]">{log.entityType ? `${log.entityType}${log.entityId ? ` #${log.entityId.slice(0, 8)}` : ""}` : "—"}</span>,
+      sortable: true,
+      sortValue: (log) => log.entityType ?? "",
     },
-    { key: "result", header: "Resultat", render: (log) => <StatusBadge label={log.result} tone={log.result === "SUCCESS" ? "success" : "danger"} /> },
-    { key: "ip", header: "IP", render: (log) => <span className="text-xs text-[var(--color-text-muted)]">{log.ipAddress ?? "—"}</span> },
+    {
+      key: "result",
+      header: "Resultat",
+      render: (log) => <StatusBadge label={log.result} tone={log.result === "SUCCESS" ? "success" : "danger"} />,
+      sortable: true,
+      sortValue: (log) => log.result,
+    },
+    {
+      key: "ip",
+      header: "IP",
+      render: (log) => <span className="text-xs text-[var(--color-text-muted)]">{log.ipAddress ?? "—"}</span>,
+      sortable: true,
+      sortValue: (log) => log.ipAddress ?? "",
+    },
   ];
 
   return (

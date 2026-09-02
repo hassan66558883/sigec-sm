@@ -33,12 +33,12 @@ export default async function VersementsPage() {
   ]);
 
   const columns: Column<VersementRow>[] = [
-    { key: "number", header: "Numero", render: (v) => <span className="text-xs text-[var(--color-text-muted)]">{v.number}</span> },
-    { key: "agent", header: "Agent", render: (v) => v.agent.user.name },
-    { key: "expected", header: "Attendu", render: (v) => formatFcfa(v.expectedAmount) },
-    { key: "remitted", header: "Remis", render: (v) => formatFcfa(v.remittedAmount) },
-    { key: "discrepancy", header: "Ecart", render: (v) => <span className={`font-medium ${v.discrepancy !== 0 ? "text-[var(--color-danger)]" : ""}`}>{formatFcfa(v.discrepancy)}</span> },
-    { key: "status", header: "Statut", render: (v) => <StatusBadge label={v.status} tone={STATUS_TONE[v.status] ?? "neutral"} /> },
+    { key: "number", header: "Numero", render: (v) => <span className="text-xs text-[var(--color-text-muted)]">{v.number}</span>, sortable: true, sortValue: (v) => v.number },
+    { key: "agent", header: "Agent", render: (v) => v.agent.user.name, sortable: true, sortValue: (v) => v.agent.user.name },
+    { key: "expected", header: "Attendu", render: (v) => formatFcfa(v.expectedAmount), sortable: true, sortValue: (v) => v.expectedAmount },
+    { key: "remitted", header: "Remis", render: (v) => formatFcfa(v.remittedAmount), sortable: true, sortValue: (v) => v.remittedAmount },
+    { key: "discrepancy", header: "Ecart", render: (v) => <span className={`font-medium ${v.discrepancy !== 0 ? "text-[var(--color-danger)]" : ""}`}>{formatFcfa(v.discrepancy)}</span>, sortable: true, sortValue: (v) => v.discrepancy },
+    { key: "status", header: "Statut", render: (v) => <StatusBadge label={v.status} tone={STATUS_TONE[v.status] ?? "neutral"} />, sortable: true, sortValue: (v) => v.status },
     {
       key: "actions",
       header: "",

@@ -34,11 +34,11 @@ export default async function MarriagesPage({ searchParams }: { searchParams: Pr
   ]);
 
   const columns: Column<MarriageRow>[] = [
-    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span> },
-    { key: "husband", header: "Epoux", render: (r) => <>{r.husband.firstName} {r.husband.lastName}</> },
-    { key: "wife", header: "Epouse", render: (r) => <>{r.wife.firstName} {r.wife.lastName}</> },
-    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.marriageDate).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} /> },
+    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
+    { key: "husband", header: "Epoux", render: (r) => <>{r.husband.firstName} {r.husband.lastName}</>, sortable: true, sortValue: (r) => `${r.husband.lastName} ${r.husband.firstName}` },
+    { key: "wife", header: "Epouse", render: (r) => <>{r.wife.firstName} {r.wife.lastName}</>, sortable: true, sortValue: (r) => `${r.wife.lastName} ${r.wife.firstName}` },
+    { key: "date", header: "Date", render: (r) => <span className="text-[var(--color-text-muted)]">{new Date(r.marriageDate).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (r) => new Date(r.marriageDate).getTime() },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />, sortable: true, sortValue: (r) => STATUS_LABEL[r.status] },
     {
       key: "actions",
       header: "",

@@ -43,17 +43,19 @@ export default async function ObligationsPage({ searchParams }: { searchParams: 
   const stalls = markets.flatMap((m) => m.stalls.map((s) => ({ id: s.id, label: `${m.name} — ${s.code}` })));
 
   const columns: Column<ObligationRow>[] = [
-    { key: "number", header: "Numero", render: (o) => <span className="text-xs text-[var(--color-text-muted)]">{o.number}</span> },
-    { key: "citizen", header: "Contribuable", render: (o) => <>{o.citizen.firstName} {o.citizen.lastName}</> },
-    { key: "period", header: "Periode", render: (o) => <span className="text-[var(--color-text-muted)]">{o.period}</span> },
-    { key: "amount", header: "Montant", render: (o) => <span className="font-medium">{formatFcfa(o.initialAmount)}</span> },
+    { key: "number", header: "Numero", render: (o) => <span className="text-xs text-[var(--color-text-muted)]">{o.number}</span>, sortable: true, sortValue: (o) => o.number },
+    { key: "citizen", header: "Contribuable", render: (o) => <>{o.citizen.firstName} {o.citizen.lastName}</>, sortable: true, sortValue: (o) => `${o.citizen.lastName} ${o.citizen.firstName}` },
+    { key: "period", header: "Periode", render: (o) => <span className="text-[var(--color-text-muted)]">{o.period}</span>, sortable: true, sortValue: (o) => o.period },
+    { key: "amount", header: "Montant", render: (o) => <span className="font-medium">{formatFcfa(o.initialAmount)}</span>, sortable: true, sortValue: (o) => o.initialAmount },
     {
       key: "balance",
       header: "Solde",
       render: (o) => <span className={`font-medium ${o.balance > 0 ? "text-[var(--color-danger)]" : "text-[var(--color-success)]"}`}>{formatFcfa(o.balance)}</span>,
+      sortable: true,
+      sortValue: (o) => o.balance,
     },
-    { key: "dueDate", header: "Echeance", render: (o) => <span className="text-xs text-[var(--color-text-muted)]">{new Date(o.dueDate).toLocaleDateString("fr-FR")}</span> },
-    { key: "status", header: "Statut", render: (o) => <StatusBadge label={STATUS_LABEL[o.status] ?? o.status} tone="neutral" /> },
+    { key: "dueDate", header: "Echeance", render: (o) => <span className="text-xs text-[var(--color-text-muted)]">{new Date(o.dueDate).toLocaleDateString("fr-FR")}</span>, sortable: true, sortValue: (o) => new Date(o.dueDate).getTime() },
+    { key: "status", header: "Statut", render: (o) => <StatusBadge label={STATUS_LABEL[o.status] ?? o.status} tone="neutral" />, sortable: true, sortValue: (o) => o.status },
     {
       key: "actions",
       header: "",

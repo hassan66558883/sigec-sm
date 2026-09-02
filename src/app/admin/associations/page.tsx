@@ -25,10 +25,28 @@ export default async function AssociationsPage() {
   ]);
 
   const columns: Column<AssociationRow>[] = [
-    { key: "registrationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.registrationNumber}</span> },
-    { key: "name", header: "Nom", render: (a) => <span className="font-medium">{a.name}</span> },
-    { key: "type", header: "Type", render: (a) => <span className="text-[var(--color-text-muted)]">{a.type || "—"}</span> },
-    { key: "leader", header: "Responsable", render: (a) => (a.leader ? `${a.leader.firstName} ${a.leader.lastName}` : "—") },
+    {
+      key: "registrationNumber",
+      header: "Numero",
+      render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.registrationNumber}</span>,
+      sortable: true,
+      sortValue: (a) => a.registrationNumber,
+    },
+    { key: "name", header: "Nom", render: (a) => <span className="font-medium">{a.name}</span>, sortable: true, sortValue: (a) => a.name },
+    {
+      key: "type",
+      header: "Type",
+      render: (a) => <span className="text-[var(--color-text-muted)]">{a.type || "—"}</span>,
+      sortable: true,
+      sortValue: (a) => a.type || "",
+    },
+    {
+      key: "leader",
+      header: "Responsable",
+      render: (a) => (a.leader ? `${a.leader.firstName} ${a.leader.lastName}` : "—"),
+      sortable: true,
+      sortValue: (a) => (a.leader ? `${a.leader.lastName} ${a.leader.firstName}` : ""),
+    },
     {
       key: "status",
       header: "Statut",
@@ -38,6 +56,8 @@ export default async function AssociationsPage() {
         ) : (
           STATUS_LABEL[a.status]
         ),
+      sortable: true,
+      sortValue: (a) => a.status,
     },
   ];
 

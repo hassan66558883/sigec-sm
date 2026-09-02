@@ -52,10 +52,30 @@ export default async function ComplaintsPage() {
           {c.caseNumber}
         </Link>
       ),
+      sortable: true,
+      sortValue: (c) => c.caseNumber,
     },
-    { key: "citizen", header: "Citoyen", render: (c) => <>{c.citizenAccount.citizen.firstName} {c.citizenAccount.citizen.lastName}</> },
-    { key: "category", header: "Categorie", render: (c) => <span className="text-[var(--color-text-muted)]">{CATEGORY_LABEL[c.category]}</span> },
-    { key: "status", header: "Statut", render: (c) => <StatusBadge label={STATUS_LABEL[c.status]} tone={STATUS_TONE[c.status]} /> },
+    {
+      key: "citizen",
+      header: "Citoyen",
+      render: (c) => <>{c.citizenAccount.citizen.firstName} {c.citizenAccount.citizen.lastName}</>,
+      sortable: true,
+      sortValue: (c) => `${c.citizenAccount.citizen.lastName} ${c.citizenAccount.citizen.firstName}`,
+    },
+    {
+      key: "category",
+      header: "Categorie",
+      render: (c) => <span className="text-[var(--color-text-muted)]">{CATEGORY_LABEL[c.category]}</span>,
+      sortable: true,
+      sortValue: (c) => c.category,
+    },
+    {
+      key: "status",
+      header: "Statut",
+      render: (c) => <StatusBadge label={STATUS_LABEL[c.status]} tone={STATUS_TONE[c.status]} />,
+      sortable: true,
+      sortValue: (c) => c.status,
+    },
   ];
 
   return (

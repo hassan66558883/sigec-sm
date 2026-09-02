@@ -28,8 +28,8 @@ export default async function RecognitionsPage() {
   ]);
 
   const columns: Column<RecognitionRow>[] = [
-    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span> },
-    { key: "child", header: "Enfant", render: (r) => <span className="font-medium">{r.child.firstName} {r.child.lastName}</span> },
+    { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
+    { key: "child", header: "Enfant", render: (r) => <span className="font-medium">{r.child.firstName} {r.child.lastName}</span>, sortable: true, sortValue: (r) => `${r.child.lastName} ${r.child.firstName}` },
     {
       key: "parent",
       header: "Parent",
@@ -38,8 +38,10 @@ export default async function RecognitionsPage() {
           {r.parent.firstName} {r.parent.lastName} ({r.parentRole === "FATHER" ? "Pere" : "Mere"})
         </>
       ),
+      sortable: true,
+      sortValue: (r) => `${r.parent.lastName} ${r.parent.firstName}`,
     },
-    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} /> },
+    { key: "status", header: "Statut", render: (r) => <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />, sortable: true, sortValue: (r) => STATUS_LABEL[r.status] },
     {
       key: "actions",
       header: "",

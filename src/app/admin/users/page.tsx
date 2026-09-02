@@ -24,7 +24,7 @@ export default async function UsersPage() {
   ]);
 
   const columns: Column<UserRow>[] = [
-    { key: "name", header: "Nom", render: (u) => <span className="font-medium">{u.name}</span> },
+    { key: "name", header: "Nom", render: (u) => <span className="font-medium">{u.name}</span>, sortable: true, sortValue: (u) => u.name },
     {
       key: "email",
       header: "Email",
@@ -34,8 +34,16 @@ export default async function UsersPage() {
           {u.phone && <span className="block text-xs">{u.phone}</span>}
         </span>
       ),
+      sortable: true,
+      sortValue: (u) => u.email,
     },
-    { key: "roles", header: "Roles", render: (u) => u.roles.map((r) => r.role.name).join(", ") || "—" },
+    {
+      key: "roles",
+      header: "Roles",
+      render: (u) => u.roles.map((r) => r.role.name).join(", ") || "—",
+      sortable: true,
+      sortValue: (u) => u.roles.map((r) => r.role.name).join(", "),
+    },
     {
       key: "scope",
       header: "Perimetre",
@@ -51,8 +59,16 @@ export default async function UsersPage() {
           )}
         </span>
       ),
+      sortable: true,
+      sortValue: (u) => (u.organizationLevel === "CENTRAL" ? `Mairie Centrale ${u.department?.name ?? ""}` : u.arrondissements.map((a) => a.arrondissement.code).join(", ")),
     },
-    { key: "status", header: "Statut", render: (u) => <StatusBadge label={u.isActive ? "Actif" : "Inactif"} tone={u.isActive ? "success" : "neutral"} /> },
+    {
+      key: "status",
+      header: "Statut",
+      render: (u) => <StatusBadge label={u.isActive ? "Actif" : "Inactif"} tone={u.isActive ? "success" : "neutral"} />,
+      sortable: true,
+      sortValue: (u) => (u.isActive ? 1 : 0),
+    },
     {
       key: "actions",
       header: "",

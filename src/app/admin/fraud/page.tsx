@@ -38,11 +38,11 @@ export default async function FraudPage({ searchParams }: { searchParams: Promis
   const alerts = await listFraudAlerts(user, { status: status ?? "OUVERTE", severity });
 
   const columns: Column<AlertRow>[] = [
-    { key: "date", header: "Date", render: (a) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(a.createdAt).toLocaleString("fr-FR")}</span> },
-    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type] ?? a.type },
-    { key: "severity", header: "Severite", render: (a) => <StatusBadge label={a.severity} tone={SEVERITY_TONE[a.severity] ?? "neutral"} /> },
-    { key: "description", header: "Description", render: (a) => <span className="text-[var(--color-text-muted)]">{a.description}</span> },
-    { key: "agent", header: "Agent", render: (a) => <span className="text-[var(--color-text-muted)]">{a.agent?.user.name ?? "—"}</span> },
+    { key: "date", header: "Date", render: (a) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(a.createdAt).toLocaleString("fr-FR")}</span>, sortable: true, sortValue: (a) => new Date(a.createdAt).getTime() },
+    { key: "type", header: "Type", render: (a) => TYPE_LABEL[a.type] ?? a.type, sortable: true, sortValue: (a) => TYPE_LABEL[a.type] ?? a.type },
+    { key: "severity", header: "Severite", render: (a) => <StatusBadge label={a.severity} tone={SEVERITY_TONE[a.severity] ?? "neutral"} />, sortable: true, sortValue: (a) => a.severity },
+    { key: "description", header: "Description", render: (a) => <span className="text-[var(--color-text-muted)]">{a.description}</span>, sortable: true, sortValue: (a) => a.description },
+    { key: "agent", header: "Agent", render: (a) => <span className="text-[var(--color-text-muted)]">{a.agent?.user.name ?? "—"}</span>, sortable: true, sortValue: (a) => a.agent?.user.name ?? "" },
     {
       key: "actions",
       header: "",

@@ -20,10 +20,10 @@ export default async function HouseholdsPage() {
   ]);
 
   const columns: Column<HouseholdRow>[] = [
-    { key: "code", header: "Code", render: (h) => <span className="text-xs text-[var(--color-text-muted)]">{h.code}</span> },
-    { key: "address", header: "Adresse", render: (h) => h.address || "—" },
-    { key: "arrondissement", header: "Arrondissement", render: (h) => <span className="text-[var(--color-text-muted)]">{h.arrondissement.name}</span> },
-    { key: "members", header: "Membres", render: (h) => h._count.members },
+    { key: "code", header: "Code", render: (h) => <span className="text-xs text-[var(--color-text-muted)]">{h.code}</span>, sortable: true, sortValue: (h) => h.code },
+    { key: "address", header: "Adresse", render: (h) => h.address || "—", sortable: true, sortValue: (h) => h.address || "" },
+    { key: "arrondissement", header: "Arrondissement", render: (h) => <span className="text-[var(--color-text-muted)]">{h.arrondissement.name}</span>, sortable: true, sortValue: (h) => h.arrondissement.name },
+    { key: "members", header: "Membres", render: (h) => h._count.members, sortable: true, sortValue: (h) => h._count.members },
   ];
 
   return (

@@ -29,13 +29,13 @@ export default async function TariffsPage({ searchParams }: { searchParams: Prom
   ]);
 
   const columns: Column<TariffRow>[] = [
-    { key: "code", header: "Code", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.code}</span> },
-    { key: "label", header: "Libelle", render: (t) => <span className="font-medium">{t.label}</span> },
-    { key: "type", header: "Type", render: (t) => <span className="text-[var(--color-text-muted)]">{t.emplacementType}</span> },
-    { key: "periodicity", header: "Periodicite", render: (t) => <span className="text-[var(--color-text-muted)]">{t.periodicity}</span> },
-    { key: "amount", header: "Montant", render: (t) => <span className="font-medium">{formatFcfa(t.amount)}</span> },
-    { key: "unit", header: "Unite", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.unit ?? "—"}</span> },
-    { key: "arrondissement", header: "Arrondissement", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.arrondissement?.name ?? "Toute la ville"}</span> },
+    { key: "code", header: "Code", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.code}</span>, sortable: true, sortValue: (t) => t.code },
+    { key: "label", header: "Libelle", render: (t) => <span className="font-medium">{t.label}</span>, sortable: true, sortValue: (t) => t.label },
+    { key: "type", header: "Type", render: (t) => <span className="text-[var(--color-text-muted)]">{t.emplacementType}</span>, sortable: true, sortValue: (t) => t.emplacementType },
+    { key: "periodicity", header: "Periodicite", render: (t) => <span className="text-[var(--color-text-muted)]">{t.periodicity}</span>, sortable: true, sortValue: (t) => t.periodicity },
+    { key: "amount", header: "Montant", render: (t) => <span className="font-medium">{formatFcfa(t.amount)}</span>, sortable: true, sortValue: (t) => t.amount },
+    { key: "unit", header: "Unite", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.unit ?? "—"}</span>, sortable: true, sortValue: (t) => t.unit ?? "" },
+    { key: "arrondissement", header: "Arrondissement", render: (t) => <span className="text-xs text-[var(--color-text-muted)]">{t.arrondissement?.name ?? "Toute la ville"}</span>, sortable: true, sortValue: (t) => t.arrondissement?.name ?? "Toute la ville" },
     {
       key: "validity",
       header: "Validite",
@@ -45,8 +45,10 @@ export default async function TariffsPage({ searchParams }: { searchParams: Prom
           {t.endDate ? ` → ${new Date(t.endDate).toLocaleDateString("fr-FR")}` : ""}
         </span>
       ),
+      sortable: true,
+      sortValue: (t) => new Date(t.startDate).getTime(),
     },
-    { key: "status", header: "Statut", render: (t) => <StatusBadge label={t.status} tone={t.status === "ACTIF" ? "success" : "neutral"} /> },
+    { key: "status", header: "Statut", render: (t) => <StatusBadge label={t.status} tone={t.status === "ACTIF" ? "success" : "neutral"} />, sortable: true, sortValue: (t) => t.status },
   ];
 
   return (

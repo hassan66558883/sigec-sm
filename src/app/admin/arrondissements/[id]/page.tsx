@@ -42,6 +42,8 @@ export default async function ArrondissementDetailPage({ params }: { params: Pro
           {q.name}
         </Link>
       ),
+      sortable: true,
+      sortValue: (q) => q.name,
     },
     {
       key: "code",
@@ -56,9 +58,11 @@ export default async function ArrondissementDetailPage({ params }: { params: Pro
           )}
         </span>
       ),
+      sortable: true,
+      sortValue: (q) => q.code,
     },
-    { key: "sectors", header: "Secteurs", render: (q) => q._count.sectors },
-    { key: "status", header: "Statut", render: (q) => <StatusBadge label={q.isActive ? "Actif" : "Inactif"} tone={q.isActive ? "success" : "neutral"} /> },
+    { key: "sectors", header: "Secteurs", render: (q) => q._count.sectors, sortable: true, sortValue: (q) => q._count.sectors },
+    { key: "status", header: "Statut", render: (q) => <StatusBadge label={q.isActive ? "Actif" : "Inactif"} tone={q.isActive ? "success" : "neutral"} />, sortable: true, sortValue: (q) => (q.isActive ? "Actif" : "Inactif") },
     {
       key: "actions",
       header: "",

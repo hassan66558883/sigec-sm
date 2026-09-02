@@ -23,10 +23,22 @@ export default async function InfrastructurePage() {
   const reports = await listInfrastructureForStaff(user);
 
   const columns: Column<ReportRow>[] = [
-    { key: "reportNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.reportNumber}</span> },
-    { key: "type", header: "Type", render: (r) => TYPE_LABEL[r.type] },
-    { key: "description", header: "Description", render: (r) => r.description },
-    { key: "location", header: "Localisation", render: (r) => <span className="text-[var(--color-text-muted)]">{r.location || "—"}</span> },
+    {
+      key: "reportNumber",
+      header: "Numero",
+      render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.reportNumber}</span>,
+      sortable: true,
+      sortValue: (r) => r.reportNumber,
+    },
+    { key: "type", header: "Type", render: (r) => TYPE_LABEL[r.type], sortable: true, sortValue: (r) => r.type },
+    { key: "description", header: "Description", render: (r) => r.description, sortable: true, sortValue: (r) => r.description },
+    {
+      key: "location",
+      header: "Localisation",
+      render: (r) => <span className="text-[var(--color-text-muted)]">{r.location || "—"}</span>,
+      sortable: true,
+      sortValue: (r) => r.location || "",
+    },
     {
       key: "status",
       header: "Statut",
@@ -36,6 +48,8 @@ export default async function InfrastructurePage() {
         ) : (
           <StatusBadge label={STATUS_LABEL[r.status]} tone={STATUS_TONE[r.status]} />
         ),
+      sortable: true,
+      sortValue: (r) => r.status,
     },
   ];
 

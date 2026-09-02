@@ -32,18 +32,20 @@ export default async function CaissesPage() {
   const withDiscrepancy = caisses.filter((c) => c.discrepancy !== null && c.discrepancy !== 0).length;
 
   const columns: Column<CaisseRow>[] = [
-    { key: "number", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.number}</span> },
-    { key: "agent", header: "Agent", render: (c) => c.agent.user.name },
-    { key: "opened", header: "Ouverture", render: (c) => <span className="text-[var(--color-text-muted)]">{new Date(c.openedAt).toLocaleString("fr-FR")}</span> },
-    { key: "collections", header: "Collectes", render: (c) => <span className="text-[var(--color-text-muted)]">{c._count.payments}</span> },
-    { key: "expected", header: "Attendu", render: (c) => (c.expectedAmount !== null ? formatFcfa(c.expectedAmount) : "—") },
-    { key: "declared", header: "Declare", render: (c) => (c.declaredAmount !== null ? formatFcfa(c.declaredAmount) : "—") },
+    { key: "number", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.number}</span>, sortable: true, sortValue: (c) => c.number },
+    { key: "agent", header: "Agent", render: (c) => c.agent.user.name, sortable: true, sortValue: (c) => c.agent.user.name },
+    { key: "opened", header: "Ouverture", render: (c) => <span className="text-[var(--color-text-muted)]">{new Date(c.openedAt).toLocaleString("fr-FR")}</span>, sortable: true, sortValue: (c) => new Date(c.openedAt).getTime() },
+    { key: "collections", header: "Collectes", render: (c) => <span className="text-[var(--color-text-muted)]">{c._count.payments}</span>, sortable: true, sortValue: (c) => c._count.payments },
+    { key: "expected", header: "Attendu", render: (c) => (c.expectedAmount !== null ? formatFcfa(c.expectedAmount) : "—"), sortable: true, sortValue: (c) => c.expectedAmount ?? 0 },
+    { key: "declared", header: "Declare", render: (c) => (c.declaredAmount !== null ? formatFcfa(c.declaredAmount) : "—"), sortable: true, sortValue: (c) => c.declaredAmount ?? 0 },
     {
       key: "discrepancy",
       header: "Ecart",
       render: (c) => <span className={`font-medium ${c.discrepancy && c.discrepancy !== 0 ? "text-[var(--color-danger)]" : ""}`}>{c.discrepancy !== null ? formatFcfa(c.discrepancy) : "—"}</span>,
+      sortable: true,
+      sortValue: (c) => c.discrepancy ?? 0,
     },
-    { key: "status", header: "Statut", render: (c) => <StatusBadge label={c.status} tone={c.status === "OUVERTE" ? "success" : "neutral"} /> },
+    { key: "status", header: "Statut", render: (c) => <StatusBadge label={c.status} tone={c.status === "OUVERTE" ? "success" : "neutral"} />, sortable: true, sortValue: (c) => c.status },
     {
       key: "actions",
       header: "",
