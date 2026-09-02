@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { IconMail, IconLock } from "@/components/icons";
 
 export function LoginForm() {
   const router = useRouter();
@@ -31,38 +32,47 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {error && (
-        <div className="rounded-md border border-[var(--color-danger)]/30 bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
-          {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-2 text-sm text-red-50">{error}</div>}
       <div>
-        <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">Email</label>
-        <input
-          required
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-        />
+        <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white/90">
+          Email
+        </label>
+        <div className="relative">
+          <IconMail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <input
+            id="email"
+            required
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg border border-white/30 bg-white/95 py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition focus:border-white focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/50"
+            dir="ltr"
+          />
+        </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-[var(--color-text)]">Mot de passe</label>
-        <input
-          required
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-        />
+        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white/90">
+          Mot de passe
+        </label>
+        <div className="relative">
+          <IconLock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <input
+            id="password"
+            required
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg border border-white/30 bg-white/95 py-2.5 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none transition focus:border-white focus:bg-white focus:ring-2 focus:ring-[var(--color-accent)]/50"
+            dir="ltr"
+          />
+        </div>
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md py-2 text-sm font-medium text-white disabled:opacity-60"
-        style={{ background: "var(--color-primary)" }}
+        className="w-full rounded-lg bg-white py-2.5 text-sm font-semibold text-[var(--color-primary-dark)] shadow-lg transition hover:bg-white/90 disabled:opacity-60"
       >
         {loading ? "Connexion..." : "Se connecter"}
       </button>

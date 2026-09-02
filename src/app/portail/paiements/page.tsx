@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { getCurrentCitizenAccount } from "@/lib/citizen-auth";
 import { listMyPayments } from "@/lib/services/online-payments";
+import { PageHeading } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = {
   PAID: "Paye",
@@ -23,26 +27,23 @@ export default async function MyPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Mes paiements</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">Historique complet, y compris les paiements en attente de confirmation.</p>
-      </div>
+      <PageHeading title="Mes paiements" description="Historique complet, y compris les paiements en attente de confirmation." />
 
       <div className="space-y-3">
         {payments.map((p) => (
-          <div key={p.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+          <Card key={p.id}>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-[var(--color-text)]">{formatFcfa(p.amount)} — {p.paymentMethod}</div>
+                <div className="text-sm font-medium text-[var(--color-text)]">
+                  {formatFcfa(p.amount)} — {p.paymentMethod}
+                </div>
                 <div className="text-xs text-[var(--color-text-muted)]">
                   {new Date(p.paymentDate).toLocaleString("fr-FR")}
                   {p.mobileMoney?.channel === "ONLINE" ? " · Paiement en ligne" : ""}
                 </div>
               </div>
-              <div className="text-right">
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]">
-                  {STATUS_LABEL[p.status] ?? p.status}
-                </span>
+              <div className="text-end">
+                <StatusBadge label={STATUS_LABEL[p.status] ?? p.status} tone="neutral" />
                 {p.receipt && (
                   <div className="mt-1">
                     <Link href={`/verify-receipt/${p.receipt.qrToken}`} className="text-xs text-[var(--color-primary)] hover:underline">
@@ -52,12 +53,12 @@ export default async function MyPaymentsPage() {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
         ))}
         {payments.length === 0 && (
-          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)] shadow-sm">
-            Aucun paiement enregistre.
-          </p>
+          <Card>
+            <EmptyState title="Aucun paiement enregistre." />
+          </Card>
         )}
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getCurrentCitizenAccount } from "@/lib/citizen-auth";
 import { NewApplicationForm } from "./new-application-form";
+import { PageHeading } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 
 export default async function NewApplicationPage() {
   const account = await getCurrentCitizenAccount();
@@ -16,14 +18,9 @@ export default async function NewApplicationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Nouvelle demande</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Demander une copie/extrait d&apos;un acte qui vous concerne directement.
-        </p>
-      </div>
+      <PageHeading title="Nouvelle demande" description="Demander une copie/extrait d'un acte qui vous concerne directement." />
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+      <Card>
         <NewApplicationForm
           birthRecordId={birthRecord?.id ?? null}
           marriages={marriages.map((m) => ({
@@ -31,7 +28,7 @@ export default async function NewApplicationPage() {
             label: `Mariage avec ${m.husbandId === account.citizenId ? m.wife.firstName + " " + m.wife.lastName : m.husband.firstName + " " + m.husband.lastName} (${m.recordNumber})`,
           }))}
         />
-      </div>
+      </Card>
     </div>
   );
 }

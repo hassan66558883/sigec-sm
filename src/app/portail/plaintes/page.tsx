@@ -1,6 +1,10 @@
 import { getCurrentCitizenAccount } from "@/lib/citizen-auth";
 import { listMyComplaints } from "@/lib/services/complaints";
 import { ComplaintForm } from "./complaint-form";
+import { PageHeading } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie", PROPRETE: "Proprete", ECLAIRAGE: "Eclairage", EAU: "Eau", SECURITE: "Securite", AUTRE: "Autre",
@@ -18,29 +22,26 @@ export default async function MyComplaintsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Mes plaintes</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">Deposez une plainte et suivez son traitement.</p>
-      </div>
+      <PageHeading title="Mes plaintes" description="Deposez une plainte et suivez son traitement." />
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+      <Card>
         <ComplaintForm />
-      </div>
+      </Card>
 
       <div className="space-y-3">
         {complaints.map((c) => (
-          <div key={c.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm">
+          <Card key={c.id}>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium">{c.caseNumber} — {CATEGORY_LABEL[c.category]}</div>
+                <div className="text-sm font-medium text-[var(--color-text)]">
+                  {c.caseNumber} — {CATEGORY_LABEL[c.category]}
+                </div>
                 <div className="text-xs text-[var(--color-text-muted)]">{c.description}</div>
               </div>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]">
-                {STATUS_LABEL[c.status]}
-              </span>
+              <StatusBadge label={STATUS_LABEL[c.status]} tone="neutral" />
             </div>
             {c.updates.length > 0 && (
-              <ul className="mt-3 space-y-1 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-text-muted)]">
+              <ul className="mt-3 space-y-1 border-t border-[var(--color-border-subtle)] pt-3 text-xs text-[var(--color-text-muted)]">
                 {c.updates.map((u) => (
                   <li key={u.id}>
                     {new Date(u.createdAt).toLocaleDateString("fr-FR")} — {STATUS_LABEL[u.status] ?? u.status}
@@ -49,12 +50,12 @@ export default async function MyComplaintsPage() {
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
         ))}
         {complaints.length === 0 && (
-          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)] shadow-sm">
-            Aucune plainte deposee.
-          </p>
+          <Card>
+            <EmptyState title="Aucune plainte deposee." />
+          </Card>
         )}
       </div>
     </div>

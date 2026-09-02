@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { getCurrentCitizenAccount } from "@/lib/citizen-auth";
 import { listMyObligations } from "@/lib/services/online-payments";
+import { PageHeading } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = {
   A_PAYER: "A payer",
@@ -24,40 +28,40 @@ export default async function MyInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Mes factures</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Solde total a payer : <span className="font-semibold text-[var(--color-text)]">{formatFcfa(solde)}</span>
-        </p>
-      </div>
+      <PageHeading
+        title="Mes factures"
+        description={
+          <>
+            Solde total a payer : <span className="font-semibold text-[var(--color-text)]">{formatFcfa(solde)}</span>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {obligations.map((o) => (
-          <Link
-            key={o.id}
-            href={`/portail/factures/${o.id}`}
-            className="block rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm hover:bg-gray-50"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-[var(--color-text)]">{o.number} — {o.tarif.label}</div>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  Periode {o.period} · Echeance {new Date(o.dueDate).toLocaleDateString("fr-FR")}
+          <Link key={o.id} href={`/portail/factures/${o.id}`} className="block">
+            <Card hoverable>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-[var(--color-text)]">
+                    {o.number} — {o.tarif.label}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    Periode {o.period} · Echeance {new Date(o.dueDate).toLocaleDateString("fr-FR")}
+                  </div>
+                </div>
+                <div className="text-end">
+                  <div className="text-sm font-semibold text-[var(--color-text)]">{formatFcfa(o.balance)}</div>
+                  <StatusBadge label={STATUS_LABEL[o.status] ?? o.status} tone="neutral" />
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-[var(--color-text)]">{formatFcfa(o.balance)}</div>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]">
-                  {STATUS_LABEL[o.status] ?? o.status}
-                </span>
-              </div>
-            </div>
+            </Card>
           </Link>
         ))}
         {obligations.length === 0 && (
-          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)] shadow-sm">
-            Aucune facture enregistree.
-          </p>
+          <Card>
+            <EmptyState title="Aucune facture enregistree." />
+          </Card>
         )}
       </div>
     </div>
