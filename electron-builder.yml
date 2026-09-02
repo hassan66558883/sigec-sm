@@ -15,12 +15,31 @@ files:
   - package.json
 
 extraResources:
+  # electron-builder applique un motif `!**/node_modules/**` global a TOUTE
+  # copie de fichiers (visible dans release/builder-debug.yml), meme avec un
+  # `filter` explicite sur cette entree — le node_modules autonome de
+  # `next build output:"standalone"` ne peut donc PAS etre inclus via
+  # extraResources. Copie a la place par electron/after-pack.js (hook
+  # `afterPack`, en dehors du systeme de filtrage). Sans ce contournement le
+  # serveur empaquete ne demarre jamais ("Cannot find module 'next'"). Bug
+  # constate et corrige le 2026-09-02.
   - from: .next/standalone
     to: standalone
+    filter:
+      - "**/*"
+      # Next.js copie automatiquement le .env du poste de build dans la
+      # sortie standalone — sans cette exclusion, les secrets du poste de
+      # build (DATABASE_URL, SESSION_SECRET, ENCRYPTION_KEY...) finiraient
+      # en clair dans l'installateur livre. electron/server-runner.js passe
+      # deja ses propres valeurs via `env:` au sous-processus ; ce fichier
+      # n'est donc jamais necessaire au runtime.
+      - "!.env"
   - from: .next/static
     to: standalone/.next/static
   # Ajouter ici `public` si le dossier est cree un jour (actuellement vide,
   # voir next.config.mjs — Next.js n'exige pas sa presence).
+
+afterPack: electron/after-pack.js
 
 win:
   target:

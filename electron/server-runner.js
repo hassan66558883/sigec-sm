@@ -46,6 +46,14 @@ function startServer({ standaloneDir, serverConfig }) {
     cwd: absoluteStandaloneDir,
     env: {
       ...process.env,
+      // Sans cette variable, `process.execPath` (le binaire Electron
+      // empaquete lui-meme, utilise ici comme runtime Node) relance une
+      // instance complete de l'app au lieu d'executer server.js comme un
+      // script Node ordinaire — le serveur ne demarre jamais et aucune
+      // erreur claire n'apparait (juste un nouveau process SIGEC-SM.exe qui
+      // ne repond jamais sur le port attendu). Bug constate et corrige le
+      // 2026-09-02. Voir la doc Electron sur `ELECTRON_RUN_AS_NODE`.
+      ELECTRON_RUN_AS_NODE: "1",
       NODE_ENV: "production",
       PORT: String(serverConfig.port),
       HOSTNAME: "127.0.0.1",

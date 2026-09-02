@@ -13,7 +13,16 @@ function configPath() {
 
 function readConfig() {
   try {
-    return JSON.parse(fs.readFileSync(configPath(), "utf8"));
+    // Un editeur (Notepad, PowerShell Set-Content -Encoding utf8...) peut
+    // ecrire un BOM UTF-8 en tete de fichier — JSON.parse le rejette
+    // silencieusement (renvoie null ici, donc l'assistant de configuration
+    // se rouvre sans message d'erreur). Bug constate et corrige le
+    // 2026-09-02 en preparant un config.json manuellement pour une
+    // presentation.
+    const BOM = "﻿";
+    let raw = fs.readFileSync(configPath(), "utf8");
+    if (raw.charCodeAt(0) === BOM.charCodeAt(0)) raw = raw.slice(1);
+    return JSON.parse(raw);
   } catch {
     return null;
   }

@@ -9,7 +9,7 @@ const eslintConfig = defineConfig([
   // "type":"module" dans package.json — c'est la convention attendue par
   // Electron pour main.js/preload.js), hors du perimetre TypeScript/ESM de
   // l'app Next.js que ce eslint-config-next est cense verifier.
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "electron/**"]),
+  globalIgnores([".next/**", "out/**", "build/**", "release/**", "next-env.d.ts", "electron/**"]),
 ]);
 
 export default eslintConfig;
