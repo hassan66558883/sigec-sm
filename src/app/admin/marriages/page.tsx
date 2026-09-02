@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
+import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 import { IconActivity } from "@/components/icons";
 
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declare", VALID: "Valide", DIVORCED: "Divorce", ANNULLED: "Annule" };
@@ -77,7 +78,9 @@ export default async function MarriagesPage({ searchParams }: { searchParams: Pr
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
 
-      <SearchBox defaultValue={search} placeholder="Rechercher par numero de dossier..." />
+      <AdvancedSearchPanel action={search && <span className="text-xs text-[var(--color-text-muted)]">Filtre actif : &laquo;{search}&raquo;</span>}>
+        <SearchBox defaultValue={search} placeholder="Rechercher par numero de dossier..." />
+      </AdvancedSearchPanel>
 
       <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de mariage." />
     </div>

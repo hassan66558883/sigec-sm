@@ -8,6 +8,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
+import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 import { IconActivity } from "@/components/icons";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -68,7 +69,9 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         <StatCard label="Delai moyen" value={stats.avgProcessingHours !== null ? `${stats.avgProcessingHours} h` : "—"} hint="Depuis la soumission" tone="primary" />
       </div>
 
-      <SearchBox defaultValue={search} placeholder="Rechercher par numero de demande..." />
+      <AdvancedSearchPanel action={search && <span className="text-xs text-[var(--color-text-muted)]">Filtre actif : &laquo;{search}&raquo;</span>}>
+        <SearchBox defaultValue={search} placeholder="Rechercher par numero de demande..." />
+      </AdvancedSearchPanel>
 
       <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." />
     </div>

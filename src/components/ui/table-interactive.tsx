@@ -60,15 +60,15 @@ export function TableInteractive({ columns, rows, pageSize }: { columns: ColumnM
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)]">
+            <tr className="border-b border-[var(--color-border)] bg-[var(--color-primary-light)]">
               {columns.map((col) => (
-                <th key={col.key} className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] ${alignClass(col.align)} ${col.className ?? ""}`}>
+                <th key={col.key} className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-dark)] ${alignClass(col.align)} ${col.className ?? ""}`}>
                   {col.sortable ? (
-                    <button type="button" onClick={() => toggleSort(col.key)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-text)]">
+                    <button type="button" onClick={() => toggleSort(col.key)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-primary)]">
                       {col.header}
                       <span className="flex flex-col leading-[6px]">
-                        <span className={`text-[8px] ${sortKey === col.key && sortDir === "asc" ? "text-[var(--color-primary)]" : "text-[var(--color-border)]"}`}>▲</span>
-                        <span className={`text-[8px] ${sortKey === col.key && sortDir === "desc" ? "text-[var(--color-primary)]" : "text-[var(--color-border)]"}`}>▼</span>
+                        <span className={`text-[8px] ${sortKey === col.key && sortDir === "asc" ? "text-[var(--color-primary)]" : "text-[var(--color-primary)]/30"}`}>▲</span>
+                        <span className={`text-[8px] ${sortKey === col.key && sortDir === "desc" ? "text-[var(--color-primary)]" : "text-[var(--color-primary)]/30"}`}>▼</span>
                       </span>
                     </button>
                   ) : (

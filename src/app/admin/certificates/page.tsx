@@ -9,6 +9,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
+import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 import { IconActivity } from "@/components/icons";
 
 type CertificateRow = Awaited<ReturnType<typeof listCertificates>>[number];
@@ -55,7 +56,9 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
 
-      <SearchBox defaultValue={search} placeholder="Rechercher par numero de document..." />
+      <AdvancedSearchPanel action={search && <span className="text-xs text-[var(--color-text-muted)]">Filtre actif : &laquo;{search}&raquo;</span>}>
+        <SearchBox defaultValue={search} placeholder="Rechercher par numero de document..." />
+      </AdvancedSearchPanel>
 
       <DataTable columns={columns} rows={certificates} keyField="id" emptyLabel="Aucun certificat delivre." />
     </div>

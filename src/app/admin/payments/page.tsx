@@ -12,6 +12,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
+import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 
 const STATUS_TONE: Record<string, StatusTone> = {
   PAID: "success",
@@ -85,7 +86,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         }
       />
 
-      <SearchBox defaultValue={search} placeholder="Rechercher par numero de quittance..." />
+      <AdvancedSearchPanel action={search && <span className="text-xs text-[var(--color-text-muted)]">Filtre actif : &laquo;{search}&raquo;</span>}>
+        <SearchBox defaultValue={search} placeholder="Rechercher par numero de quittance..." />
+      </AdvancedSearchPanel>
 
       <DataTable columns={columns} rows={payments} keyField="id" emptyLabel="Aucun paiement enregistre." />
     </div>
