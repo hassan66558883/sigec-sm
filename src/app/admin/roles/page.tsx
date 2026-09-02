@@ -4,6 +4,7 @@ import { can } from "@/lib/rbac";
 import { listRoles, listPermissions } from "@/lib/services/roles";
 import { RoleForm } from "@/components/roles/role-form";
 import { RolePermissionsEditor } from "@/components/roles/role-permissions-editor";
+import { PageHeading } from "@/components/ui/page-header";
 
 export default async function RolesPage() {
   const user = await getCurrentUser();
@@ -14,20 +15,16 @@ export default async function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">Roles & permissions</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Controle d&apos;acces base sur les roles (RBAC), granulaire par module et par action.
-          </p>
-        </div>
-        {can(user, "roles", "create") && <RoleForm />}
-      </div>
+      <PageHeading
+        title="Roles & permissions"
+        description="Controle d'acces base sur les roles (RBAC), granulaire par module et par action."
+        action={can(user, "roles", "create") && <RoleForm />}
+      />
 
       <div className="space-y-4">
         {roles.map((role) => (
-          <details key={role.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm" open={!role.isSystem}>
-            <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--color-text)]">
+          <details key={role.id} className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm" open={!role.isSystem}>
+            <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--color-text)] transition hover:bg-[var(--color-surface-hover)]">
               <span>
                 {role.name} <span className="font-normal text-[var(--color-text-muted)]">({role.code})</span>
               </span>

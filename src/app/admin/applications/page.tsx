@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listApplicationsForStaff } from "@/lib/services/applications";
+import { listApplicationsForStaff, getApplicationsProcessingStats } from "@/lib/services/applications";
 import { ApplicationActions } from "@/components/civil-status/application-actions";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { IconActivity } from "@/components/icons";
 
 const TYPE_LABEL: Record<string, string> = {
   BIRTH_CERTIFICATE_COPY: "Copie d'acte de naissance",
@@ -34,7 +36,7 @@ export default async function ApplicationsPage() {
   if (!user) return null;
   if (!can(user, "applications", "view")) redirect("/admin");
 
-  const applications = await listApplicationsForStaff(user);
+  const [applications, stats] = await Promise.all([listApplicationsForStaff(user), getApplicationsProcessingStats(user)]);
 
   const columns: Column<ApplicationRow>[] = [
     { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span> },
@@ -55,6 +57,14 @@ export default async function ApplicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeading title="Demandes citoyennes" description="File de traitement des demandes soumises depuis le portail citoyen." />
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+        <StatCard label="Aujourd'hui" value={stats.today} icon={<IconActivity className="h-5 w-5" />} />
+        <StatCard label="Cette semaine" value={stats.week} icon={<IconActivity className="h-5 w-5" />} tone="gold" />
+        <StatCard label="En cours" value={stats.inProgress} tone="warning" />
+        <StatCard label="Terminees" value={stats.completed} tone="success" />
+        <StatCard label="Delai moyen" value={stats.avgProcessingHours !== null ? `${stats.avgProcessingHours} h` : "—"} hint="Depuis la soumission" tone="primary" />
+      </div>
 
       <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." />
     </div>

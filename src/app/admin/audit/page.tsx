@@ -3,6 +3,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { can, recordScopeWhere } from "@/lib/rbac";
 import { listAuditLogs } from "@/lib/audit";
 import { redirect } from "next/navigation";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { IconShieldCheck, IconActivity } from "@/components/icons";
+
+type LogRow = Awaited<ReturnType<typeof listAuditLogs>>[number];
 
 export default async function AuditPage({
   searchParams,
@@ -15,34 +22,55 @@ export default async function AuditPage({
 
   const { module } = await searchParams;
 
-  const [logs, modules] = await Promise.all([
+  const [logs, modules, totalCount, failureCount] = await Promise.all([
     listAuditLogs(user, module),
     prisma.auditLog.findMany({ where: recordScopeWhere(user), distinct: ["module"], select: { module: true } }),
+    prisma.auditLog.count({ where: recordScopeWhere(user) }),
+    prisma.auditLog.count({ where: { ...recordScopeWhere(user), result: { not: "SUCCESS" } } }),
   ]);
+
+  const columns: Column<LogRow>[] = [
+    { key: "date", header: "Date", render: (log) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(log.createdAt).toLocaleString("fr-FR")}</span> },
+    { key: "user", header: "Utilisateur", render: (log) => log.userName },
+    { key: "action", header: "Action", render: (log) => log.action },
+    { key: "module", header: "Module", render: (log) => <span className="text-[var(--color-text-muted)]">{log.module}</span> },
+    {
+      key: "entity",
+      header: "Objet",
+      render: (log) => <span className="text-[var(--color-text-muted)]">{log.entityType ? `${log.entityType}${log.entityId ? ` #${log.entityId.slice(0, 8)}` : ""}` : "—"}</span>,
+    },
+    { key: "result", header: "Resultat", render: (log) => <StatusBadge label={log.result} tone={log.result === "SUCCESS" ? "success" : "danger"} /> },
+    { key: "ip", header: "IP", render: (log) => <span className="text-xs text-[var(--color-text-muted)]">{log.ipAddress ?? "—"}</span> },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">Journal d&apos;audit</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Historique complet des actions sensibles. Lecture seule — non modifiable par les agents.
-          </p>
-        </div>
-        {can(user, "audit", "export") && (
-          <a
-            href={module ? `/api/audit/export?module=${module}` : "/api/audit/export"}
-            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
-          >
-            Exporter (CSV)
-          </a>
-        )}
+      <PageHeading
+        title="Journal d'audit"
+        description="Historique complet des actions sensibles. Lecture seule — non modifiable par les agents."
+        action={
+          can(user, "audit", "export") && (
+            <a
+              href={module ? `/api/audit/export?module=${module}` : "/api/audit/export"}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-hover)]"
+            >
+              Exporter (CSV)
+            </a>
+          )
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Actions enregistrees" value={totalCount} icon={<IconActivity className="h-5 w-5" />} tone="primary" />
+        <StatCard label="Reussies" value={totalCount - failureCount} tone="success" />
+        <StatCard label="Echecs / refus" value={failureCount} icon={<IconShieldCheck className="h-5 w-5" />} tone="danger" />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <a
           href="/admin/audit"
-          className={`rounded-full px-3 py-1 text-xs font-medium ${!module ? "bg-[var(--color-primary)] text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)]"}`}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition ${!module ? "text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"}`}
+          style={!module ? { background: "var(--gradient-primary)" } : undefined}
         >
           Tous
         </a>
@@ -50,60 +78,15 @@ export default async function AuditPage({
           <a
             key={m.module}
             href={`/admin/audit?module=${m.module}`}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${module === m.module ? "bg-[var(--color-primary)] text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)]"}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${module === m.module ? "text-white" : "border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"}`}
+            style={module === m.module ? { background: "var(--gradient-primary)" } : undefined}
           >
             {m.module}
           </a>
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Date</th>
-              <th className="px-4 py-2.5">Utilisateur</th>
-              <th className="px-4 py-2.5">Action</th>
-              <th className="px-4 py-2.5">Module</th>
-              <th className="px-4 py-2.5">Objet</th>
-              <th className="px-4 py-2.5">Resultat</th>
-              <th className="px-4 py-2.5">IP</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {logs.map((log) => (
-              <tr key={log.id}>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-[var(--color-text-muted)]">
-                  {new Date(log.createdAt).toLocaleString("fr-FR")}
-                </td>
-                <td className="px-4 py-2.5">{log.userName}</td>
-                <td className="px-4 py-2.5">{log.action}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{log.module}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">
-                  {log.entityType ? `${log.entityType}${log.entityId ? ` #${log.entityId.slice(0, 8)}` : ""}` : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      log.result === "SUCCESS" ? "bg-green-100 text-[var(--color-success)]" : "bg-red-100 text-[var(--color-danger)]"
-                    }`}
-                  >
-                    {log.result}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-xs text-[var(--color-text-muted)]">{log.ipAddress ?? "—"}</td>
-              </tr>
-            ))}
-            {logs.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
-                  Aucune entree.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={logs} keyField="id" emptyLabel="Aucune entree." />
     </div>
   );
 }

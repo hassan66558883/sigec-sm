@@ -4,11 +4,42 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { periodBounds } from "@/lib/date-buckets";
 import {
   issueBirthCertificate,
   issueMarriageCertificate,
   issueDeathCertificate,
 } from "@/lib/services/certificates";
+
+// Tableau de bord Demandes (Phase 5) : compteurs par periode + temps de
+// traitement moyen (reviewedAt - createdAt, uniquement sur les demandes
+// deja traitees) — jamais estime, toujours calcule sur les enregistrements
+// reels.
+export async function getApplicationsProcessingStats(user: CurrentUser) {
+  const scope = recordScopeWhere(user);
+  const { startOfDay, startOfWeek } = periodBounds();
+
+  const [today, week, inProgress, completed, reviewed] = await Promise.all([
+    prisma.application.count({ where: { ...scope, createdAt: { gte: startOfDay } } }),
+    prisma.application.count({ where: { ...scope, createdAt: { gte: startOfWeek } } }),
+    prisma.application.count({ where: { ...scope, status: { in: ["SUBMITTED", "IN_REVIEW"] } } }),
+    prisma.application.count({ where: { ...scope, status: { in: ["APPROVED", "COMPLETED"] } } }),
+    prisma.application.findMany({
+      where: { ...scope, reviewedAt: { not: null } },
+      select: { createdAt: true, reviewedAt: true },
+      take: 500,
+    }),
+  ]);
+
+  const avgProcessingHours =
+    reviewed.length > 0
+      ? Math.round(
+          (reviewed.reduce((sum, a) => sum + (a.reviewedAt!.getTime() - a.createdAt.getTime()), 0) / reviewed.length / 3_600_000) * 10,
+        ) / 10
+      : null;
+
+  return { today, week, inProgress, completed, avgProcessingHours };
+}
 
 type CitizenAccountWithCitizen = {
   id: string;
