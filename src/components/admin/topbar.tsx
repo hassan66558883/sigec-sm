@@ -34,15 +34,16 @@ export function Topbar({
     <header
       dir={dir}
       lang={locale}
-      className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)]/95 px-4 py-3 backdrop-blur-sm sm:px-6"
+      className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 text-white shadow-sm sm:px-6"
+      style={{ background: "var(--gradient-primary)" }}
     >
       <MobileMenuButton label={t("topbar.toggleMenu")} />
 
       <span
         className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset md:inline-flex ${
           user.hasGlobalScope
-            ? "bg-[var(--color-accent-soft)] text-[var(--color-primary-dark)] ring-[var(--color-accent)]/30"
-            : "bg-[var(--color-surface)] text-[var(--color-text-muted)] ring-[var(--color-border)]"
+            ? "bg-[var(--color-accent)]/20 text-[var(--color-accent-soft)] ring-[var(--color-accent)]/40"
+            : "bg-white/10 text-white/80 ring-white/20"
         }`}
       >
         <IconMapPin className="h-3 w-3" />
@@ -55,8 +56,8 @@ export function Topbar({
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <NotificationBell dict={dict} initialUnread={unreadNotifications} />
-        <LanguageSwitcher locale={locale} />
-        <div className="mx-1 hidden h-6 w-px bg-[var(--color-border)] sm:block" />
+        <LanguageSwitcher locale={locale} variant="onDark" />
+        <div className="mx-1 hidden h-6 w-px bg-white/20 sm:block" />
         <UserMenu
           name={user.name}
           roleLabel={user.roles.map((r) => r.name).join(", ") || t("sidebar.noRole")}

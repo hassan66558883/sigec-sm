@@ -47,19 +47,19 @@ export function UserMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition hover:bg-[var(--color-surface-hover)]"
+        className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition hover:bg-white/10"
       >
         <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm"
-          style={{ background: "var(--gradient-primary)" }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm ring-2 ring-white/25"
+          style={{ background: "var(--gradient-gold)" }}
         >
           {initials(name)}
         </span>
         <span className="hidden text-start sm:block">
-          <span className="block max-w-[9rem] truncate text-sm font-medium text-[var(--color-text)]">{name}</span>
-          <span className="block max-w-[9rem] truncate text-xs text-[var(--color-text-muted)]">{roleLabel}</span>
+          <span className="block max-w-[9rem] truncate text-sm font-medium text-white">{name}</span>
+          <span className="block max-w-[9rem] truncate text-xs text-white/70">{roleLabel}</span>
         </span>
-        <IconChevronDown className="hidden h-4 w-4 text-[var(--color-text-muted)] sm:block" />
+        <IconChevronDown className="hidden h-4 w-4 text-white/70 sm:block" />
       </button>
       {open && (
         <div className="absolute end-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5 shadow-md">

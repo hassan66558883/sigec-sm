@@ -65,7 +65,7 @@ export function GlobalSearch({ dict }: { dict: Dictionary }) {
 
   return (
     <div className="relative w-full max-w-md" ref={ref}>
-      <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2 transition focus-within:border-[var(--color-primary)]/40 focus-within:bg-[var(--color-surface)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]/15">
+      <div className="flex items-center gap-2 rounded-lg border border-white/20 bg-white/95 px-3 py-2 shadow-sm transition focus-within:border-white focus-within:bg-white focus-within:ring-2 focus-within:ring-white/30">
         <IconSearch className="h-4 w-4 shrink-0 text-[var(--color-text-muted)]" />
         <input
           type="text"

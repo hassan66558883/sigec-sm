@@ -70,7 +70,7 @@ export function NotificationBell({ dict, initialUnread }: { dict: Dictionary; in
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={t("topbar.notifications")}
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition hover:bg-white/10 hover:text-white"
       >
         <IconBell className="h-5 w-5" />
         {unread > 0 && (
