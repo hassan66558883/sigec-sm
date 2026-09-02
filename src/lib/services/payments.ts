@@ -16,9 +16,12 @@ export async function listTaxTypes() {
   return prisma.taxType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
 }
 
-export async function listPayments(user: CurrentUser) {
+export async function listPayments(user: CurrentUser, search?: string) {
   return prisma.payment.findMany({
-    where: recordScopeWhere(user),
+    where: {
+      ...recordScopeWhere(user),
+      ...(search ? { receiptNumber: { contains: search, mode: "insensitive" } } : {}),
+    },
     include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true, agent: true, receipt: true },
     orderBy: { paymentDate: "desc" },
     take: 100,

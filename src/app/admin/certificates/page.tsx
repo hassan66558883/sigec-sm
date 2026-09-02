@@ -8,16 +8,18 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SearchBox } from "@/components/ui/search-box";
 import { IconActivity } from "@/components/icons";
 
 type CertificateRow = Awaited<ReturnType<typeof listCertificates>>[number];
 
-export default async function CertificatesPage() {
+export default async function CertificatesPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "certificates", "view")) redirect("/admin");
+  const { search } = await searchParams;
 
-  const [certificates, periodStats] = await Promise.all([listCertificates(user), getCertificatesPeriodStats(user)]);
+  const [certificates, periodStats] = await Promise.all([listCertificates(user, search), getCertificatesPeriodStats(user)]);
 
   const columns: Column<CertificateRow>[] = [
     { key: "documentNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.documentNumber}</span> },
@@ -52,6 +54,8 @@ export default async function CertificatesPage() {
         <StatCard label="Ce mois" value={periodStats.month} icon={<IconActivity className="h-5 w-5" />} tone="success" />
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
+
+      <SearchBox defaultValue={search} placeholder="Rechercher par numero de document..." />
 
       <DataTable columns={columns} rows={certificates} keyField="id" emptyLabel="Aucun certificat delivre." />
     </div>

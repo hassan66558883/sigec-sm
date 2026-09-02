@@ -20,9 +20,12 @@ export async function getDeathsPeriodStats(user: CurrentUser) {
   return { today, week, month, year };
 }
 
-export async function listDeathRecords(user: CurrentUser) {
+export async function listDeathRecords(user: CurrentUser, search?: string) {
   const records = await prisma.deathRecord.findMany({
-    where: recordScopeWhere(user),
+    where: {
+      ...recordScopeWhere(user),
+      ...(search ? { recordNumber: { contains: search, mode: "insensitive" } } : {}),
+    },
     include: { deceased: true, arrondissement: true },
     orderBy: { createdAt: "desc" },
     take: 100,

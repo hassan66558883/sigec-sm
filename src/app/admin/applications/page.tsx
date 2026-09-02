@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { SearchBox } from "@/components/ui/search-box";
 import { IconActivity } from "@/components/icons";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -31,12 +32,13 @@ const STATUS_TONE: Record<string, StatusTone> = {
 
 type ApplicationRow = Awaited<ReturnType<typeof listApplicationsForStaff>>[number];
 
-export default async function ApplicationsPage() {
+export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "applications", "view")) redirect("/admin");
+  const { search } = await searchParams;
 
-  const [applications, stats] = await Promise.all([listApplicationsForStaff(user), getApplicationsProcessingStats(user)]);
+  const [applications, stats] = await Promise.all([listApplicationsForStaff(user, search), getApplicationsProcessingStats(user)]);
 
   const columns: Column<ApplicationRow>[] = [
     { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span> },
@@ -65,6 +67,8 @@ export default async function ApplicationsPage() {
         <StatCard label="Terminees" value={stats.completed} tone="success" />
         <StatCard label="Delai moyen" value={stats.avgProcessingHours !== null ? `${stats.avgProcessingHours} h` : "—"} hint="Depuis la soumission" tone="primary" />
       </div>
+
+      <SearchBox defaultValue={search} placeholder="Rechercher par numero de demande..." />
 
       <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." />
     </div>

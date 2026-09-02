@@ -11,6 +11,7 @@ import { ReasonActionButton } from "@/components/finances/reason-action-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { SearchBox } from "@/components/ui/search-box";
 
 const STATUS_TONE: Record<string, StatusTone> = {
   PAID: "success",
@@ -21,13 +22,14 @@ const STATUS_TONE: Record<string, StatusTone> = {
 
 type PaymentRow = Awaited<ReturnType<typeof listPayments>>[number];
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "payments", "view")) redirect("/admin");
+  const { search } = await searchParams;
 
   const [payments, taxTypes, businesses, citizens, arrondissements] = await Promise.all([
-    listPayments(user),
+    listPayments(user, search),
     listTaxTypes(),
     listBusinesses(user),
     listCitizens(user),
@@ -82,6 +84,8 @@ export default async function PaymentsPage() {
           </>
         }
       />
+
+      <SearchBox defaultValue={search} placeholder="Rechercher par numero de quittance..." />
 
       <DataTable columns={columns} rows={payments} keyField="id" emptyLabel="Aucun paiement enregistre." />
     </div>

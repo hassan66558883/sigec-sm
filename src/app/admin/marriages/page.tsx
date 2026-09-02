@@ -11,6 +11,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { SearchBox } from "@/components/ui/search-box";
 import { IconActivity } from "@/components/icons";
 
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declare", VALID: "Valide", DIVORCED: "Divorce", ANNULLED: "Annule" };
@@ -18,13 +19,14 @@ const STATUS_TONE: Record<string, StatusTone> = { DECLARED: "warning", VALID: "s
 
 type MarriageRow = Awaited<ReturnType<typeof listMarriages>>[number];
 
-export default async function MarriagesPage() {
+export default async function MarriagesPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "marriages", "view")) redirect("/admin");
+  const { search } = await searchParams;
 
   const [records, arrondissements, citizens, regimes, periodStats] = await Promise.all([
-    listMarriages(user),
+    listMarriages(user, search),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
     listMarriageRegimes(),
@@ -74,6 +76,8 @@ export default async function MarriagesPage() {
         <StatCard label="Ce mois" value={periodStats.month} icon={<IconActivity className="h-5 w-5" />} tone="success" />
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
+
+      <SearchBox defaultValue={search} placeholder="Rechercher par numero de dossier..." />
 
       <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de mariage." />
     </div>

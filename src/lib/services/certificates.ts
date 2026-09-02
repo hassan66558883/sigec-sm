@@ -24,9 +24,12 @@ export async function listCertificateTypes() {
   return prisma.certificateType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
 }
 
-export async function listCertificates(user: CurrentUser) {
+export async function listCertificates(user: CurrentUser, search?: string) {
   return prisma.certificate.findMany({
-    where: recordScopeWhere(user),
+    where: {
+      ...recordScopeWhere(user),
+      ...(search ? { documentNumber: { contains: search, mode: "insensitive" } } : {}),
+    },
     include: { certificateType: true, citizen: true, arrondissement: true },
     orderBy: { issuedAt: "desc" },
     take: 100,

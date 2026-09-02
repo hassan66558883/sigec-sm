@@ -11,6 +11,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { SearchBox } from "@/components/ui/search-box";
 import { IconActivity } from "@/components/icons";
 
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declare", REGISTERED: "Enregistre" };
@@ -18,13 +19,14 @@ const STATUS_TONE: Record<string, StatusTone> = { DECLARED: "warning", REGISTERE
 
 type DeathRow = Awaited<ReturnType<typeof listDeathRecords>>[number];
 
-export default async function DeathsPage() {
+export default async function DeathsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "deaths", "view")) redirect("/admin");
+  const { search } = await searchParams;
 
   const [records, arrondissements, citizens, periodStats] = await Promise.all([
-    listDeathRecords(user),
+    listDeathRecords(user, search),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
     getDeathsPeriodStats(user),
@@ -71,6 +73,8 @@ export default async function DeathsPage() {
         <StatCard label="Ce mois" value={periodStats.month} icon={<IconActivity className="h-5 w-5" />} tone="success" />
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
+
+      <SearchBox defaultValue={search} placeholder="Rechercher par numero de dossier..." />
 
       <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun acte de deces." />
     </div>

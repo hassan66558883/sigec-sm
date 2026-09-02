@@ -19,9 +19,12 @@ export async function getMarriagesPeriodStats(user: CurrentUser) {
   return { today, week, month, year };
 }
 
-export async function listMarriages(user: CurrentUser) {
+export async function listMarriages(user: CurrentUser, search?: string) {
   return prisma.marriage.findMany({
-    where: recordScopeWhere(user),
+    where: {
+      ...recordScopeWhere(user),
+      ...(search ? { recordNumber: { contains: search, mode: "insensitive" } } : {}),
+    },
     include: { husband: true, wife: true, regime: true, arrondissement: true },
     orderBy: { createdAt: "desc" },
     take: 100,

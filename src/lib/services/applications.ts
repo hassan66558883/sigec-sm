@@ -96,10 +96,13 @@ export async function createApplication(account: CitizenAccountWithCitizen, inpu
   return created;
 }
 
-export async function listApplicationsForStaff(user: CurrentUser) {
+export async function listApplicationsForStaff(user: CurrentUser, search?: string) {
   if (!can(user, "applications", "view")) throw new ApiError(403, "Permission insuffisante.");
   return prisma.application.findMany({
-    where: recordScopeWhere(user),
+    where: {
+      ...recordScopeWhere(user),
+      ...(search ? { applicationNumber: { contains: search, mode: "insensitive" } } : {}),
+    },
     include: { citizenAccount: { include: { citizen: true } } },
     orderBy: { createdAt: "desc" },
     take: 100,
