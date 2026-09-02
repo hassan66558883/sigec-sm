@@ -7,6 +7,7 @@ import { listCitizens } from "@/lib/services/citizens";
 import { CitizenForm } from "@/components/civil-status/citizen-form";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 
 type CitizenRow = Awaited<ReturnType<typeof listCitizens>>[number];
 
@@ -30,7 +31,13 @@ export default async function CitizensPage({
   ]);
 
   const columns: Column<CitizenRow>[] = [
-    { key: "uniqueNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.uniqueNumber}</span> },
+    {
+      key: "uniqueNumber",
+      header: "Numero",
+      render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.uniqueNumber}</span>,
+      sortable: true,
+      sortValue: (c) => c.uniqueNumber,
+    },
     {
       key: "name",
       header: "Nom",
@@ -42,10 +49,18 @@ export default async function CitizensPage({
           {c.isDeceased && <span className="ms-2 text-xs text-[var(--color-text-muted)]">(decede)</span>}
         </>
       ),
+      sortable: true,
+      sortValue: (c) => `${c.lastName} ${c.firstName}`,
     },
-    { key: "sex", header: "Sexe", render: (c) => (c.sex === "M" ? "M" : "F") },
-    { key: "maritalStatus", header: "Situation", render: (c) => <span className="text-[var(--color-text-muted)]">{c.maritalStatus}</span> },
-    { key: "arrondissement", header: "Arrondissement", render: (c) => <span className="text-[var(--color-text-muted)]">{c.arrondissement.name}</span> },
+    { key: "sex", header: "Sexe", render: (c) => (c.sex === "M" ? "M" : "F"), sortable: true, sortValue: (c) => c.sex },
+    { key: "maritalStatus", header: "Situation", render: (c) => <span className="text-[var(--color-text-muted)]">{c.maritalStatus}</span>, sortable: true, sortValue: (c) => c.maritalStatus },
+    {
+      key: "arrondissement",
+      header: "Arrondissement",
+      render: (c) => <span className="text-[var(--color-text-muted)]">{c.arrondissement.name}</span>,
+      sortable: true,
+      sortValue: (c) => c.arrondissement.name,
+    },
   ];
 
   return (
@@ -70,18 +85,28 @@ export default async function CitizensPage({
         }
       />
 
-      <form className="flex gap-2">
-        <input
-          type="search"
-          name="search"
-          defaultValue={search}
-          placeholder="Rechercher par nom ou numero..."
-          className="w-72 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
-        />
-        <button type="submit" className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-hover)]">
-          Rechercher
-        </button>
-      </form>
+      <AdvancedSearchPanel action={search && <span className="text-xs text-[var(--color-text-muted)]">Filtre actif : &laquo;{search}&raquo;</span>}>
+        <form className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Nom, prenom ou numero de dossier</label>
+            <input
+              type="search"
+              name="search"
+              defaultValue={search}
+              placeholder="ex: Hassan, ou CIT-2026-..."
+              className="w-72 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
+            />
+          </div>
+          <button type="submit" className="rounded-lg px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90" style={{ background: "var(--gradient-primary)" }}>
+            Rechercher
+          </button>
+          {search && (
+            <Link href="/admin/citizens" className="rounded-lg border border-[var(--color-border)] px-4 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-hover)]">
+              Effacer
+            </Link>
+          )}
+        </form>
+      </AdvancedSearchPanel>
 
       <DataTable columns={columns} rows={citizens} keyField="id" emptyLabel="Aucun citoyen enregistre." />
     </div>
