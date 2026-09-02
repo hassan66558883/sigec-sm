@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { listComplaintsForStaff } from "@/lib/services/complaints";
+import { PageHeading } from "@/components/ui/page-header";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie",
@@ -21,15 +24,17 @@ const STATUS_LABEL: Record<string, string> = {
   RESOLVED: "Resolu",
   CLOSED: "Cloture",
 };
-const STATUS_CLASS: Record<string, string> = {
-  NEW: "bg-amber-100 text-[var(--color-warning)]",
-  RECEIVED: "bg-amber-100 text-[var(--color-warning)]",
-  ASSIGNED: "bg-amber-100 text-[var(--color-warning)]",
-  IN_PROGRESS: "bg-amber-100 text-[var(--color-warning)]",
-  PENDING: "bg-gray-100 text-[var(--color-text-muted)]",
-  RESOLVED: "bg-green-100 text-[var(--color-success)]",
-  CLOSED: "bg-green-100 text-[var(--color-success)]",
+const STATUS_TONE: Record<string, StatusTone> = {
+  NEW: "warning",
+  RECEIVED: "warning",
+  ASSIGNED: "warning",
+  IN_PROGRESS: "warning",
+  PENDING: "neutral",
+  RESOLVED: "success",
+  CLOSED: "success",
 };
+
+type ComplaintRow = Awaited<ReturnType<typeof listComplaintsForStaff>>[number];
 
 export default async function ComplaintsPage() {
   const user = await getCurrentUser();
@@ -38,48 +43,26 @@ export default async function ComplaintsPage() {
 
   const complaints = await listComplaintsForStaff(user);
 
+  const columns: Column<ComplaintRow>[] = [
+    {
+      key: "caseNumber",
+      header: "Numero",
+      render: (c) => (
+        <Link href={`/admin/complaints/${c.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
+          {c.caseNumber}
+        </Link>
+      ),
+    },
+    { key: "citizen", header: "Citoyen", render: (c) => <>{c.citizenAccount.citizen.firstName} {c.citizenAccount.citizen.lastName}</> },
+    { key: "category", header: "Categorie", render: (c) => <span className="text-[var(--color-text-muted)]">{CATEGORY_LABEL[c.category]}</span> },
+    { key: "status", header: "Statut", render: (c) => <StatusBadge label={STATUS_LABEL[c.status]} tone={STATUS_TONE[c.status]} /> },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text)]">Plaintes & doleances</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">Guichet numerique — suivi des signalements citoyens.</p>
-      </div>
+      <PageHeading title="Plaintes & doleances" description="Guichet numerique — suivi des signalements citoyens." />
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-border)] bg-gray-50 text-left text-xs uppercase text-[var(--color-text-muted)]">
-            <tr>
-              <th className="px-4 py-2.5">Numero</th>
-              <th className="px-4 py-2.5">Citoyen</th>
-              <th className="px-4 py-2.5">Categorie</th>
-              <th className="px-4 py-2.5">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
-            {complaints.map((c) => (
-              <tr key={c.id}>
-                <td className="px-4 py-2.5 text-xs text-[var(--color-text-muted)]">
-                  <Link href={`/admin/complaints/${c.id}`} className="text-[var(--color-primary)] hover:underline">
-                    {c.caseNumber}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5">{c.citizenAccount.citizen.firstName} {c.citizenAccount.citizen.lastName}</td>
-                <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{CATEGORY_LABEL[c.category]}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[c.status]}`}>{STATUS_LABEL[c.status]}</span>
-                </td>
-              </tr>
-            ))}
-            {complaints.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-[var(--color-text-muted)]">
-                  Aucune plainte enregistree.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={complaints} keyField="id" emptyLabel="Aucune plainte enregistree." />
     </div>
   );
 }
