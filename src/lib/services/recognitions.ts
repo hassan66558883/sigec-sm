@@ -94,11 +94,16 @@ export async function validateRecognition(actor: CurrentUser, id: string) {
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
   const updated = await prisma.$transaction(async (tx) => {
-    const rec = await tx.recognition.update({ where: { id }, data: { status: "VALIDATED" } });
+    const result = await tx.recognition.updateMany({ where: { id, status: "DECLARED" }, data: { status: "VALIDATED" } });
+    if (result.count === 0) {
+      throw new ApiError(409, "Ce dossier a deja ete valide par un autre utilisateur.");
+    }
     const field = before.parentRole === "FATHER" ? { fatherId: before.parentId } : { motherId: before.parentId };
     await tx.citizen.update({ where: { id: before.childId }, data: field });
-    return rec;
+    return tx.recognition.findUniqueOrThrow({ where: { id } });
   });
 
   await logAudit({

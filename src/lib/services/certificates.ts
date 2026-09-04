@@ -193,10 +193,16 @@ export async function revokeCertificate(actor: CurrentUser, id: string, reason: 
   }
   if (before.status === "REVOKED") throw new ApiError(400, "Ce document est deja revoque.");
 
-  const updated = await prisma.certificate.update({
-    where: { id },
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
+  const result = await prisma.certificate.updateMany({
+    where: { id, status: before.status },
     data: { status: "REVOKED", revokedAt: new Date(), revokedById: actor.id, revokedReason: reason.trim() },
   });
+  if (result.count === 0) {
+    throw new ApiError(409, "Ce document a deja ete revoque par un autre utilisateur.");
+  }
+  const updated = await prisma.certificate.findUniqueOrThrow({ where: { id } });
 
   await logAudit({
     user: actor,

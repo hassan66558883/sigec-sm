@@ -105,12 +105,17 @@ export async function validateDivorce(actor: CurrentUser, id: string) {
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
   const updated = await prisma.$transaction(async (tx) => {
-    const d = await tx.divorce.update({ where: { id }, data: { status: "FINALIZED" } });
+    const result = await tx.divorce.updateMany({ where: { id, status: "DECLARED" }, data: { status: "FINALIZED" } });
+    if (result.count === 0) {
+      throw new ApiError(409, "Ce dossier a deja ete valide par un autre utilisateur.");
+    }
     await tx.marriage.update({ where: { id: before.marriageId }, data: { status: "DIVORCED" } });
     await tx.citizen.update({ where: { id: before.marriage.husbandId }, data: { maritalStatus: "DIVORCED" } });
     await tx.citizen.update({ where: { id: before.marriage.wifeId }, data: { maritalStatus: "DIVORCED" } });
-    return d;
+    return tx.divorce.findUniqueOrThrow({ where: { id } });
   });
 
   await logAudit({

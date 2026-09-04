@@ -149,6 +149,22 @@ export async function approveApplication(actor: CurrentUser, id: string) {
     throw new ApiError(400, "Cette demande a deja ete traitee.");
   }
 
+  // Reservation atomique AVANT tout effet de bord (voir audit concurrence
+  // 2026-09-04) : contrairement a validateBirthRecord/validateMarriage/...,
+  // approuver une demande declenche l'emission d'un certificat — sans cette
+  // reservation, deux clics "Approuver" quasi simultanes pourraient tous
+  // les deux passer le controle ci-dessus et emettre CHACUN un certificat
+  // pour la meme demande avant que l'un des deux ne finalise le statut.
+  // `reviewedById`/`reviewedAt` servent de marqueur de reservation : on ne
+  // les ecrit qu'une fois, sous condition du statut lu a l'instant meme.
+  const claim = await prisma.application.updateMany({
+    where: { id, status: application.status },
+    data: { reviewedById: actor.id, reviewedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    throw new ApiError(409, "Cette demande est en cours de traitement par un autre utilisateur.");
+  }
+
   let certificate;
   if (application.type === "BIRTH_CERTIFICATE_COPY" && application.birthRecordId) {
     certificate = await issueBirthCertificate(actor, application.birthRecordId);
@@ -200,10 +216,16 @@ export async function rejectApplication(actor: CurrentUser, id: string, reason: 
     throw new ApiError(400, "Cette demande a deja ete traitee.");
   }
 
-  const updated = await prisma.application.update({
-    where: { id },
+  // Transition atomique — meme raisonnement que approveApplication ci-dessus
+  // (voir audit concurrence 2026-09-04).
+  const result = await prisma.application.updateMany({
+    where: { id, status: application.status },
     data: { status: "REJECTED", reviewedById: actor.id, reviewedAt: new Date(), rejectionReason: reason.trim() },
   });
+  if (result.count === 0) {
+    throw new ApiError(409, "Cette demande a deja ete traitee par un autre utilisateur.");
+  }
+  const updated = await prisma.application.findUniqueOrThrow({ where: { id } });
 
   await prisma.notification.create({
     data: {

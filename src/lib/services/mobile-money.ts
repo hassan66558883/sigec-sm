@@ -147,11 +147,19 @@ export async function confirmMobileMoneyPayment(actor: CurrentUser, transactionI
     throw new ApiError(400, "Cette transaction n'est plus en attente de confirmation.");
   }
 
+  // Transition atomique AVANT tout effet de bord (voir audit concurrence
+  // 2026-09-04, meme raisonnement que applications.ts:approveApplication) :
+  // une double confirmation quasi simultanee appliquerait sinon deux fois le
+  // paiement a l'obligation liee (double credit) et emettrait deux recus
+  // pour le meme paiement.
   const { receipt } = await prisma.$transaction(async (tx) => {
-    await tx.mobileMoneyTransaction.update({
-      where: { id: transactionId },
+    const claim = await tx.mobileMoneyTransaction.updateMany({
+      where: { id: transactionId, status: transaction.status },
       data: { status: "SUCCESS", confirmedAt: new Date(), confirmedById: actor.id },
     });
+    if (claim.count === 0) {
+      throw new ApiError(409, "Cette transaction a deja ete traitee par un autre utilisateur.");
+    }
     await tx.payment.update({ where: { id: transaction.paymentId }, data: { status: "PAID" } });
 
     if (transaction.payment.obligationId) {
@@ -195,10 +203,18 @@ export async function failMobileMoneyPayment(actor: CurrentUser, transactionId: 
     throw new ApiError(400, "Cette transaction n'est plus en attente.");
   }
 
-  await prisma.$transaction([
-    prisma.mobileMoneyTransaction.update({ where: { id: transactionId }, data: { status: "FAILED" } }),
-    prisma.payment.update({ where: { id: transaction.paymentId }, data: { status: "ECHEC" } }),
-  ]);
+  // Transition atomique — meme raisonnement que confirmMobileMoneyPayment
+  // ci-dessus (voir audit concurrence 2026-09-04).
+  await prisma.$transaction(async (tx) => {
+    const claim = await tx.mobileMoneyTransaction.updateMany({
+      where: { id: transactionId, status: transaction.status },
+      data: { status: "FAILED" },
+    });
+    if (claim.count === 0) {
+      throw new ApiError(409, "Cette transaction a deja ete traitee par un autre utilisateur.");
+    }
+    await tx.payment.update({ where: { id: transaction.paymentId }, data: { status: "ECHEC" } });
+  });
 
   await logAudit({
     user: actor,

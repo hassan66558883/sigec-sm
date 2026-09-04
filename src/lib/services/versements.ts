@@ -101,10 +101,16 @@ export async function validateVersement(actor: CurrentUser, id: string, approve:
   if (!canAccessArrondissement(actor, before.arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
   if (before.status === "VALIDE" || before.status === "REJETE") throw new ApiError(400, "Ce versement a deja ete traite.");
 
-  const updated = await prisma.versement.update({
-    where: { id },
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
+  const result = await prisma.versement.updateMany({
+    where: { id, status: before.status },
     data: { status: approve ? "VALIDE" : "REJETE", validatedById: actor.id, validatedAt: new Date() },
   });
+  if (result.count === 0) {
+    throw new ApiError(409, "Ce versement a deja ete traite par un autre utilisateur.");
+  }
+  const updated = await prisma.versement.findUniqueOrThrow({ where: { id } });
 
   await logAudit({
     user: actor,

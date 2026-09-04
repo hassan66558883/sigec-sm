@@ -126,10 +126,18 @@ export async function closeCashRegister(actor: CurrentUser, id: string, declared
   const expectedAmount = cashAgg._sum.amount ?? 0;
   const discrepancy = declaredAmount - expectedAmount;
 
-  const updated = await prisma.cashRegister.update({
-    where: { id },
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04) : une caisse cloturee deux fois en
+  // parallele pourrait sinon ecraser silencieusement le declaredAmount de la
+  // premiere cloture et declencher une seconde alerte de fraude en double.
+  const result = await prisma.cashRegister.updateMany({
+    where: { id, status: "OUVERTE" },
     data: { status: "CLOTUREE", closedAt: new Date(), closedById: actor.id, expectedAmount, declaredAmount, discrepancy },
   });
+  if (result.count === 0) {
+    throw new ApiError(409, "Cette caisse a deja ete cloturee par un autre utilisateur.");
+  }
+  const updated = await prisma.cashRegister.findUniqueOrThrow({ where: { id } });
 
   await logAudit({
     user: actor,
