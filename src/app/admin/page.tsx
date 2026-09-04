@@ -8,6 +8,7 @@ import { listAuditLogs } from "@/lib/audit";
 import { getFinanceSummary, getRevenueTrend } from "@/lib/services/payments";
 import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
 import { getRecoveryStats, getPopulationTrend, getCivilStatusTrend, getArrondissementStatsReport } from "@/lib/services/analytics";
+import { cached, scopeCacheKey } from "@/lib/cache";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChartCard } from "@/components/ui/chart-card";
@@ -32,6 +33,11 @@ import { LineTrendChart } from "@/components/admin/charts/line-trend-chart";
 import { BarTrendChart } from "@/components/admin/charts/bar-trend-chart";
 
 type Tr = (key: TranslationKey, vars?: Record<string, string | number>) => string;
+
+// Fraicheur acceptable pour les agregats de tableau de bord (voir
+// src/lib/cache.ts) — pas de donnee critique en jeu, seulement des
+// compteurs/tendances affiches en lecture.
+const DASHBOARD_CACHE_TTL_MS = 60_000;
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
@@ -61,7 +67,7 @@ function trendBadge(pct: number, label: string) {
 // deja affiches) ne ralentissent jamais le premier rendu du tableau de
 // bord.
 async function PopulationTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
-  const data = await getPopulationTrend(user, 12);
+  const data = await cached(`dashboard:populationTrend:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getPopulationTrend(user, 12));
   if (data.length === 0) {
     return (
       <ChartCard title={t("dashboard.populationTrendTitle")} subtitle={t("dashboard.populationTrendSubtitle")} icon={<IconUsersGroup className="h-4 w-4" />} isEmpty>
@@ -85,7 +91,7 @@ async function PopulationTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
 }
 
 async function CivilStatusTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
-  const data = await getCivilStatusTrend(user, 12);
+  const data = await cached(`dashboard:civilStatusTrend:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getCivilStatusTrend(user, 12));
   const first = data[0];
   const series = first
     ? [
@@ -109,7 +115,7 @@ async function CivilStatusTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
 }
 
 async function RevenueTrendCard({ user, t }: { user: CurrentUser; t: Tr }) {
-  const data = await getRevenueTrend(user, 12);
+  const data = await cached(`dashboard:revenueTrend:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getRevenueTrend(user, 12));
   if (data.length === 0) {
     return (
       <ChartCard title={t("dashboard.revenueTrendTitle")} subtitle={t("dashboard.revenueTrendSubtitle")} icon={<IconCoins className="h-4 w-4" />} isEmpty>
@@ -159,10 +165,16 @@ export default async function AdminDashboardPage() {
       prisma.role.count(),
       prisma.department.count({ where: { isActive: true } }),
       canViewAudit ? listAuditLogs(user, undefined, 8) : Promise.resolve([]),
-      canViewRevenue && user ? getFinanceSummary(user) : Promise.resolve(null),
-      canViewRevenue && user ? getMunicipalRevenueOverview(user) : Promise.resolve(null),
-      user ? getRecoveryStats(user) : Promise.resolve(null),
-      user ? getArrondissementStatsReport(user) : Promise.resolve([]),
+      canViewRevenue && user
+        ? cached(`dashboard:financeSummary:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getFinanceSummary(user))
+        : Promise.resolve(null),
+      canViewRevenue && user
+        ? cached(`dashboard:revenueOverview:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getMunicipalRevenueOverview(user))
+        : Promise.resolve(null),
+      user ? cached(`dashboard:recoveryStats:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getRecoveryStats(user)) : Promise.resolve(null),
+      user
+        ? cached(`dashboard:arrondissementStats:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getArrondissementStatsReport(user))
+        : Promise.resolve([]),
     ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);

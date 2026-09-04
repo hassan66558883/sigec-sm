@@ -28,6 +28,32 @@ export async function listPayments(user: CurrentUser, search?: string) {
   });
 }
 
+const PAYMENTS_PAGE_SIZE = 25;
+
+// Pagination reelle cote base pour l'ecran de liste /admin/payments
+// uniquement (voir citizens.ts:listCitizensPage pour le meme constat et la
+// meme justification — audit performance 2026-09-02). listPayments()
+// ci-dessus reste inchangee : encore utilisee telle quelle par
+// /api/payments et /api/payments/export, qui veulent le lot complet
+// (jusqu'a 100 lignes), pas une page.
+export async function listPaymentsPage(user: CurrentUser, search?: string, page = 1, pageSize = PAYMENTS_PAGE_SIZE) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(search ? { receiptNumber: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      include: { payer: true, taxType: true, business: true, marketStall: { include: { market: true } }, arrondissement: true, agent: true, receipt: true },
+      orderBy: { paymentDate: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.payment.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
+}
+
 export type PaymentReportFilters = {
   dateFrom?: string;
   dateTo?: string;

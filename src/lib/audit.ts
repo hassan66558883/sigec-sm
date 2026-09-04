@@ -58,6 +58,27 @@ export async function listAuditLogs(user: CurrentUser | null, moduleFilter?: str
   });
 }
 
+const AUDIT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base pour l'ecran /admin/audit uniquement (meme
+// constat que citizens.ts:listCitizensPage / payments.ts:listPaymentsPage —
+// audit performance 2026-09-02). listAuditLogs() ci-dessus reste inchangee,
+// toujours utilisee telle quelle par /api/audit, /api/audit/export et le
+// widget "dernieres actions" du tableau de bord.
+export async function listAuditLogsPage(user: CurrentUser | null, moduleFilter?: string, page = 1, pageSize = AUDIT_PAGE_SIZE) {
+  const where = { ...recordScopeWhere(user), ...(moduleFilter ? { module: moduleFilter } : {}) };
+  const [rows, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
+}
+
 export function requestMeta(req: Request) {
   const ipAddress =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??

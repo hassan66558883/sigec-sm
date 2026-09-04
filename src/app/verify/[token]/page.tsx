@@ -1,7 +1,28 @@
+import { headers } from "next/headers";
 import { verifyCertificatePublic } from "@/lib/services/certificates";
+import { isRateLimited } from "@/lib/rate-limit";
+
+// Meme budget que /api/verification/[token] (route API equivalente) — voir
+// audit securite/performance 2026-09-02.
+const VERIFY_WINDOW_MS = 5 * 60 * 1000;
+const VERIFY_MAX_ATTEMPTS = 20;
 
 export default async function VerifyPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const hdrs = await headers();
+  const ipAddress = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? hdrs.get("x-real-ip") ?? "unknown";
+
+  if (isRateLimited(`verify-cert:${ipAddress}`, VERIFY_WINDOW_MS, VERIFY_MAX_ATTEMPTS)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 py-10" style={{ background: "linear-gradient(150deg, var(--color-primary-dark), var(--color-primary) 55%, #3aa8e0)" }}>
+        <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-xl">
+          <p className="font-medium text-[var(--color-text)]">Trop de tentatives de verification.</p>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">Reessayez dans quelques minutes.</p>
+        </div>
+      </div>
+    );
+  }
+
   const result = await verifyCertificatePublic(token);
 
   return (

@@ -7,11 +7,17 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
+// `max: 10` etait trop bas pour la charge visee (500-2000 utilisateurs
+// concurrents) : plusieurs pages font 3-5 requetes paralleles via
+// Promise.all, saturant le pool bien avant meme d'atteindre une charge
+// elevee (voir audit performance 2026-09-02). Configurable via
+// DATABASE_POOL_MAX pour l'ajuster au deploiement (budget de connexions
+// Postgres reel, ou PgBouncer en amont) sans toucher au code.
 const pool =
   globalForPrisma.pgPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL!,
-    max: 10,
+    max: Number(process.env.DATABASE_POOL_MAX) || 25,
     idleTimeoutMillis: 60_000,
     connectionTimeoutMillis: 30_000,
   });

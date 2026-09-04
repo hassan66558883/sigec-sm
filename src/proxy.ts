@@ -4,6 +4,17 @@ import { CITIZEN_SESSION_COOKIE, verifyCitizenSessionToken } from "@/lib/citizen
 import { prisma } from "@/lib/db";
 import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf";
 import { csrfTokensMatch, generateCsrfToken, isCsrfExempt, requiresCsrfCheck } from "@/lib/csrf-server";
+import { isRateLimited } from "@/lib/rate-limit";
+
+// Filet de securite general pour TOUTE l'API (voir audit performance/
+// securite 2026-09-02 : seules les 3 routes de connexion avaient une limite
+// avant ce changement, les 100+ autres routes etaient totalement
+// exposees). Volontairement genereux — un office d'arrondissement entier
+// peut partager la meme IP publique/locale — pour ne jamais bloquer un
+// usage legitime meme soutenu (recherche, pagination, exports repetes) ;
+// vise l'abus/le flood scripte, pas la charge normale.
+const API_RATE_WINDOW_MS = 60 * 1000;
+const API_RATE_MAX_ATTEMPTS = 300;
 
 // Proxy tourne en runtime Node.js par defaut sur cette version de Next.js
 // (voir node_modules/next/dist/docs/.../proxy.md) : contrairement a
@@ -24,6 +35,13 @@ export async function proxy(req: NextRequest) {
   // y compris les simples GET de page — il doit deja etre present cote
   // navigateur au moment ou l'utilisateur soumet le premier formulaire
   // (connexion, inscription...).
+  if (pathname.startsWith("/api/")) {
+    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
+    if (isRateLimited(`api:${ipAddress}`, API_RATE_WINDOW_MS, API_RATE_MAX_ATTEMPTS)) {
+      return NextResponse.json({ error: "Trop de requetes. Reessayez dans une minute." }, { status: 429 });
+    }
+  }
+
   if (pathname.startsWith("/api/") && requiresCsrfCheck(req.method) && !isCsrfExempt(pathname)) {
     const cookieValue = req.cookies.get(CSRF_COOKIE)?.value;
     const headerValue = req.headers.get(CSRF_HEADER);

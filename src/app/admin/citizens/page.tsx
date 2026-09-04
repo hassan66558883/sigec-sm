@@ -3,32 +3,35 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listCitizens } from "@/lib/services/citizens";
+import { listCitizensPage } from "@/lib/services/citizens";
 import { CitizenForm } from "@/components/civil-status/citizen-form";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
+import { Pagination } from "@/components/ui/pagination";
 
-type CitizenRow = Awaited<ReturnType<typeof listCitizens>>[number];
+type CitizenRow = Awaited<ReturnType<typeof listCitizensPage>>["rows"][number];
 
 export default async function CitizensPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "citizens", "view")) redirect("/admin");
-  const { search } = await searchParams;
+  const { search, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [citizens, arrondissements, quartiers] = await Promise.all([
-    listCitizens(user, search),
+  const [{ rows: citizens, total, pageSize }, arrondissements, quartiers] = await Promise.all([
+    listCitizensPage(user, search, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     prisma.quartier.findMany({
       where: { arrondissement: arrondissementScopeWhere(user) },
       select: { id: true, name: true, arrondissementId: true },
     }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<CitizenRow>[] = [
     {
@@ -108,7 +111,12 @@ export default async function CitizensPage({
         </form>
       </AdvancedSearchPanel>
 
-      <DataTable columns={columns} rows={citizens} keyField="id" emptyLabel="Aucun citoyen enregistre." />
+      <DataTable columns={columns} rows={citizens} keyField="id" emptyLabel="Aucun citoyen enregistre." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/citizens?${new URLSearchParams({ ...(search ? { search } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

@@ -6,6 +6,12 @@ import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { encryptField, decryptField } from "@/lib/encryption";
 
+// Utilisee a la fois par la page de liste des citoyens ET par ~10 pages de
+// formulaires ailleurs (births, marriages, deaths, payments...) pour peupler
+// des selecteurs "choisir un citoyen" — signature/forme de retour (tableau
+// simple) volontairement inchangee ici pour ne pas casser ces appelants.
+// La pagination reelle de l'ecran de liste vit dans listCitizensPage()
+// ci-dessous, une fonction dediee.
 export async function listCitizens(user: CurrentUser, search?: string) {
   const rows = await prisma.citizen.findMany({
     where: {
@@ -25,6 +31,41 @@ export async function listCitizens(user: CurrentUser, search?: string) {
     take: 100,
   });
   return rows.map((r) => ({ ...r, phone: decryptField(r.phone) }));
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/citizens uniquement : avant ce changement, les citoyens au-dela des
+// 100 premiers (par date de creation) n'etaient jamais accessibles, quelle
+// que soit la page cliquee dans le tableau (voir audit performance
+// 2026-09-02) — `listCitizens()` ci-dessus plafonnait a `take: 100` sans
+// `skip`, et la pagination du tableau ne faisait que re-decouper ce meme lot
+// de 100 lignes cote client.
+export async function listCitizensPage(user: CurrentUser, search?: string, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(search
+      ? {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" as const } },
+            { lastName: { contains: search, mode: "insensitive" as const } },
+            { uniqueNumber: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.citizen.findMany({
+      where,
+      include: { arrondissement: true, quartier: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.citizen.count({ where }),
+  ]);
+  return { rows: rows.map((r) => ({ ...r, phone: decryptField(r.phone) })), total, page, pageSize };
 }
 
 // Rapport (section 31) : meme perimetre territorial + recherche optionnelle,
@@ -139,6 +180,12 @@ export type UpdateCitizenInput = Partial<{
   address: string;
   placeOfBirth: string;
   photoUrl: string;
+  // Optionnel pour ne pas casser un appelant existant qui ne l'envoie pas
+  // encore (aucun formulaire client ne consomme ce PATCH aujourd'hui — voir
+  // audit performance/concurrence 2026-09-02) ; a fournir des qu'un
+  // formulaire d'edition existe, en le pre-remplissant avec
+  // citizen.updatedAt.toISOString() au chargement du formulaire.
+  expectedUpdatedAt: string;
 }>;
 
 // Modification d'une fiche contribuable/citoyen deja recensee (module
@@ -152,6 +199,14 @@ export async function updateCitizen(actor: CurrentUser, id: string, input: Updat
   if (!before) throw new ApiError(404, "Citoyen introuvable.");
   if (!canAccessArrondissement(actor, before.arrondissementId)) {
     throw new ApiError(403, "Citoyen hors de votre perimetre.");
+  }
+  // Verrouillage optimiste (section concurrence, audit 2026-09-02) : sans
+  // cette verification, deux agents ouvrant la meme fiche se voyaient
+  // ecraser silencieusement l'un l'autre — le second "save" gagnait
+  // toujours, sans avertissement. `updatedAt` sert de numero de version
+  // implicite ; pas de colonne dediee necessaire.
+  if (input.expectedUpdatedAt && before.updatedAt.toISOString() !== input.expectedUpdatedAt) {
+    throw new ApiError(409, "Cette fiche a ete modifiee par un autre utilisateur entre-temps. Rechargez avant de reessayer.");
   }
 
   const updated = await prisma.citizen.update({

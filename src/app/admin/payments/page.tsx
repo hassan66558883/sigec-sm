@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listPayments, listTaxTypes } from "@/lib/services/payments";
+import { listPaymentsPage, listTaxTypes } from "@/lib/services/payments";
 import { listBusinesses } from "@/lib/services/businesses";
 import { listCitizens } from "@/lib/services/citizens";
 import { PaymentForm } from "@/components/finances/payment-form";
@@ -13,6 +13,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
 import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
+import { Pagination } from "@/components/ui/pagination";
 
 const STATUS_TONE: Record<string, StatusTone> = {
   PAID: "success",
@@ -21,21 +22,23 @@ const STATUS_TONE: Record<string, StatusTone> = {
   PENDING: "warning",
 };
 
-type PaymentRow = Awaited<ReturnType<typeof listPayments>>[number];
+type PaymentRow = Awaited<ReturnType<typeof listPaymentsPage>>["rows"][number];
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "payments", "view")) redirect("/admin");
-  const { search } = await searchParams;
+  const { search, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [payments, taxTypes, businesses, citizens, arrondissements] = await Promise.all([
-    listPayments(user, search),
+  const [{ rows: payments, total, pageSize }, taxTypes, businesses, citizens, arrondissements] = await Promise.all([
+    listPaymentsPage(user, search, page),
     listTaxTypes(),
     listBusinesses(user),
     listCitizens(user),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<PaymentRow>[] = [
     { key: "receiptNumber", header: "Quittance", render: (p) => <span className="text-xs text-[var(--color-text-muted)]">{p.receiptNumber}</span>, sortable: true, sortValue: (p) => p.receiptNumber },
@@ -90,7 +93,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         <SearchBox defaultValue={search} placeholder="Rechercher par numero de quittance..." />
       </AdvancedSearchPanel>
 
-      <DataTable columns={columns} rows={payments} keyField="id" emptyLabel="Aucun paiement enregistre." />
+      <DataTable columns={columns} rows={payments} keyField="id" emptyLabel="Aucun paiement enregistre." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/payments?${new URLSearchParams({ ...(search ? { search } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

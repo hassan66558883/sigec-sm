@@ -1,33 +1,36 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, recordScopeWhere } from "@/lib/rbac";
-import { listAuditLogs } from "@/lib/audit";
+import { listAuditLogsPage } from "@/lib/audit";
 import { redirect } from "next/navigation";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { IconShieldCheck, IconActivity } from "@/components/icons";
 
-type LogRow = Awaited<ReturnType<typeof listAuditLogs>>[number];
+type LogRow = Awaited<ReturnType<typeof listAuditLogsPage>>["rows"][number];
 
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ module?: string }>;
+  searchParams: Promise<{ module?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "audit", "view")) redirect("/admin");
 
-  const { module } = await searchParams;
+  const { module, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [logs, modules, totalCount, failureCount] = await Promise.all([
-    listAuditLogs(user, module),
+  const [{ rows: logs, total: logsTotal, pageSize }, modules, totalCount, failureCount] = await Promise.all([
+    listAuditLogsPage(user, module, page),
     prisma.auditLog.findMany({ where: recordScopeWhere(user), distinct: ["module"], select: { module: true } }),
     prisma.auditLog.count({ where: recordScopeWhere(user) }),
     prisma.auditLog.count({ where: { ...recordScopeWhere(user), result: { not: "SUCCESS" } } }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(logsTotal / pageSize));
 
   const columns: Column<LogRow>[] = [
     {
@@ -106,7 +109,12 @@ export default async function AuditPage({
         ))}
       </div>
 
-      <DataTable columns={columns} rows={logs} keyField="id" emptyLabel="Aucune entree." />
+      <DataTable columns={columns} rows={logs} keyField="id" emptyLabel="Aucune entree." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/audit?${new URLSearchParams({ ...(module ? { module } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }
