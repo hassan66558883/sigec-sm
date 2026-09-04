@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/rbac";
-import { listMobileMoneyTransactions } from "@/lib/services/mobile-money";
+import { can, recordScopeWhere } from "@/lib/rbac";
+import { prisma } from "@/lib/db";
+import { listMobileMoneyTransactionsPage } from "@/lib/services/mobile-money";
 import { ConfirmTransactionButtons } from "@/components/mobile-money/confirm-transaction-buttons";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { IconActivity } from "@/components/icons";
@@ -22,19 +24,31 @@ const STATUS_TONE: Record<string, StatusTone> = {
   REFUNDED: "neutral",
 };
 
-type TransactionRow = Awaited<ReturnType<typeof listMobileMoneyTransactions>>[number];
+type TransactionRow = Awaited<ReturnType<typeof listMobileMoneyTransactionsPage>>["rows"][number];
 
-export default async function MobileMoneyPage() {
+export default async function MobileMoneyPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "mobile_money", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const transactions = await listMobileMoneyTransactions(user);
+  const [{ rows: transactions, total: pageTotal, pageSize }, statusCounts] = await Promise.all([
+    listMobileMoneyTransactionsPage(user, undefined, page),
+    // Statistiques calculees sur l'ensemble du perimetre (pas seulement la
+    // page courante) via un groupBy dedie cote base — sinon, une fois la
+    // pagination reelle en place, ces pourcentages ne refleteraient plus
+    // que les ~25 lignes de la page affichee (meme choix que pour les
+    // stats de /admin/caisses et totalCount/failureCount sur /admin/audit).
+    prisma.mobileMoneyTransaction.groupBy({ by: ["status"], where: { payment: recordScopeWhere(user) }, _count: true }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(pageTotal / pageSize));
 
-  const success = transactions.filter((t) => t.status === "SUCCESS").length;
-  const pending = transactions.filter((t) => t.status === "INITIATED" || t.status === "PENDING").length;
-  const failed = transactions.filter((t) => t.status === "FAILED" || t.status === "CANCELLED").length;
-  const total = transactions.length;
+  const countByStatus = new Map(statusCounts.map((s) => [s.status, s._count]));
+  const success = countByStatus.get("SUCCESS") ?? 0;
+  const pending = (countByStatus.get("INITIATED") ?? 0) + (countByStatus.get("PENDING") ?? 0);
+  const failed = (countByStatus.get("FAILED") ?? 0) + (countByStatus.get("CANCELLED") ?? 0);
+  const total = statusCounts.reduce((sum, s) => sum + s._count, 0);
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
 
   const columns: Column<TransactionRow>[] = [
@@ -67,7 +81,8 @@ export default async function MobileMoneyPage() {
         </div>
       )}
 
-      <DataTable columns={columns} rows={transactions} keyField="id" emptyLabel="Aucune transaction Mobile Money." />
+      <DataTable columns={columns} rows={transactions} keyField="id" emptyLabel="Aucune transaction Mobile Money." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/mobile-money?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

@@ -1,24 +1,28 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listReceipts } from "@/lib/services/receipts";
+import { listReceiptsPage } from "@/lib/services/receipts";
 import { ReasonActionButton } from "@/components/finances/reason-action-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
 }
 
-type ReceiptRow = Awaited<ReturnType<typeof listReceipts>>[number];
+type ReceiptRow = Awaited<ReturnType<typeof listReceiptsPage>>["rows"][number];
 
-export default async function ReceiptsPage() {
+export default async function ReceiptsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "receipts", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const receipts = await listReceipts(user);
+  const { rows: receipts, total, pageSize } = await listReceiptsPage(user, page);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<ReceiptRow>[] = [
     { key: "number", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.number}</span>, sortable: true, sortValue: (r) => r.number },
@@ -64,7 +68,8 @@ export default async function ReceiptsPage() {
         }
       />
 
-      <DataTable columns={columns} rows={receipts} keyField="id" emptyLabel="Aucun reçu genere." />
+      <DataTable columns={columns} rows={receipts} keyField="id" emptyLabel="Aucun reçu genere." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/receipts?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

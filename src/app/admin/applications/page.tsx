@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listApplicationsForStaff, getApplicationsProcessingStats } from "@/lib/services/applications";
+import { listApplicationsForStaffPage, getApplicationsProcessingStats } from "@/lib/services/applications";
 import { ApplicationActions } from "@/components/civil-status/application-actions";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
@@ -31,15 +32,20 @@ const STATUS_TONE: Record<string, StatusTone> = {
   REJECTED: "danger",
 };
 
-type ApplicationRow = Awaited<ReturnType<typeof listApplicationsForStaff>>[number];
+type ApplicationRow = Awaited<ReturnType<typeof listApplicationsForStaffPage>>["rows"][number];
 
-export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
+export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "applications", "view")) redirect("/admin");
-  const { search } = await searchParams;
+  const { search, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [applications, stats] = await Promise.all([listApplicationsForStaff(user, search), getApplicationsProcessingStats(user)]);
+  const [{ rows: applications, total, pageSize }, stats] = await Promise.all([
+    listApplicationsForStaffPage(user, search, page),
+    getApplicationsProcessingStats(user),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<ApplicationRow>[] = [
     { key: "applicationNumber", header: "Numero", render: (a) => <span className="text-xs text-[var(--color-text-muted)]">{a.applicationNumber}</span>, sortable: true, sortValue: (a) => a.applicationNumber },
@@ -73,7 +79,12 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         <SearchBox defaultValue={search} placeholder="Rechercher par numero de demande..." />
       </AdvancedSearchPanel>
 
-      <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." />
+      <DataTable columns={columns} rows={applications} keyField="id" emptyLabel="Aucune demande a traiter." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/applications?${new URLSearchParams({ ...(search ? { search } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

@@ -5,6 +5,11 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 
+// Utilisee a la fois par la page de liste /admin/recognitions ET par
+// src/app/api/recognitions/route.ts (GET) — signature/forme de retour
+// (tableau simple) volontairement inchangee ici pour ne pas casser cet
+// appelant. La pagination reelle de l'ecran de liste vit dans
+// listRecognitionsPage() ci-dessous, une fonction dediee.
 export async function listRecognitions(user: CurrentUser) {
   return prisma.recognition.findMany({
     where: recordScopeWhere(user),
@@ -12,6 +17,29 @@ export async function listRecognitions(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/recognitions uniquement : avant ce changement, les reconnaissances
+// au-dela des 100 premieres (par date de creation) n'etaient jamais
+// accessibles, quelle que soit la page cliquee dans le tableau (voir audit
+// performance 2026-09-02) — `listRecognitions()` ci-dessus plafonnait a
+// `take: 100` sans `skip`.
+export async function listRecognitionsPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.recognition.findMany({
+      where,
+      include: { child: true, parent: true, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.recognition.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export type DeclareRecognitionInput = {

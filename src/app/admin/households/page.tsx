@@ -2,22 +2,26 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listHouseholds } from "@/lib/services/households";
+import { listHouseholdsPage } from "@/lib/services/households";
 import { HouseholdForm } from "@/components/civil-status/household-form";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 
-type HouseholdRow = Awaited<ReturnType<typeof listHouseholds>>[number];
+type HouseholdRow = Awaited<ReturnType<typeof listHouseholdsPage>>["rows"][number];
 
-export default async function HouseholdsPage() {
+export default async function HouseholdsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "households", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [households, arrondissements] = await Promise.all([
-    listHouseholds(user),
+  const [{ rows: households, total, pageSize }, arrondissements] = await Promise.all([
+    listHouseholdsPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<HouseholdRow>[] = [
     { key: "code", header: "Code", render: (h) => <span className="text-xs text-[var(--color-text-muted)]">{h.code}</span>, sortable: true, sortValue: (h) => h.code },
@@ -34,7 +38,8 @@ export default async function HouseholdsPage() {
         action={can(user, "households", "create") && <HouseholdForm arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))} />}
       />
 
-      <DataTable columns={columns} rows={households} keyField="id" emptyLabel="Aucun menage enregistre." />
+      <DataTable columns={columns} rows={households} keyField="id" emptyLabel="Aucun menage enregistre." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/households?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

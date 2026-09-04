@@ -10,6 +10,9 @@ import { issueUrbanPlanningCertificate } from "@/lib/services/certificates";
 // Validation/Decision -> Document officiel.
 // status: SUBMITTED -> UNDER_REVIEW -> INSPECTED -> APPROVED | REJECTED
 
+// Utilisee par la page /admin/urbanism ET par /api/urbanism/cases —
+// signature et forme de retour inchangees ici ; pagination reelle dans
+// listUrbanCasesPage() ci-dessous.
 export async function listUrbanCases(user: CurrentUser) {
   return prisma.urbanPlanningCase.findMany({
     where: recordScopeWhere(user),
@@ -17,6 +20,25 @@ export async function listUrbanCases(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/urbanism uniquement (voir audit performance 2026-09-02).
+export async function listUrbanCasesPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.urbanPlanningCase.findMany({
+      where,
+      include: { parcel: true, applicant: true, arrondissement: true, certificates: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.urbanPlanningCase.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export type SubmitUrbanCaseInput = {

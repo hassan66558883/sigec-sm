@@ -96,6 +96,11 @@ export async function createApplication(account: CitizenAccountWithCitizen, inpu
   return created;
 }
 
+// Utilisee a la fois par la page de liste /admin/applications ET par
+// src/app/api/applications/route.ts (GET) — signature/forme de retour
+// (tableau simple) volontairement inchangee ici pour ne pas casser cet
+// appelant. La pagination reelle de l'ecran de liste vit dans
+// listApplicationsForStaffPage() ci-dessous, une fonction dediee.
 export async function listApplicationsForStaff(user: CurrentUser, search?: string) {
   if (!can(user, "applications", "view")) throw new ApiError(403, "Permission insuffisante.");
   return prisma.application.findMany({
@@ -107,6 +112,33 @@ export async function listApplicationsForStaff(user: CurrentUser, search?: strin
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/applications uniquement : avant ce changement, les demandes
+// au-dela des 100 premieres (par date de creation) n'etaient jamais
+// accessibles, quelle que soit la page cliquee dans le tableau (voir audit
+// performance 2026-09-02) — `listApplicationsForStaff()` ci-dessus
+// plafonnait a `take: 100` sans `skip`.
+export async function listApplicationsForStaffPage(user: CurrentUser, search?: string, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  if (!can(user, "applications", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const where = {
+    ...recordScopeWhere(user),
+    ...(search ? { applicationNumber: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.application.findMany({
+      where,
+      include: { citizenAccount: { include: { citizen: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.application.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function approveApplication(actor: CurrentUser, id: string) {

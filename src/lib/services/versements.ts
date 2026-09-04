@@ -6,6 +6,11 @@ import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { detectCashDiscrepancy } from "@/lib/services/fraud";
 
+// Utilisee a la fois par la page de liste des versements ET par
+// /api/versements (consommateur externe qui veut le lot complet, pas une
+// page) — signature/forme de retour (tableau simple) volontairement
+// inchangee ici pour ne pas casser cet appelant. La pagination reelle de
+// l'ecran de liste vit dans listVersementsPage() ci-dessous.
 export async function listVersements(user: CurrentUser) {
   return prisma.versement.findMany({
     where: recordScopeWhere(user),
@@ -13,6 +18,29 @@ export async function listVersements(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const VERSEMENTS_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/versements uniquement (voir citizens.ts:listCitizensPage pour le
+// meme constat et la meme justification — audit performance 2026-09-02).
+// listVersements() ci-dessus reste inchangee : encore utilisee telle quelle
+// par /api/versements, qui veut le lot complet (jusqu'a 100 lignes), pas
+// une page.
+export async function listVersementsPage(user: CurrentUser, page = 1, pageSize = VERSEMENTS_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.versement.findMany({
+      where,
+      include: { agent: { include: { user: true } }, caisse: true, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.versement.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 // Remise des especes d'une caisse cloturee (section 21) — le montant

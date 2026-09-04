@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listBusinesses } from "@/lib/services/businesses";
+import { listBusinessesPage } from "@/lib/services/businesses";
 import { listCitizens } from "@/lib/services/citizens";
 import { listActivities } from "@/lib/services/activities";
 import { BusinessForm } from "@/components/finances/business-form";
 import { BusinessStatusSelect } from "@/components/finances/business-status-select";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,19 +27,22 @@ const STATUS_TONE: Record<string, StatusTone> = {
   EN_ATTENTE_DE_VALIDATION: "warning",
 };
 
-type BusinessRow = Awaited<ReturnType<typeof listBusinesses>>[number];
+type BusinessRow = Awaited<ReturnType<typeof listBusinessesPage>>["rows"][number];
 
-export default async function BusinessesPage() {
+export default async function BusinessesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "businesses", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [businesses, arrondissements, citizens, activities] = await Promise.all([
-    listBusinesses(user),
+  const [{ rows: businesses, total, pageSize }, arrondissements, citizens, activities] = await Promise.all([
+    listBusinessesPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
     listActivities(),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<BusinessRow>[] = [
     { key: "code", header: "Code", render: (b) => <span className="text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</span>, sortable: true, sortValue: (b) => b.code ?? "" },
@@ -76,7 +80,8 @@ export default async function BusinessesPage() {
         }
       />
 
-      <DataTable columns={columns} rows={businesses} keyField="id" emptyLabel="Aucune boutique enregistree." />
+      <DataTable columns={columns} rows={businesses} keyField="id" emptyLabel="Aucune boutique enregistree." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/businesses?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

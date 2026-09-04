@@ -2,10 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listComplaintsForStaff } from "@/lib/services/complaints";
+import { listComplaintsForStaffPage } from "@/lib/services/complaints";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie",
@@ -34,14 +35,21 @@ const STATUS_TONE: Record<string, StatusTone> = {
   CLOSED: "success",
 };
 
-type ComplaintRow = Awaited<ReturnType<typeof listComplaintsForStaff>>[number];
+type ComplaintRow = Awaited<ReturnType<typeof listComplaintsForStaffPage>>["rows"][number];
 
-export default async function ComplaintsPage() {
+export default async function ComplaintsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "complaints", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const complaints = await listComplaintsForStaff(user);
+  const { rows: complaints, total, pageSize } = await listComplaintsForStaffPage(user, page);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<ComplaintRow>[] = [
     {
@@ -82,7 +90,8 @@ export default async function ComplaintsPage() {
     <div className="space-y-6">
       <PageHeading title="Plaintes & doleances" description="Guichet numerique — suivi des signalements citoyens." />
 
-      <DataTable columns={columns} rows={complaints} keyField="id" emptyLabel="Aucune plainte enregistree." />
+      <DataTable columns={columns} rows={complaints} keyField="id" emptyLabel="Aucune plainte enregistree." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/complaints?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

@@ -20,6 +20,12 @@ export async function generateReceiptForPayment(tx: Prisma.TransactionClient, pa
   return tx.receipt.update({ where: { id: row.id }, data: { number } });
 }
 
+// Utilisee a la fois par la page de liste des reçus ET par /api/receipts +
+// /api/receipts/export (consommateurs externes qui veulent le lot complet,
+// pas une page) — signature/forme de retour (tableau simple)
+// volontairement inchangee ici pour ne pas casser ces appelants. La
+// pagination reelle de l'ecran de liste vit dans listReceiptsPage()
+// ci-dessous.
 export async function listReceipts(user: CurrentUser) {
   return prisma.receipt.findMany({
     where: { payment: { arrondissementId: user.hasGlobalScope ? undefined : { in: user.arrondissementIds } } },
@@ -27,6 +33,29 @@ export async function listReceipts(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+}
+
+const RECEIPTS_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/receipts uniquement (voir citizens.ts:listCitizensPage pour le
+// meme constat et la meme justification — audit performance 2026-09-02).
+// listReceipts() ci-dessus reste inchangee : encore utilisee telle quelle
+// par /api/receipts et /api/receipts/export, qui veulent le lot complet
+// (jusqu'a 200 lignes), pas une page.
+export async function listReceiptsPage(user: CurrentUser, page = 1, pageSize = RECEIPTS_PAGE_SIZE) {
+  const where = { payment: { arrondissementId: user.hasGlobalScope ? undefined : { in: user.arrondissementIds } } };
+  const [rows, total] = await Promise.all([
+    prisma.receipt.findMany({
+      where,
+      include: { payment: { include: { payer: true, arrondissement: true, taxType: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.receipt.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function getReceipt(user: CurrentUser, id: string) {

@@ -32,6 +32,9 @@ export async function reportIssue(account: CitizenAccountWithCitizen, input: { t
   });
 }
 
+// Utilisee par la page /admin/infrastructure ET par /api/infrastructure —
+// signature et forme de retour inchangees ici ; pagination reelle dans
+// listInfrastructureForStaffPage() ci-dessous.
 export async function listInfrastructureForStaff(user: CurrentUser) {
   if (!can(user, "infrastructure", "view")) throw new ApiError(403, "Permission insuffisante.");
   return prisma.infrastructure.findMany({
@@ -40,6 +43,26 @@ export async function listInfrastructureForStaff(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/infrastructure uniquement (voir audit performance 2026-09-02).
+export async function listInfrastructureForStaffPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  if (!can(user, "infrastructure", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.infrastructure.findMany({
+      where,
+      include: { arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.infrastructure.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function updateInfrastructureStatus(actor: CurrentUser, id: string, status: string) {

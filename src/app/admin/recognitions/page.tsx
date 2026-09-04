@@ -2,30 +2,34 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listRecognitions } from "@/lib/services/recognitions";
+import { listRecognitionsPage } from "@/lib/services/recognitions";
 import { listCitizens } from "@/lib/services/citizens";
 import { DeclareRecognitionForm } from "@/components/civil-status/declare-recognition-form";
 import { ValidateButton } from "@/components/civil-status/validate-button";
 import { IssueCertificateButton } from "@/components/civil-status/issue-certificate-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declaree", VALIDATED: "Validee" };
 const STATUS_TONE: Record<string, StatusTone> = { DECLARED: "warning", VALIDATED: "success" };
 
-type RecognitionRow = Awaited<ReturnType<typeof listRecognitions>>[number];
+type RecognitionRow = Awaited<ReturnType<typeof listRecognitionsPage>>["rows"][number];
 
-export default async function RecognitionsPage() {
+export default async function RecognitionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "recognitions", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [records, arrondissements, citizens] = await Promise.all([
-    listRecognitions(user),
+  const [{ rows: records, total, pageSize }, arrondissements, citizens] = await Promise.all([
+    listRecognitionsPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<RecognitionRow>[] = [
     { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
@@ -72,7 +76,8 @@ export default async function RecognitionsPage() {
         }
       />
 
-      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucune reconnaissance enregistree." />
+      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucune reconnaissance enregistree." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/recognitions?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

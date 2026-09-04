@@ -7,6 +7,11 @@ import { generateEmplacementCode } from "@/lib/ids";
 
 const STATUSES = ["ACTIVE", "INACTIVE", "FERMEE", "SUSPENDUE", "EN_ATTENTE_DE_VALIDATION"];
 
+// Utilisee a la fois par la page de liste des boutiques ET par les pages
+// obligations/payments (selecteur "choisir une boutique") + /api/businesses
+// — signature/forme de retour (tableau simple) volontairement inchangee
+// ici pour ne pas casser ces appelants. La pagination reelle de l'ecran de
+// liste vit dans listBusinessesPage() ci-dessous.
 export async function listBusinesses(user: CurrentUser) {
   return prisma.business.findMany({
     where: recordScopeWhere(user),
@@ -14,6 +19,30 @@ export async function listBusinesses(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const BUSINESSES_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/businesses uniquement (voir citizens.ts:listCitizensPage pour le
+// meme constat et la meme justification — audit performance 2026-09-02).
+// listBusinesses() ci-dessus reste inchangee : encore utilisee telle
+// quelle par /admin/obligations, /admin/payments (selecteurs) et
+// /api/businesses, qui veulent le lot complet (jusqu'a 100 lignes), pas
+// une page.
+export async function listBusinessesPage(user: CurrentUser, page = 1, pageSize = BUSINESSES_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.business.findMany({
+      where,
+      include: { owner: true, arrondissement: true, quartier: true, activityRef: true, _count: { select: { payments: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.business.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function getBusiness(user: CurrentUser, id: string) {

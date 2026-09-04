@@ -237,6 +237,9 @@ export async function enforceGeolocationPolicy(agentId: string, arrondissementId
   });
 }
 
+// Utilisee par la page /admin/fraud, par /api/fraud ET par
+// /api/reports/fraud — signature et forme de retour inchangees ici ;
+// pagination reelle dans listFraudAlertsPage() ci-dessous.
 export async function listFraudAlerts(user: CurrentUser, filters?: { status?: string; severity?: string }) {
   return prisma.fraudAlert.findMany({
     where: {
@@ -248,6 +251,34 @@ export async function listFraudAlerts(user: CurrentUser, filters?: { status?: st
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/fraud uniquement (voir audit performance 2026-09-02).
+export async function listFraudAlertsPage(
+  user: CurrentUser,
+  filters?: { status?: string; severity?: string },
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE,
+) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.severity ? { severity: filters.severity } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.fraudAlert.findMany({
+      where,
+      include: { agent: { include: { user: true } }, payment: true, caisse: true, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.fraudAlert.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function resolveFraudAlert(actor: CurrentUser, id: string, resolutionNotes: string, status: "RESOLUE" | "IGNOREE") {

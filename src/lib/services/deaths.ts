@@ -20,6 +20,11 @@ export async function getDeathsPeriodStats(user: CurrentUser) {
   return { today, week, month, year };
 }
 
+// Utilisee a la fois par la page de liste /admin/deaths ET par
+// src/app/api/deaths/route.ts (GET) — signature/forme de retour (tableau
+// simple) volontairement inchangee ici pour ne pas casser cet appelant. La
+// pagination reelle de l'ecran de liste vit dans listDeathRecordsPage()
+// ci-dessous, une fonction dediee.
 export async function listDeathRecords(user: CurrentUser, search?: string) {
   const records = await prisma.deathRecord.findMany({
     where: {
@@ -34,6 +39,31 @@ export async function listDeathRecords(user: CurrentUser, search?: string) {
   // appelant (page admin, futur export...) recoive du texte en clair sans
   // avoir a connaitre le detail du chiffrement.
   return records.map((r) => ({ ...r, cause: decryptField(r.cause) }));
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/deaths uniquement : avant ce changement, les actes au-dela des 100
+// premiers (par date de creation) n'etaient jamais accessibles, quelle que
+// soit la page cliquee dans le tableau (voir audit performance 2026-09-02)
+// — `listDeathRecords()` ci-dessus plafonnait a `take: 100` sans `skip`.
+export async function listDeathRecordsPage(user: CurrentUser, search?: string, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(search ? { recordNumber: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+  const [records, total] = await Promise.all([
+    prisma.deathRecord.findMany({
+      where,
+      include: { deceased: true, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.deathRecord.count({ where }),
+  ]);
+  return { rows: records.map((r) => ({ ...r, cause: decryptField(r.cause) })), total, page, pageSize };
 }
 
 // Rapport (section 31) : meme perimetre territorial + dechiffrement de

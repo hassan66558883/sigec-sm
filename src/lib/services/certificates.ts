@@ -24,6 +24,11 @@ export async function listCertificateTypes() {
   return prisma.certificateType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
 }
 
+// Utilisee a la fois par la page de liste /admin/certificates ET par
+// src/app/api/certificates/route.ts (GET) — signature/forme de retour
+// (tableau simple) volontairement inchangee ici pour ne pas casser cet
+// appelant. La pagination reelle de l'ecran de liste vit dans
+// listCertificatesPage() ci-dessous, une fonction dediee.
 export async function listCertificates(user: CurrentUser, search?: string) {
   return prisma.certificate.findMany({
     where: {
@@ -34,6 +39,32 @@ export async function listCertificates(user: CurrentUser, search?: string) {
     orderBy: { issuedAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/certificates uniquement : avant ce changement, les certificats
+// au-dela des 100 premiers (par date de delivrance) n'etaient jamais
+// accessibles, quelle que soit la page cliquee dans le tableau (voir audit
+// performance 2026-09-02) — `listCertificates()` ci-dessus plafonnait a
+// `take: 100` sans `skip`.
+export async function listCertificatesPage(user: CurrentUser, search?: string, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(search ? { documentNumber: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.certificate.findMany({
+      where,
+      include: { certificateType: true, citizen: true, arrondissement: true },
+      orderBy: { issuedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.certificate.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 type IssueParams = {

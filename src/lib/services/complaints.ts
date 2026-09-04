@@ -43,6 +43,9 @@ export async function submitComplaint(
 
 // --- Cote agents -------------------------------------------------------------
 
+// Utilisee par la page /admin/complaints ET par /api/complaints — signature
+// et forme de retour inchangees ici ; pagination reelle dans
+// listComplaintsForStaffPage() ci-dessous.
 export async function listComplaintsForStaff(user: CurrentUser) {
   if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
   return prisma.complaint.findMany({
@@ -51,6 +54,26 @@ export async function listComplaintsForStaff(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/complaints uniquement (voir audit performance 2026-09-02).
+export async function listComplaintsForStaffPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.complaint.findMany({
+      where,
+      include: { citizenAccount: { include: { citizen: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.complaint.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function getComplaintForStaff(user: CurrentUser, id: string) {

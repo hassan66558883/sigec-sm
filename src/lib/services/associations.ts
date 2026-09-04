@@ -5,6 +5,9 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 
+// Utilisee par la page /admin/associations ET par /api/associations —
+// signature et forme de retour inchangees ici ; pagination reelle dans
+// listAssociationsPage() ci-dessous.
 export async function listAssociations(user: CurrentUser) {
   return prisma.association.findMany({
     where: recordScopeWhere(user),
@@ -12,6 +15,25 @@ export async function listAssociations(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/associations uniquement (voir audit performance 2026-09-02).
+export async function listAssociationsPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.association.findMany({
+      where,
+      include: { leader: true, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.association.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function createAssociation(

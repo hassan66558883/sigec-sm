@@ -5,6 +5,11 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 
+// Utilisee a la fois par la table de la page /admin/land ET comme source du
+// selecteur "lotissement" dans ParcelForm sur la meme page — signature et
+// forme de retour (tableau simple) volontairement inchangees pour ne pas
+// casser l'API /api/land/subdivisions ni ce selecteur. La pagination reelle
+// de la table vit dans listSubdivisionsPage() ci-dessous.
 export async function listSubdivisions(user: CurrentUser) {
   return prisma.subdivision.findMany({
     where: recordScopeWhere(user),
@@ -12,6 +17,27 @@ export async function listSubdivisions(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour la table "Lotissements"
+// de /admin/land uniquement (voir audit performance 2026-09-02 : au-dela des
+// 100 premiers lotissements, aucune page cliquee dans le tableau ne les
+// rendait jamais accessibles).
+export async function listSubdivisionsPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.subdivision.findMany({
+      where,
+      include: { arrondissement: true, _count: { select: { parcels: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.subdivision.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function createSubdivision(
@@ -35,6 +61,9 @@ export async function createSubdivision(
   return created;
 }
 
+// Utilisee par la table de /admin/land ET par /api/land/parcels — signature
+// et forme de retour inchangees ici ; pagination reelle dans
+// listParcelsPage() ci-dessous.
 export async function listParcels(user: CurrentUser) {
   return prisma.landParcel.findMany({
     where: recordScopeWhere(user),
@@ -42,6 +71,22 @@ export async function listParcels(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+// Pagination reelle cote base pour la table "Parcelles" de /admin/land.
+export async function listParcelsPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.landParcel.findMany({
+      where,
+      include: { arrondissement: true, owner: true, title: true, subdivision: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.landParcel.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export type CreateParcelInput = {

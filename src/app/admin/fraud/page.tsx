@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listFraudAlerts } from "@/lib/services/fraud";
+import { listFraudAlertsPage } from "@/lib/services/fraud";
 import { ResolveAlertForm } from "@/components/finances/resolve-alert-form";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 const SEVERITY_TONE: Record<string, StatusTone> = {
   LOW: "neutral",
@@ -27,15 +28,17 @@ const TYPE_LABEL: Record<string, string> = {
   SUSPICIOUS_RECEIPT: "Reçu suspect",
 };
 
-type AlertRow = Awaited<ReturnType<typeof listFraudAlerts>>[number];
+type AlertRow = Awaited<ReturnType<typeof listFraudAlertsPage>>["rows"][number];
 
-export default async function FraudPage({ searchParams }: { searchParams: Promise<{ status?: string; severity?: string }> }) {
+export default async function FraudPage({ searchParams }: { searchParams: Promise<{ status?: string; severity?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "fraud", "view")) redirect("/admin");
-  const { status, severity } = await searchParams;
+  const { status, severity, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const alerts = await listFraudAlerts(user, { status: status ?? "OUVERTE", severity });
+  const { rows: alerts, total, pageSize } = await listFraudAlertsPage(user, { status: status ?? "OUVERTE", severity }, page);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<AlertRow>[] = [
     { key: "date", header: "Date", render: (a) => <span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{new Date(a.createdAt).toLocaleString("fr-FR")}</span>, sortable: true, sortValue: (a) => new Date(a.createdAt).getTime() },
@@ -72,7 +75,12 @@ export default async function FraudPage({ searchParams }: { searchParams: Promis
         ))}
       </div>
 
-      <DataTable columns={columns} rows={alerts} keyField="id" emptyLabel="Aucune alerte." />
+      <DataTable columns={columns} rows={alerts} keyField="id" emptyLabel="Aucune alerte." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/fraud?${new URLSearchParams({ ...(status ? { status } : {}), ...(severity ? { severity } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

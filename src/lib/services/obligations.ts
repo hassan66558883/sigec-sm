@@ -15,6 +15,11 @@ export function withBalance<T extends { initialAmount: number; paidAmount: numbe
   return { ...o, totalDue, balance: Math.max(0, totalDue - o.paidAmount) };
 }
 
+// Utilisee a la fois par la page de liste des obligations ET par
+// /api/obligations (consommateur externe qui veut le lot complet, pas une
+// page) — signature/forme de retour (tableau simple) volontairement
+// inchangee ici pour ne pas casser cet appelant. La pagination reelle de
+// l'ecran de liste vit dans listObligationsPage() ci-dessous.
 export async function listObligations(user: CurrentUser, filters?: { status?: string; citizenId?: string }) {
   const rows = await prisma.obligationPaiement.findMany({
     where: {
@@ -27,6 +32,38 @@ export async function listObligations(user: CurrentUser, filters?: { status?: st
     take: 200,
   });
   return rows.map(withBalance);
+}
+
+const OBLIGATIONS_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/obligations uniquement (voir citizens.ts:listCitizensPage pour le
+// meme constat et la meme justification — audit performance 2026-09-02).
+// listObligations() ci-dessus reste inchangee : encore utilisee telle
+// quelle par /api/obligations, qui veut le lot complet (jusqu'a 200 lignes),
+// pas une page.
+export async function listObligationsPage(
+  user: CurrentUser,
+  filters?: { status?: string; citizenId?: string },
+  page = 1,
+  pageSize = OBLIGATIONS_PAGE_SIZE,
+) {
+  const where = {
+    ...recordScopeWhere(user),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.citizenId ? { citizenId: filters.citizenId } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.obligationPaiement.findMany({
+      where,
+      include: { citizen: true, business: true, marketStall: { include: { market: true } }, tarif: true, arrondissement: true },
+      orderBy: { dueDate: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.obligationPaiement.count({ where }),
+  ]);
+  return { rows: rows.map(withBalance), total, page, pageSize };
 }
 
 // Rapport impayes (section 31) : toutes les obligations dont le solde

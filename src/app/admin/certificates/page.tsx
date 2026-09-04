@@ -2,25 +2,31 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listCertificates, getCertificatesPeriodStats } from "@/lib/services/certificates";
+import { listCertificatesPage, getCertificatesPeriodStats } from "@/lib/services/certificates";
 import { RevokeButton } from "@/components/civil-status/revoke-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
 import { AdvancedSearchPanel } from "@/components/ui/advanced-search-panel";
 import { IconActivity } from "@/components/icons";
 
-type CertificateRow = Awaited<ReturnType<typeof listCertificates>>[number];
+type CertificateRow = Awaited<ReturnType<typeof listCertificatesPage>>["rows"][number];
 
-export default async function CertificatesPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
+export default async function CertificatesPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "certificates", "view")) redirect("/admin");
-  const { search } = await searchParams;
+  const { search, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [certificates, periodStats] = await Promise.all([listCertificates(user, search), getCertificatesPeriodStats(user)]);
+  const [{ rows: certificates, total, pageSize }, periodStats] = await Promise.all([
+    listCertificatesPage(user, search, page),
+    getCertificatesPeriodStats(user),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<CertificateRow>[] = [
     { key: "documentNumber", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.documentNumber}</span>, sortable: true, sortValue: (c) => c.documentNumber },
@@ -60,7 +66,12 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
         <SearchBox defaultValue={search} placeholder="Rechercher par numero de document..." />
       </AdvancedSearchPanel>
 
-      <DataTable columns={columns} rows={certificates} keyField="id" emptyLabel="Aucun certificat delivre." />
+      <DataTable columns={columns} rows={certificates} keyField="id" emptyLabel="Aucun certificat delivre." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/certificates?${new URLSearchParams({ ...(search ? { search } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

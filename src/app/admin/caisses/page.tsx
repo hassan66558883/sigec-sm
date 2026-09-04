@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { can } from "@/lib/rbac";
-import { listCashRegisters, listAgentsWithoutOpenCaisse } from "@/lib/services/caisses";
+import { can, recordScopeWhere } from "@/lib/rbac";
+import { listCashRegistersPage, listAgentsWithoutOpenCaisse } from "@/lib/services/caisses";
 import { OpenCaisseForm } from "@/components/caisses/open-caisse-form";
 import { CloseCaisseForm } from "@/components/caisses/close-caisse-form";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { IconCoins } from "@/components/icons";
@@ -14,22 +16,31 @@ function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
 }
 
-type CaisseRow = Awaited<ReturnType<typeof listCashRegisters>>[number];
+type CaisseRow = Awaited<ReturnType<typeof listCashRegistersPage>>["rows"][number];
 
-export default async function CaissesPage() {
+export default async function CaissesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "caisses", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [caisses, agents] = await Promise.all([
-    listCashRegisters(user),
+  const scopeWhere = recordScopeWhere(user);
+  const [{ rows: caisses, total, pageSize }, agents, open, sums, withDiscrepancy] = await Promise.all([
+    listCashRegistersPage(user, page),
     can(user, "caisses", "create") ? listAgentsWithoutOpenCaisse(user) : Promise.resolve([]),
+    // Statistiques calculees sur l'ensemble du perimetre (pas seulement la
+    // page courante) via des agregats dedies cote base — sinon, une fois la
+    // pagination reelle en place, ces compteurs ne refleteraient plus que
+    // les ~25 lignes de la page affichee (voir meme choix pour
+    // totalCount/failureCount sur /admin/audit).
+    prisma.cashRegister.count({ where: { ...scopeWhere, status: "OUVERTE" } }),
+    prisma.cashRegister.aggregate({ where: scopeWhere, _sum: { expectedAmount: true, declaredAmount: true } }),
+    prisma.cashRegister.count({ where: { ...scopeWhere, discrepancy: { not: 0 } } }),
   ]);
-
-  const open = caisses.filter((c) => c.status === "OUVERTE").length;
-  const totalExpected = caisses.reduce((sum, c) => sum + (c.expectedAmount ?? 0), 0);
-  const totalDeclared = caisses.reduce((sum, c) => sum + (c.declaredAmount ?? 0), 0);
-  const withDiscrepancy = caisses.filter((c) => c.discrepancy !== null && c.discrepancy !== 0).length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalExpected = sums._sum.expectedAmount ?? 0;
+  const totalDeclared = sums._sum.declaredAmount ?? 0;
 
   const columns: Column<CaisseRow>[] = [
     { key: "number", header: "Numero", render: (c) => <span className="text-xs text-[var(--color-text-muted)]">{c.number}</span>, sortable: true, sortValue: (c) => c.number },
@@ -62,7 +73,7 @@ export default async function CaissesPage() {
         action={can(user, "caisses", "create") && <OpenCaisseForm agents={agents.map((a) => ({ id: a.id, label: `${a.user.name} (${a.matricule})` }))} />}
       />
 
-      {caisses.length > 0 && (
+      {total > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard label="Caisses ouvertes" value={open} icon={<IconCoins className="h-5 w-5" />} tone="success" />
           <StatCard label="Attendu (total)" value={formatFcfa(totalExpected)} tone="primary" />
@@ -71,7 +82,8 @@ export default async function CaissesPage() {
         </div>
       )}
 
-      <DataTable columns={columns} rows={caisses} keyField="id" emptyLabel="Aucune caisse enregistree." />
+      <DataTable columns={columns} rows={caisses} keyField="id" emptyLabel="Aucune caisse enregistree." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/caisses?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

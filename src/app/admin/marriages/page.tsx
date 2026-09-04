@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listMarriages, listMarriageRegimes, getMarriagesPeriodStats } from "@/lib/services/marriages";
+import { listMarriagesPage, listMarriageRegimes, getMarriagesPeriodStats } from "@/lib/services/marriages";
 import { listCitizens } from "@/lib/services/citizens";
 import { DeclareMarriageForm } from "@/components/civil-status/declare-marriage-form";
 import { ValidateButton } from "@/components/civil-status/validate-button";
 import { IssueCertificateButton } from "@/components/civil-status/issue-certificate-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SearchBox } from "@/components/ui/search-box";
@@ -18,21 +19,23 @@ import { IconActivity } from "@/components/icons";
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declare", VALID: "Valide", DIVORCED: "Divorce", ANNULLED: "Annule" };
 const STATUS_TONE: Record<string, StatusTone> = { DECLARED: "warning", VALID: "success", DIVORCED: "neutral", ANNULLED: "neutral" };
 
-type MarriageRow = Awaited<ReturnType<typeof listMarriages>>[number];
+type MarriageRow = Awaited<ReturnType<typeof listMarriagesPage>>["rows"][number];
 
-export default async function MarriagesPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
+export default async function MarriagesPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "marriages", "view")) redirect("/admin");
-  const { search } = await searchParams;
+  const { search, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [records, arrondissements, citizens, regimes, periodStats] = await Promise.all([
-    listMarriages(user, search),
+  const [{ rows: records, total, pageSize }, arrondissements, citizens, regimes, periodStats] = await Promise.all([
+    listMarriagesPage(user, search, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
     listMarriageRegimes(),
     getMarriagesPeriodStats(user),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<MarriageRow>[] = [
     { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
@@ -82,7 +85,12 @@ export default async function MarriagesPage({ searchParams }: { searchParams: Pr
         <SearchBox defaultValue={search} placeholder="Rechercher par numero de dossier..." />
       </AdvancedSearchPanel>
 
-      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de mariage." />
+      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de mariage." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/marriages?${new URLSearchParams({ ...(search ? { search } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

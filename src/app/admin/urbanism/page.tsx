@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere, recordScopeWhere } from "@/lib/rbac";
-import { listUrbanCases } from "@/lib/services/urbanism";
+import { listUrbanCasesPage } from "@/lib/services/urbanism";
 import { listCitizens } from "@/lib/services/citizens";
 import { SubmitCaseForm } from "@/components/urbanism/submit-case-form";
 import { CaseWorkflowActions } from "@/components/urbanism/case-workflow-actions";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 const TYPE_LABEL: Record<string, string> = { BUILDING_PERMIT: "Permis de construire", DEMOLITION_PERMIT: "Autorisation de demolition" };
 const STATUS_LABEL: Record<string, string> = {
@@ -27,19 +28,26 @@ const STATUS_TONE: Record<string, StatusTone> = {
   REJECTED: "danger",
 };
 
-type CaseRow = Awaited<ReturnType<typeof listUrbanCases>>[number];
+type CaseRow = Awaited<ReturnType<typeof listUrbanCasesPage>>["rows"][number];
 
-export default async function UrbanismPage() {
+export default async function UrbanismPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "urbanism", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [cases, parcels, citizens, arrondissements] = await Promise.all([
-    listUrbanCases(user),
+  const [{ rows: cases, total, pageSize }, parcels, citizens, arrondissements] = await Promise.all([
+    listUrbanCasesPage(user, page),
     prisma.landParcel.findMany({ where: recordScopeWhere(user), take: 100 }),
     listCitizens(user),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<CaseRow>[] = [
     {
@@ -94,7 +102,8 @@ export default async function UrbanismPage() {
         }
       />
 
-      <DataTable columns={columns} rows={cases} keyField="id" emptyLabel="Aucun dossier d'urbanisme." />
+      <DataTable columns={columns} rows={cases} keyField="id" emptyLabel="Aucun dossier d'urbanisme." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/urbanism?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

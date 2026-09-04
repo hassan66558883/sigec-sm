@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listBirthRecords, getBirthsPeriodStats } from "@/lib/services/births";
+import { listBirthRecordsPage, getBirthsPeriodStats } from "@/lib/services/births";
 import { listCitizens } from "@/lib/services/citizens";
 import { DeclareBirthForm } from "@/components/civil-status/declare-birth-form";
 import { ValidateButton } from "@/components/civil-status/validate-button";
 import { RevokeButton } from "@/components/civil-status/revoke-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { IconActivity } from "@/components/icons";
@@ -25,19 +26,22 @@ const STATUS_TONE: Record<string, StatusTone> = {
   ANNULLED: "neutral",
 };
 
-type BirthRow = Awaited<ReturnType<typeof listBirthRecords>>[number];
+type BirthRow = Awaited<ReturnType<typeof listBirthRecordsPage>>["rows"][number];
 
-export default async function BirthsPage() {
+export default async function BirthsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "births", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [records, arrondissements, citizens, periodStats] = await Promise.all([
-    listBirthRecords(user),
+  const [{ rows: records, total, pageSize }, arrondissements, citizens, periodStats] = await Promise.all([
+    listBirthRecordsPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
     getBirthsPeriodStats(user),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<BirthRow>[] = [
     { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
@@ -89,7 +93,8 @@ export default async function BirthsPage() {
         <StatCard label="Cette annee" value={periodStats.year} icon={<IconActivity className="h-5 w-5" />} tone="warning" />
       </div>
 
-      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucune declaration de naissance." />
+      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucune declaration de naissance." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/births?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

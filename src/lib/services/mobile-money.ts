@@ -85,6 +85,12 @@ export async function initiateMobileMoneyPayment(actor: CurrentUser, input: Reco
   return { ...payment, mobileMoney: transaction, receipt: null as null };
 }
 
+// Utilisee a la fois par la page de liste Mobile Money ET par
+// /api/mobile-money + /api/reports/mobile-money (consommateurs externes qui
+// veulent le lot complet, pas une page) — signature/forme de retour
+// (tableau simple) volontairement inchangee ici pour ne pas casser ces
+// appelants. La pagination reelle de l'ecran de liste vit dans
+// listMobileMoneyTransactionsPage() ci-dessous.
 export async function listMobileMoneyTransactions(user: CurrentUser, status?: string) {
   return prisma.mobileMoneyTransaction.findMany({
     where: {
@@ -95,6 +101,32 @@ export async function listMobileMoneyTransactions(user: CurrentUser, status?: st
     orderBy: { initiatedAt: "desc" },
     take: 200,
   });
+}
+
+const MOBILE_MONEY_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/mobile-money uniquement (voir citizens.ts:listCitizensPage pour le
+// meme constat et la meme justification — audit performance 2026-09-02).
+// listMobileMoneyTransactions() ci-dessus reste inchangee : encore
+// utilisee telle quelle par /api/mobile-money et /api/reports/mobile-money,
+// qui veulent le lot complet (jusqu'a 200 lignes), pas une page.
+export async function listMobileMoneyTransactionsPage(user: CurrentUser, status?: string, page = 1, pageSize = MOBILE_MONEY_PAGE_SIZE) {
+  const where = {
+    payment: recordScopeWhere(user),
+    ...(status ? { status } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.mobileMoneyTransaction.findMany({
+      where,
+      include: { payment: { include: { payer: true, arrondissement: true } } },
+      orderBy: { initiatedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.mobileMoneyTransaction.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 // Confirmation reelle (section 17) : c'est ICI, et seulement ici, qu'un

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listObligations } from "@/lib/services/obligations";
+import { listObligationsPage } from "@/lib/services/obligations";
 import { listCitizens } from "@/lib/services/citizens";
 import { listBusinesses } from "@/lib/services/businesses";
 import { listMarkets } from "@/lib/services/markets";
@@ -11,6 +11,7 @@ import { ReasonActionButton } from "@/components/finances/reason-action-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
@@ -24,21 +25,23 @@ const STATUS_LABEL: Record<string, string> = {
   ANNULE: "Annule",
 };
 
-type ObligationRow = Awaited<ReturnType<typeof listObligations>>[number];
+type ObligationRow = Awaited<ReturnType<typeof listObligationsPage>>["rows"][number];
 
-export default async function ObligationsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function ObligationsPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "obligations", "view")) redirect("/admin");
-  const { status } = await searchParams;
+  const { status, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [obligations, citizens, businesses, markets, tariffs] = await Promise.all([
-    listObligations(user, { status }),
+  const [{ rows: obligations, total, pageSize }, citizens, businesses, markets, tariffs] = await Promise.all([
+    listObligationsPage(user, { status }, page),
     listCitizens(user),
     listBusinesses(user),
     listMarkets(user),
     listTariffs(),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const stalls = markets.flatMap((m) => m.stalls.map((s) => ({ id: s.id, label: `${m.name} — ${s.code}` })));
 
@@ -100,7 +103,12 @@ export default async function ObligationsPage({ searchParams }: { searchParams: 
         })}
       </div>
 
-      <DataTable columns={columns} rows={obligations} keyField="id" emptyLabel="Aucune obligation enregistree." />
+      <DataTable columns={columns} rows={obligations} keyField="id" emptyLabel="Aucune obligation enregistree." pageSize={null} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        makeHref={(p) => `/admin/obligations?${new URLSearchParams({ ...(status ? { status } : {}), page: String(p) })}`}
+      />
     </div>
   );
 }

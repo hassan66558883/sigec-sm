@@ -26,6 +26,11 @@ export async function listCaissesAwaitingVersement(user: CurrentUser) {
   });
 }
 
+// Utilisee a la fois par la page de liste des caisses ET par /api/caisses
+// (consommateur externe qui veut le lot complet, pas une page) —
+// signature/forme de retour (tableau simple) volontairement inchangee ici
+// pour ne pas casser cet appelant. La pagination reelle de l'ecran de liste
+// vit dans listCashRegistersPage() ci-dessous.
 export async function listCashRegisters(user: CurrentUser) {
   return prisma.cashRegister.findMany({
     where: recordScopeWhere(user),
@@ -33,6 +38,29 @@ export async function listCashRegisters(user: CurrentUser) {
     orderBy: { openedAt: "desc" },
     take: 100,
   });
+}
+
+const CAISSES_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/caisses uniquement (voir citizens.ts:listCitizensPage pour le meme
+// constat et la meme justification — audit performance 2026-09-02).
+// listCashRegisters() ci-dessus reste inchangee : encore utilisee telle
+// quelle par /api/caisses, qui veut le lot complet (jusqu'a 100 lignes),
+// pas une page.
+export async function listCashRegistersPage(user: CurrentUser, page = 1, pageSize = CAISSES_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.cashRegister.findMany({
+      where,
+      include: { agent: { include: { user: true } }, arrondissement: true, _count: { select: { payments: true } } },
+      orderBy: { openedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.cashRegister.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 export async function getCashRegister(user: CurrentUser, id: string) {

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listParcels, listSubdivisions } from "@/lib/services/land";
+import { listSubdivisions, listParcelsPage, listSubdivisionsPage } from "@/lib/services/land";
 import { listCitizens } from "@/lib/services/citizens";
 import { prisma } from "@/lib/db";
 import { ParcelForm } from "@/components/land/parcel-form";
@@ -10,24 +10,41 @@ import { IssueTitleButton } from "@/components/land/issue-title-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 const STATUS_LABEL: Record<string, string> = { AVAILABLE: "Disponible", OCCUPIED: "Occupee", DISPUTED: "Litige", TITLED: "Titree" };
 const STATUS_TONE: Record<string, StatusTone> = { AVAILABLE: "neutral", OCCUPIED: "warning", DISPUTED: "danger", TITLED: "success" };
 
-type ParcelRow = Awaited<ReturnType<typeof listParcels>>[number];
-type SubdivisionRow = Awaited<ReturnType<typeof listSubdivisions>>[number];
+type ParcelRow = Awaited<ReturnType<typeof listParcelsPage>>["rows"][number];
+type SubdivisionRow = Awaited<ReturnType<typeof listSubdivisionsPage>>["rows"][number];
 
-export default async function LandPage() {
+export default async function LandPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pageParcels?: string; pageSubdivisions?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "land", "view")) redirect("/admin");
+  const { pageParcels: pageParcelsParam, pageSubdivisions: pageSubdivisionsParam } = await searchParams;
+  const pageParcels = Math.max(1, Number(pageParcelsParam) || 1);
+  const pageSubdivisions = Math.max(1, Number(pageSubdivisionsParam) || 1);
 
-  const [parcels, subdivisions, arrondissements, citizens] = await Promise.all([
-    listParcels(user),
+  const [
+    { rows: parcels, total: parcelsTotal, pageSize: parcelsPageSize },
+    { rows: subdivisions, total: subdivisionsTotal, pageSize: subdivisionsPageSize },
+    subdivisionOptions,
+    arrondissements,
+    citizens,
+  ] = await Promise.all([
+    listParcelsPage(user, pageParcels),
+    listSubdivisionsPage(user, pageSubdivisions),
     listSubdivisions(user),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
   ]);
+  const parcelsTotalPages = Math.max(1, Math.ceil(parcelsTotal / parcelsPageSize));
+  const subdivisionsTotalPages = Math.max(1, Math.ceil(subdivisionsTotal / subdivisionsPageSize));
 
   const citizenOptions = citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }));
 
@@ -98,21 +115,31 @@ export default async function LandPage() {
           can(user, "land", "create") && (
             <ParcelForm
               arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-              subdivisions={subdivisions.map((s) => ({ id: s.id, label: s.name }))}
+              subdivisions={subdivisionOptions.map((s) => ({ id: s.id, label: s.name }))}
               citizens={citizenOptions}
             />
           )
         }
       />
 
-      <DataTable columns={parcelColumns} rows={parcels} keyField="id" emptyLabel="Aucune parcelle enregistree." />
+      <DataTable columns={parcelColumns} rows={parcels} keyField="id" emptyLabel="Aucune parcelle enregistree." pageSize={null} />
+      <Pagination
+        page={pageParcels}
+        totalPages={parcelsTotalPages}
+        makeHref={(p) => `/admin/land?${new URLSearchParams({ pageParcels: String(p), ...(pageSubdivisions > 1 ? { pageSubdivisions: String(pageSubdivisions) } : {}) })}`}
+      />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-[var(--color-text)]">Lotissements</h2>
           {can(user, "land", "create") && <SubdivisionForm arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))} />}
         </div>
-        <DataTable columns={subdivisionColumns} rows={subdivisions} keyField="id" emptyLabel="Aucun lotissement enregistre." />
+        <DataTable columns={subdivisionColumns} rows={subdivisions} keyField="id" emptyLabel="Aucun lotissement enregistre." pageSize={null} />
+        <Pagination
+          page={pageSubdivisions}
+          totalPages={subdivisionsTotalPages}
+          makeHref={(p) => `/admin/land?${new URLSearchParams({ pageSubdivisions: String(p), ...(pageParcels > 1 ? { pageParcels: String(pageParcels) } : {}) })}`}
+        />
       </div>
     </div>
   );

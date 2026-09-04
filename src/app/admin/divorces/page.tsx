@@ -2,25 +2,28 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere, recordScopeWhere } from "@/lib/rbac";
-import { listDivorces } from "@/lib/services/divorces";
+import { listDivorcesPage } from "@/lib/services/divorces";
 import { DeclareDivorceForm } from "@/components/civil-status/declare-divorce-form";
 import { ValidateButton } from "@/components/civil-status/validate-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 const STATUS_LABEL: Record<string, string> = { DECLARED: "Declare", FINALIZED: "Finalise" };
 const STATUS_TONE: Record<string, StatusTone> = { DECLARED: "warning", FINALIZED: "success" };
 
-type DivorceRow = Awaited<ReturnType<typeof listDivorces>>[number];
+type DivorceRow = Awaited<ReturnType<typeof listDivorcesPage>>["rows"][number];
 
-export default async function DivorcesPage() {
+export default async function DivorcesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "divorces", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [records, arrondissements, validMarriages] = await Promise.all([
-    listDivorces(user),
+  const [{ rows: records, total, pageSize }, arrondissements, validMarriages] = await Promise.all([
+    listDivorcesPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     prisma.marriage.findMany({
       where: { ...recordScopeWhere(user), status: "VALID" },
@@ -28,6 +31,7 @@ export default async function DivorcesPage() {
       take: 100,
     }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<DivorceRow>[] = [
     { key: "recordNumber", header: "Numero", render: (r) => <span className="text-xs text-[var(--color-text-muted)]">{r.recordNumber}</span>, sortable: true, sortValue: (r) => r.recordNumber },
@@ -70,7 +74,8 @@ export default async function DivorcesPage() {
         }
       />
 
-      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de divorce." />
+      <DataTable columns={columns} rows={records} keyField="id" emptyLabel="Aucun dossier de divorce." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/divorces?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

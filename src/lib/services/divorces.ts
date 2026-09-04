@@ -5,6 +5,11 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 
+// Utilisee a la fois par la page de liste /admin/divorces ET par
+// src/app/api/divorces/route.ts (GET) — signature/forme de retour (tableau
+// simple) volontairement inchangee ici pour ne pas casser cet appelant. La
+// pagination reelle de l'ecran de liste vit dans listDivorcesPage()
+// ci-dessous, une fonction dediee.
 export async function listDivorces(user: CurrentUser) {
   return prisma.divorce.findMany({
     where: recordScopeWhere(user),
@@ -12,6 +17,29 @@ export async function listDivorces(user: CurrentUser) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+// Pagination reelle cote base (skip/take + count) pour l'ecran de liste
+// /admin/divorces uniquement : avant ce changement, les divorces au-dela
+// des 100 premiers (par date de creation) n'etaient jamais accessibles,
+// quelle que soit la page cliquee dans le tableau (voir audit performance
+// 2026-09-02) — `listDivorces()` ci-dessus plafonnait a `take: 100` sans
+// `skip`.
+export async function listDivorcesPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  const where = recordScopeWhere(user);
+  const [rows, total] = await Promise.all([
+    prisma.divorce.findMany({
+      where,
+      include: { marriage: { include: { husband: true, wife: true } }, arrondissement: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.divorce.count({ where }),
+  ]);
+  return { rows, total, page, pageSize };
 }
 
 // Rapport (section 31) : meme perimetre territorial, plafond plus haut que

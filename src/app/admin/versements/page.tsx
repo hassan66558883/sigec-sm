@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listVersements } from "@/lib/services/versements";
+import { listVersementsPage } from "@/lib/services/versements";
 import { listCaissesAwaitingVersement } from "@/lib/services/caisses";
 import { VersementForm } from "@/components/caisses/versement-form";
 import { ValidateVersementButtons } from "@/components/caisses/validate-versement-buttons";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 function formatFcfa(amount: number) {
@@ -20,17 +21,20 @@ const STATUS_TONE: Record<string, StatusTone> = {
   REJETE: "danger",
 };
 
-type VersementRow = Awaited<ReturnType<typeof listVersements>>[number];
+type VersementRow = Awaited<ReturnType<typeof listVersementsPage>>["rows"][number];
 
-export default async function VersementsPage() {
+export default async function VersementsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "versements", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [versements, caisses] = await Promise.all([
-    listVersements(user),
+  const [{ rows: versements, total, pageSize }, caisses] = await Promise.all([
+    listVersementsPage(user, page),
     can(user, "versements", "create") ? listCaissesAwaitingVersement(user) : Promise.resolve([]),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<VersementRow>[] = [
     { key: "number", header: "Numero", render: (v) => <span className="text-xs text-[var(--color-text-muted)]">{v.number}</span>, sortable: true, sortValue: (v) => v.number },
@@ -59,7 +63,8 @@ export default async function VersementsPage() {
         }
       />
 
-      <DataTable columns={columns} rows={versements} keyField="id" emptyLabel="Aucun versement enregistre." />
+      <DataTable columns={columns} rows={versements} keyField="id" emptyLabel="Aucun versement enregistre." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/versements?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

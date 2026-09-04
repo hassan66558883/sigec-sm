@@ -2,27 +2,35 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { can, arrondissementScopeWhere } from "@/lib/rbac";
-import { listAssociations } from "@/lib/services/associations";
+import { listAssociationsPage } from "@/lib/services/associations";
 import { listCitizens } from "@/lib/services/citizens";
 import { AssociationForm } from "@/components/municipal/association-form";
 import { StatusSelect } from "@/components/municipal/status-select";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 
 const STATUS_LABEL: Record<string, string> = { REGISTERED: "Enregistree", SUSPENDED: "Suspendue", DISSOLVED: "Dissoute" };
 
-type AssociationRow = Awaited<ReturnType<typeof listAssociations>>[number];
+type AssociationRow = Awaited<ReturnType<typeof listAssociationsPage>>["rows"][number];
 
-export default async function AssociationsPage() {
+export default async function AssociationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "associations", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [associations, arrondissements, citizens] = await Promise.all([
-    listAssociations(user),
+  const [{ rows: associations, total, pageSize }, arrondissements, citizens] = await Promise.all([
+    listAssociationsPage(user, page),
     prisma.arrondissement.findMany({ where: arrondissementScopeWhere(user), orderBy: { number: "asc" } }),
     listCitizens(user),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<AssociationRow>[] = [
     {
@@ -76,7 +84,8 @@ export default async function AssociationsPage() {
         }
       />
 
-      <DataTable columns={columns} rows={associations} keyField="id" emptyLabel="Aucune association enregistree." />
+      <DataTable columns={columns} rows={associations} keyField="id" emptyLabel="Aucune association enregistree." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/associations?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { listInfrastructureForStaff } from "@/lib/services/infrastructure";
+import { listInfrastructureForStaffPage } from "@/lib/services/infrastructure";
 import { StatusSelect } from "@/components/municipal/status-select";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Pagination } from "@/components/ui/pagination";
 
 const TYPE_LABEL: Record<string, string> = {
   ROAD: "Route", LIGHTING: "Eclairage", DRAINAGE: "Caniveau", WASTE: "Dechets", PUBLIC_SPACE: "Espace public", OTHER: "Autre",
@@ -13,14 +14,21 @@ const TYPE_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { REPORTED: "Signale", IN_PROGRESS: "En cours", COMPLETED: "Termine" };
 const STATUS_TONE: Record<string, StatusTone> = { REPORTED: "warning", IN_PROGRESS: "warning", COMPLETED: "success" };
 
-type ReportRow = Awaited<ReturnType<typeof listInfrastructureForStaff>>[number];
+type ReportRow = Awaited<ReturnType<typeof listInfrastructureForStaffPage>>["rows"][number];
 
-export default async function InfrastructurePage() {
+export default async function InfrastructurePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!can(user, "infrastructure", "view")) redirect("/admin");
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const reports = await listInfrastructureForStaff(user);
+  const { rows: reports, total, pageSize } = await listInfrastructureForStaffPage(user, page);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<ReportRow>[] = [
     {
@@ -57,7 +65,8 @@ export default async function InfrastructurePage() {
     <div className="space-y-6">
       <PageHeading title="Voirie & infrastructures" description="Signalements de problemes de voirie, eclairage, proprete..." />
 
-      <DataTable columns={columns} rows={reports} keyField="id" emptyLabel="Aucun signalement." />
+      <DataTable columns={columns} rows={reports} keyField="id" emptyLabel="Aucun signalement." pageSize={null} />
+      <Pagination page={page} totalPages={totalPages} makeHref={(p) => `/admin/infrastructure?${new URLSearchParams({ page: String(p) })}`} />
     </div>
   );
 }
