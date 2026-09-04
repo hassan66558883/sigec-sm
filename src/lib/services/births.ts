@@ -168,10 +168,16 @@ export async function validateBirthRecord(actor: CurrentUser, id: string) {
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 
-  const updated = await prisma.birthRecord.update({
-    where: { id },
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
+  const result = await prisma.birthRecord.updateMany({
+    where: { id, status: "DECLARED" },
     data: { status: "REGISTERED", registeredAt: new Date() },
   });
+  if (result.count === 0) {
+    throw new ApiError(409, "Ce dossier a deja ete valide par un autre utilisateur.");
+  }
+  const updated = await prisma.birthRecord.findUniqueOrThrow({ where: { id } });
 
   await logAudit({
     user: actor,

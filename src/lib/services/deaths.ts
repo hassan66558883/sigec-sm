@@ -139,10 +139,15 @@ export async function validateDeathRecord(actor: CurrentUser, id: string) {
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 
+  // Transition atomique — meme raisonnement que marriages.ts:validateMarriage
+  // (voir audit concurrence 2026-09-04).
   const updated = await prisma.$transaction(async (tx) => {
-    const d = await tx.deathRecord.update({ where: { id }, data: { status: "REGISTERED" } });
+    const result = await tx.deathRecord.updateMany({ where: { id, status: "DECLARED" }, data: { status: "REGISTERED" } });
+    if (result.count === 0) {
+      throw new ApiError(409, "Ce dossier a deja ete valide par un autre utilisateur.");
+    }
     await tx.citizen.update({ where: { id: before.deceasedId }, data: { isDeceased: true } });
-    return d;
+    return tx.deathRecord.findUniqueOrThrow({ where: { id } });
   });
 
   await logAudit({

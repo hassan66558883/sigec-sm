@@ -141,11 +141,23 @@ export async function validateMarriage(actor: CurrentUser, id: string) {
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 
+  // Transition atomique (voir audit concurrence 2026-09-04) : le controle de
+  // statut ci-dessus et l'ecriture ne formaient pas une seule operation
+  // atomique — deux clics quasi simultanes sur "Valider" pouvaient tous les
+  // deux passer le controle avant que le premier n'ecrive, produisant une
+  // double validation (double entree d'audit, double ecriture inutile sur
+  // les deux citoyens). `updateMany` avec `status: "DECLARED"` dans le
+  // `where` fait du controle+ecriture une seule requete ; `count === 0`
+  // signifie qu'un autre utilisateur a deja transitionne ce dossier entre
+  // le chargement et cette tentative.
   const updated = await prisma.$transaction(async (tx) => {
-    const m = await tx.marriage.update({ where: { id }, data: { status: "VALID" } });
+    const result = await tx.marriage.updateMany({ where: { id, status: "DECLARED" }, data: { status: "VALID" } });
+    if (result.count === 0) {
+      throw new ApiError(409, "Ce dossier a deja ete valide par un autre utilisateur.");
+    }
     await tx.citizen.update({ where: { id: before.husbandId }, data: { maritalStatus: "MARRIED" } });
     await tx.citizen.update({ where: { id: before.wifeId }, data: { maritalStatus: "MARRIED" } });
-    return m;
+    return tx.marriage.findUniqueOrThrow({ where: { id } });
   });
 
   await logAudit({
