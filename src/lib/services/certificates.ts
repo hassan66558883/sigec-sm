@@ -5,6 +5,7 @@ import { can, canAccessArrondissement, recordScopeWhere } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber, generateVerificationToken } from "@/lib/ids";
 import { periodBounds } from "@/lib/date-buckets";
+import { emitIntegrationEvent } from "@/lib/services/integration-webhooks";
 
 // KPI d'en-tete (Certificats delivres, Phase 2) — base sur issuedAt (date de
 // delivrance), pas createdAt, memes conventions que getCivilStatusTrend.
@@ -113,6 +114,14 @@ async function createCertificateRecord(actor: CurrentUser, params: IssueParams) 
     entityId: created.id,
     arrondissementId: created.arrondissementId,
     newValue: { documentNumber: created.documentNumber, type: type.code },
+  });
+
+  await emitIntegrationEvent("document.issued", {
+    id: created.id,
+    documentNumber: created.documentNumber,
+    type: type.code,
+    arrondissementId: created.arrondissementId,
+    issuedAt: created.issuedAt,
   });
 
   return created;
@@ -226,6 +235,8 @@ export async function verifyCertificatePublic(qrToken: string) {
     include: { certificateType: true },
   });
   if (!cert) return { found: false as const };
+
+  await emitIntegrationEvent("document.verified", { id: cert.id, documentNumber: cert.documentNumber, valid: cert.status === "VALID" });
 
   return {
     found: true as const,

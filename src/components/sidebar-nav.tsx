@@ -91,6 +91,7 @@ const NAV_SECTIONS: {
     items: [
       { href: "/admin/integration", labelKey: "sidebar.integrationDashboard", exact: true, module: "integration" },
       { href: "/admin/integration/systems", labelKey: "sidebar.integrationSystems", module: "integration" },
+      { href: "/admin/integration/webhooks", labelKey: "sidebar.integrationWebhooks", module: "integration" },
       { href: "/admin/integration/api-keys", labelKey: "sidebar.integrationApiKeys", module: "integration" },
       { href: "/admin/integration/logs", labelKey: "sidebar.integrationLogs", module: "integration" },
       { href: "/admin/integration/errors", labelKey: "sidebar.integrationErrors", module: "integration" },

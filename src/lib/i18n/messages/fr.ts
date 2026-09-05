@@ -71,6 +71,7 @@ const fr = {
     sectionIntegration: "Integration & Interoperability",
     integrationDashboard: "Integration Dashboard",
     integrationSystems: "Connected Systems",
+    integrationWebhooks: "Webhooks",
     integrationApiKeys: "Security & Credentials",
     integrationLogs: "Integration Logs",
     integrationErrors: "Error Management",

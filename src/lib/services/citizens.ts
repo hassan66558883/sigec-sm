@@ -5,6 +5,7 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { encryptField, decryptField } from "@/lib/encryption";
+import { emitIntegrationEvent } from "@/lib/services/integration-webhooks";
 
 // Utilisee a la fois par la page de liste des citoyens ET par ~10 pages de
 // formulaires ailleurs (births, marriages, deaths, payments...) pour peupler
@@ -170,6 +171,14 @@ export async function createCitizen(actor: CurrentUser, input: CreateCitizenInpu
     entityId: created.id,
     arrondissementId: created.arrondissementId,
     newValue: { uniqueNumber: created.uniqueNumber, firstName, lastName },
+  });
+
+  await emitIntegrationEvent("citizen.created", {
+    id: created.id,
+    uniqueNumber: created.uniqueNumber,
+    firstName,
+    lastName,
+    arrondissementId: created.arrondissementId,
   });
 
   return { ...created, phone: decryptField(created.phone) };

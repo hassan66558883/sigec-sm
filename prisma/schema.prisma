@@ -2018,6 +2018,7 @@ model IntegrationSystem {
   apiKeys    IntegrationApiKey[]
   logs       IntegrationLog[]
   errors     IntegrationError[]
+  webhooks   IntegrationWebhook[]
 
   @@index([status])
   @@index([enabled])
@@ -2108,4 +2109,58 @@ model IntegrationError {
 
   @@index([status])
   @@index([systemId])
+}
+
+// Abonnement webhook (section 9) : UNE ligne = un couple (URL, evenement) —
+// plusieurs evenements pour le meme systeme externe se traduisent par
+// plusieurs lignes, jamais un tableau d'evenements sur une seule ligne
+// (simplicite : chaque abonnement a son propre statut/historique de
+// livraison independant). Le secret sert a SIGNER (HMAC-SHA256) chaque
+// livraison sortante — jamais un hash (il doit rester recalculable), donc
+// chiffre au repos comme un secret client OAuth (lib/encryption.ts).
+model IntegrationWebhook {
+  id          String   @id @default(cuid())
+  systemId    String?
+  url         String
+  event       String
+  secret      String
+  status      String   @default("ACTIVE") // ACTIVE|DISABLED
+  timeoutMs   Int      @default(5000)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  system     IntegrationSystem?           @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  deliveries IntegrationWebhookDelivery[]
+
+  @@index([event])
+  @@index([status])
+}
+
+// Une ligne par TENTATIVE DE LIVRAISON reelle (section 10 : retry avec
+// backoff croissant 30s/2min/10min, puis FAILED apres le nombre maximum de
+// tentatives — jamais une file d'attente externe type Redis/BullMQ,
+// deliberement hors scope tant qu'aucun deploiement reel ne l'exige, voir
+// project_sigec_sm_scaling_audit). Les tentatives successives d'UNE MEME
+// livraison partagent cette ligne (attemptCount incremente), elles ne
+// creent jamais de nouvelle ligne — contrairement a IntegrationError qui,
+// lui, enregistre chaque test de connexion separement.
+model IntegrationWebhookDelivery {
+  id             String    @id @default(cuid())
+  webhookId      String
+  event          String
+  payload        String
+  status         String    @default("PENDING") // PENDING|DELIVERED|RETRYING|FAILED
+  attemptCount   Int       @default(0)
+  responseStatus Int?
+  responseBody   String?
+  nextRetryAt    DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  webhook IntegrationWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([webhookId])
+  @@index([nextRetryAt])
 }
