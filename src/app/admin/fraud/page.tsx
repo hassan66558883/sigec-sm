@@ -28,6 +28,7 @@ const TYPE_LABEL: Record<string, string> = {
   SUSPICIOUS_RECEIPT: "Reçu suspect",
   QR_INVALID_REUSE: "QR invalide reutilise",
   QR_SCAN_ANOMALY: "Scans QR anormaux",
+  RECONCILIATION_DISCREPANCY: "Ecart de rapprochement",
 };
 
 type AlertRow = Awaited<ReturnType<typeof listFraudAlertsPage>>["rows"][number];

@@ -54,6 +54,7 @@ const ar: Dictionary = {
     receipts: "الإيصالات",
     caisses: "الصناديق",
     versements: "التوريدات",
+    reconciliation: "المطابقة المصرفية",
     fraud: "مكافحة الغش",
     reports: "التقارير",
     sectionServices: "الخدمات البلدية",

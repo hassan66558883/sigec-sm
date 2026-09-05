@@ -1488,7 +1488,57 @@ model MobileMoneyTransaction {
   confirmedAt        DateTime?
   confirmedById      String?
 
-  payment Payment @relation(fields: [paymentId], references: [id])
+  payment                Payment                @relation(fields: [paymentId], references: [id])
+  reconciliationEntries  ReconciliationEntry[]
+}
+
+// Rapprochement prestataire/banque (module paiement QR, section 31) —
+// distinct de CashRegister/Versement qui ne reconcilient que l'especes
+// physique : ici on compare les MobileMoneyTransaction internes a un
+// releve externe (banque/prestataire) televerse par un agent central.
+// Traitement synchrone (pas de file d'attente async dans ce projet) :
+// le lot est immediatement complet des sa creation.
+model ReconciliationBatch {
+  id                     String   @id @default(cuid())
+  provider               String
+  periodStart            DateTime
+  periodEnd              DateTime
+  fileName               String
+  uploadedById           String
+  matchedCount           Int      @default(0)
+  mismatchCount          Int      @default(0)
+  missingInternalCount   Int      @default(0)
+  unmatchedExternalCount Int      @default(0)
+  createdAt              DateTime @default(now())
+
+  entries ReconciliationEntry[]
+}
+
+// Une ligne par entree du releve OU par transaction interne orpheline
+// (voir ingestReconciliationStatement()) — jamais les deux a la fois.
+// status : MATCHED | AMOUNT_MISMATCH | MISSING_INTERNAL | UNMATCHED_EXTERNAL.
+// `resolved` est independant de `status` (qui reste la classification du
+// rapprochement, jamais reecrite) : un ecart resolu reste un ecart trace,
+// simplement investigue.
+model ReconciliationEntry {
+  id                       String    @id @default(cuid())
+  batchId                  String
+  externalReference        String?
+  statementAmount          Float?
+  statementDate            DateTime?
+  mobileMoneyTransactionId String?
+  status                   String
+  resolved                 Boolean   @default(false)
+  resolvedById             String?
+  resolvedAt               DateTime?
+  resolutionNotes          String?
+  createdAt                DateTime  @default(now())
+
+  batch                  ReconciliationBatch     @relation(fields: [batchId], references: [id])
+  mobileMoneyTransaction MobileMoneyTransaction? @relation(fields: [mobileMoneyTransactionId], references: [id])
+
+  @@index([batchId])
+  @@index([status])
 }
 
 // Remboursement d'un paiement confirme (module paiement en ligne, section
@@ -1515,7 +1565,7 @@ model PaymentRefund {
 // type: DOUBLE_PAYMENT | DOUBLE_RECEIPT | FORBIDDEN_MODIFICATION |
 //   EXCESSIVE_CANCELLATIONS | CASH_DISCREPANCY | OUT_OF_ZONE |
 //   UNKNOWN_DEVICE | SUSPICIOUS_VOLUME | OFF_HOURS | SUSPICIOUS_RECEIPT |
-//   QR_INVALID_REUSE | QR_SCAN_ANOMALY
+//   QR_INVALID_REUSE | QR_SCAN_ANOMALY | RECONCILIATION_DISCREPANCY
 // severity: LOW | MEDIUM | HIGH | CRITICAL — seuils configurables, voir
 // services/fraud.ts. status: OUVERTE | RESOLUE | IGNOREE
 model FraudAlert {

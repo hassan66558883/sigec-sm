@@ -16,6 +16,7 @@ const ALERT_TITLE: Record<string, string> = {
   OFF_HOURS: "Paiement hors horaires",
   QR_INVALID_REUSE: "Reutilisation de QR invalide",
   QR_SCAN_ANOMALY: "Volume de scans QR anormal",
+  RECONCILIATION_DISCREPANCY: "Ecart de rapprochement prestataire",
 };
 
 // Seuils configurables (section 23 : "Les seuils doivent etre
@@ -248,6 +249,27 @@ export async function raiseDuplicateAlert(
   arrondissementId?: string | null,
 ) {
   await raiseFraudAlert({ type, severity: "CRITICAL", description, arrondissementId });
+}
+
+// Rapprochement prestataire/banque (section 31) : un seul signal
+// recapitulatif par lot televerse, jamais un par ligne d'ecart (un gros
+// releve ne doit pas noyer /admin/fraud) — voir reconciliation.ts.
+export async function raiseReconciliationDiscrepancy(input: {
+  provider: string;
+  fileName: string;
+  totalLines: number;
+  mismatchCount: number;
+  missingInternalCount: number;
+  unmatchedExternalCount: number;
+}) {
+  const discrepancies = input.mismatchCount + input.missingInternalCount + input.unmatchedExternalCount;
+  if (discrepancies <= 0) return;
+  const severity = discrepancies >= 10 ? "HIGH" : discrepancies >= 3 ? "MEDIUM" : "LOW";
+  await raiseFraudAlert({
+    type: "RECONCILIATION_DISCREPANCY",
+    severity,
+    description: `Rapprochement ${input.provider} (${input.fileName}) : ${discrepancies} ecart(s) sur ${input.totalLines} lignes (${input.mismatchCount} montant, ${input.missingInternalCount} absent du releve, ${input.unmatchedExternalCount} absent en interne).`,
+  });
 }
 
 // Score de risque agent (section 23), base sur les alertes OUVERTES : le

@@ -65,6 +65,10 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   // Phase 9 — QR paiement & recette numerique (systeme QR reutilisable,
   // section 3 du module paiement QR).
   qr_codes: ["view", "generate", "revoke", "replace", "verify_install", "bulk_generate"],
+  // Rapprochement prestataire/banque (module paiement QR, section 31) —
+  // distinct de versements (especes physique) : fonction financiere
+  // centrale, jamais territorialisee (un seul releve bancaire municipal).
+  reconciliation: ["view", "create", "resolve"],
 };
 
 // Permissions commerciales de l'editeur TECHNOTCHAD (gestion des abonnements
@@ -310,6 +314,7 @@ const ROLES: {
       "mobile_money:view", "mobile_money:confirm",
       "fraud:view", "fraud:resolve",
       "qr_codes:view", "qr_codes:generate", "qr_codes:revoke", "qr_codes:replace", "qr_codes:verify_install", "qr_codes:bulk_generate",
+      "reconciliation:view", "reconciliation:create", "reconciliation:resolve",
     ],
   },
   {
@@ -327,7 +332,7 @@ const ROLES: {
       "associations:view", "complaints:view", "complaints:export", "infrastructure:view",
       "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
       "caisses:view", "versements:view", "mobile_money:view", "fraud:view",
-      "qr_codes:view",
+      "qr_codes:view", "reconciliation:view",
     ],
   },
   {

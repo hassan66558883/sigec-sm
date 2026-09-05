@@ -55,6 +55,7 @@ const fr = {
     receipts: "Recus",
     caisses: "Caisses",
     versements: "Versements",
+    reconciliation: "Rapprochement",
     fraud: "Controle anti-fraude",
     reports: "Rapports",
     sectionServices: "Services municipaux",

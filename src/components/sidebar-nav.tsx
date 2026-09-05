@@ -60,6 +60,7 @@ const NAV_SECTIONS: {
       { href: "/admin/receipts", labelKey: "sidebar.receipts", module: "receipts" },
       { href: "/admin/caisses", labelKey: "sidebar.caisses", module: "caisses" },
       { href: "/admin/versements", labelKey: "sidebar.versements", module: "versements" },
+      { href: "/admin/reconciliation", labelKey: "sidebar.reconciliation", module: "reconciliation" },
       { href: "/admin/fraud", labelKey: "sidebar.fraud", module: "fraud" },
       { href: "/admin/reports", labelKey: "sidebar.reports", module: "payments" },
     ],
