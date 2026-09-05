@@ -46,7 +46,9 @@ Un citoyen connecté peut :
 - Consulter son tableau de bord (demandes en cours, notifications).
 - Demander une **copie de son propre acte** (naissance ou mariage) — la demande est vérifiée côté
   serveur pour s'assurer qu'elle concerne bien son propre dossier.
-- Déposer une **plainte** (`Mes plaintes`) avec suivi en temps réel de chaque étape de traitement.
+- Déposer une **plainte** (`Mes plaintes`) avec suivi en temps réel de chaque étape de traitement,
+  localisation sur carte, pièces jointes et messagerie avec l'agent (détail complet du workflow,
+  des rôles et des escalades dans [`docs/COMPLAINTS_MODULE.md`](./COMPLAINTS_MODULE.md)).
 - **Signaler un problème de voirie** (`Signaler (voirie)`) — route, éclairage, caniveau, déchets...
 
 Côté agent, la file `Demandes citoyennes` permet d'approuver (émission automatique du document) ou
