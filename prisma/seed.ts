@@ -459,6 +459,18 @@ const ROLES: {
     permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:manage_categories", "complaints:export"],
   },
   {
+    code: "COMPLAINTS_SUPERVISOR",
+    name: "Superviseur plaintes",
+    description: "Destinataire reel des escalades de niveau superviseur (section 27) — memes actions que l'agent, plus le suivi des dossiers qui lui sont escalades.",
+    permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:manage_categories", "complaints:export"],
+  },
+  {
+    code: "COMPLAINTS_DIRECTOR",
+    name: "Directeur plaintes",
+    description: "Destinataire des escalades de niveau directeur (section 27) — vision et pouvoir d'action identiques au superviseur, echelon hierarchique superieur.",
+    permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:manage_categories", "complaints:export"],
+  },
+  {
     code: "ROADS_AGENT",
     name: "Agent voirie",
     description: "Suivi des signalements de voirie et infrastructures.",

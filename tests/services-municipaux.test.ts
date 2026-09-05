@@ -193,6 +193,34 @@ describe("plaintes citoyennes — guichet numerique", () => {
     expect(escalatedAgain.toLevel).toBe("DIRECTOR");
   });
 
+  it("escalader vers SUPERVISOR avec un responsable reel pose Complaint.supervisorId (colonne dediee) ; DIRECTOR n'a pas de colonne equivalente et l'ignore ; le dossier apparait alors dans la vue 'mine' du superviseur", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const complaint = await submitComplaint(account, { category: "SECURITE", description: "Test escalade avec responsable." });
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign"] });
+    const supervisor = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign"] });
+
+    await expect(escalateComplaint(staff, complaint.id, "SUPERVISOR", undefined, "id-inexistant")).rejects.toMatchObject({ status: 400 });
+
+    await escalateComplaint(staff, complaint.id, "SUPERVISOR", "Besoin d'un arbitrage.", supervisor.id);
+    const afterSupervisor = await getComplaintForStaff(staff, complaint.id);
+    expect(afterSupervisor.supervisorId).toBe(supervisor.id);
+
+    const { rows: mineView } = await listComplaintsForStaffPage(supervisor, 1, 25, "mine");
+    expect(mineView.map((c) => c.id)).toContain(complaint.id);
+    const stats = await getComplaintsDashboardStats(supervisor);
+    expect(stats.mine).toBeGreaterThanOrEqual(1);
+
+    // DIRECTOR n'a pas de colonne dediee au schema — toUserId y est ignore, supervisorId inchange.
+    await escalateComplaint(staff, complaint.id, "DIRECTOR", undefined, supervisor.id);
+    const afterDirector = await getComplaintForStaff(staff, complaint.id);
+    expect(afterDirector.supervisorId).toBe(supervisor.id);
+
+    await testPrisma.user.update({ where: { id: supervisor.id }, data: { isActive: false } });
+    const otherComplaint = await submitComplaint(account, { category: "SECURITE", description: "Deuxieme test, superviseur inactif." });
+    await expect(escalateComplaint(staff, otherComplaint.id, "SUPERVISOR", undefined, supervisor.id)).rejects.toMatchObject({ status: 400 });
+  });
+
   it("le tableau de bord agent (KPI) compte correctement nouvelles/urgentes/mes-plaintes, et la vue filtree ne renvoie que les dossiers correspondants", async () => {
     const citizen = await createTestCitizen(arrA);
     const account = await createTestCitizenAccount(citizen.id);

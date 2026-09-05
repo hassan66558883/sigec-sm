@@ -59,6 +59,7 @@ export function ComplaintActions({
   const [selectedId, setSelectedId] = useState("");
   const [reason, setReason] = useState("");
   const [escalationLevel, setEscalationLevel] = useState("SUPERVISOR");
+  const [supervisorUserId, setSupervisorUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +69,7 @@ export function ComplaintActions({
     setNote("");
     setSelectedId("");
     setReason("");
+    setSupervisorUserId("");
     setError(null);
   }
 
@@ -207,6 +209,14 @@ const simpleOptions = SIMPLE_NEXT_STATUS[status] ?? [];
             <option key={l} value={l}>{ESCALATION_LEVEL_LABEL[l]}</option>
           ))}
         </select>
+        {escalationLevel === "SUPERVISOR" && (
+          <select value={supervisorUserId} onChange={(e) => setSupervisorUserId(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+            <option value="">Superviseur responsable (facultatif)...</option>
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        )}
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -216,7 +226,7 @@ const simpleOptions = SIMPLE_NEXT_STATUS[status] ?? [];
         />
         <div className="flex gap-2">
           <button
-            onClick={() => run(() => patchComplaint(id, { action: "escalate", toLevel: escalationLevel, reason }))}
+            onClick={() => run(() => patchComplaint(id, { action: "escalate", toLevel: escalationLevel, reason, toUserId: escalationLevel === "SUPERVISOR" ? supervisorUserId || undefined : undefined }))}
             disabled={loading}
             className="rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
             style={{ background: "var(--color-accent)" }}

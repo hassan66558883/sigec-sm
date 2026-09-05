@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ data: await requalifyComplaintPriority(user, id, body.priority) });
     }
     if (body.action === "escalate") {
-      return NextResponse.json({ data: await escalateComplaint(user, id, body.toLevel, body.reason) });
+      return NextResponse.json({ data: await escalateComplaint(user, id, body.toLevel, body.reason, body.toUserId) });
     }
     if (body.action === "merge") {
       return NextResponse.json({ data: await mergeComplaints(user, body.keepId, id) });

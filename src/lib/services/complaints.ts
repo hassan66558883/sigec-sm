@@ -202,7 +202,7 @@ function dashboardViewWhere(view: ComplaintDashboardView, userId: string, now: D
   const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
   switch (view) {
-    case "mine": return { assignedToId: userId };
+    case "mine": return { OR: [{ assignedToId: userId }, { supervisorId: userId }] };
     case "new": return { status: "SUBMITTED" };
     case "urgent": return { priority: { in: ["URGENT", "CRITIQUE"] }, status: OPEN_STATUSES };
     case "late": return { dueAt: { lt: now }, status: ACTIVE_STATUSES };
@@ -603,7 +603,14 @@ export const ESCALATION_LEVELS = ["AGENT", "SUPERVISOR", "DIRECTOR", "CENTRAL_AD
 // concerne QUI est responsable de le debloquer, pas ou il en est dans le
 // cycle de vie). Le niveau de depart est deduis de la derniere escalade
 // enregistree, ou "AGENT" par defaut (premier niveau).
-export async function escalateComplaint(actor: CurrentUser, id: string, toLevel: string, reason?: string) {
+//
+// `toUserId` (optionnel) designe un responsable reel au niveau SUPERVISOR —
+// seul niveau qui dispose d'une colonne dediee (Complaint.supervisorId,
+// symetrique a assignedToId pour AGENT). DIRECTOR/CENTRAL_ADMIN restent de
+// purs labels de niveau (aucune colonne equivalente au schema) : `toUserId`
+// y est ignore plutot que refuse, pour ne pas bloquer une escalade dont le
+// destinataire nomme n'a pas encore de "case" dediee.
+export async function escalateComplaint(actor: CurrentUser, id: string, toLevel: string, reason?: string, toUserId?: string) {
   if (!can(actor, "complaints", "assign")) throw new ApiError(403, "Permission insuffisante.");
   if (!ESCALATION_LEVELS.includes(toLevel as (typeof ESCALATION_LEVELS)[number])) throw new ApiError(400, "Niveau invalide.");
 
@@ -615,9 +622,19 @@ export async function escalateComplaint(actor: CurrentUser, id: string, toLevel:
   const fromLevel = lastEscalation?.toLevel ?? "AGENT";
   if (fromLevel === toLevel) throw new ApiError(400, "Ce dossier est deja a ce niveau.");
 
-  const created = await prisma.complaintEscalation.create({
-    data: { complaintId: id, fromLevel, toLevel, reason: reason?.trim(), createdById: actor.id },
-  });
+  let supervisorId: string | undefined;
+  if (toLevel === "SUPERVISOR" && toUserId) {
+    const supervisor = await prisma.user.findUnique({ where: { id: toUserId } });
+    if (!supervisor || !supervisor.isActive) throw new ApiError(400, "Superviseur invalide ou inactif.");
+    supervisorId = supervisor.id;
+  }
+
+  const [created] = await prisma.$transaction([
+    prisma.complaintEscalation.create({
+      data: { complaintId: id, fromLevel, toLevel, reason: reason?.trim(), createdById: actor.id },
+    }),
+    ...(supervisorId ? [prisma.complaint.update({ where: { id }, data: { supervisorId } })] : []),
+  ]);
 
   await logAudit({
     user: actor,
@@ -627,7 +644,7 @@ export async function escalateComplaint(actor: CurrentUser, id: string, toLevel:
     entityId: id,
     arrondissementId: complaint.arrondissementId,
     oldValue: { level: fromLevel },
-    newValue: { level: toLevel, reason: reason?.trim() },
+    newValue: { level: toLevel, reason: reason?.trim(), supervisorId },
   });
 
   return created;
