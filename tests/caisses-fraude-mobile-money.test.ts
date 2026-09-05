@@ -170,9 +170,13 @@ describe("caisses, versements, Mobile Money, controle anti-fraude", () => {
     await recordPayment(admin, { payerId: owner.id, amount: 1000, paymentMethod: "ESPECES", agentId: agent.id, arrondissementId: arrA, caisseId: caisse.id });
     await closeCashRegister(admin, caisse.id, 100);
 
-    const notification = await testPrisma.staffNotification.findFirst({ where: { userId: supervisorUser.id } });
+    // where: title cible precisement la notification d'ecart de caisse — un
+    // paiement enregistre en dehors des heures ouvrables notifie aussi ce
+    // meme superviseur (detecteur "hors horaires" independant), et un
+    // findFirst() non filtre sur le titre choisirait alors arbitrairement
+    // entre les deux selon l'heure reelle d'execution du test.
+    const notification = await testPrisma.staffNotification.findFirst({ where: { userId: supervisorUser.id, title: "Ecart de caisse" } });
     expect(notification).not.toBeNull();
-    expect(notification?.title).toBe("Ecart de caisse");
   });
 
   it("la politique de geolocalisation BLOCK refuse une collecte sans position GPS, WARN l'autorise avec une alerte", async () => {

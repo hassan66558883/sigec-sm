@@ -74,6 +74,8 @@ const ar: Dictionary = {
     integrationApiKeys: "Security & Credentials",
     integrationLogs: "Integration Logs",
     integrationErrors: "Error Management",
+    integrationDocumentation: "API Documentation",
+    integrationApiTester: "API Tester",
     technotchadDashboard: "لوحة القيادة",
     technotchadClients: "العملاء",
     technotchadSubscriptions: "الاشتراكات",

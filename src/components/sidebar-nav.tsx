@@ -95,6 +95,8 @@ const NAV_SECTIONS: {
       { href: "/admin/integration/api-keys", labelKey: "sidebar.integrationApiKeys", module: "integration" },
       { href: "/admin/integration/logs", labelKey: "sidebar.integrationLogs", module: "integration" },
       { href: "/admin/integration/errors", labelKey: "sidebar.integrationErrors", module: "integration" },
+      { href: "/admin/integration/documentation", labelKey: "sidebar.integrationDocumentation", module: "integration" },
+      { href: "/admin/integration/api-tester", labelKey: "sidebar.integrationApiTester", module: "integration" },
     ],
   },
   {

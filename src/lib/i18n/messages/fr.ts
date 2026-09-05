@@ -75,6 +75,8 @@ const fr = {
     integrationApiKeys: "Security & Credentials",
     integrationLogs: "Integration Logs",
     integrationErrors: "Error Management",
+    integrationDocumentation: "API Documentation",
+    integrationApiTester: "API Tester",
     technotchadDashboard: "Tableau de bord",
     technotchadClients: "Clients",
     technotchadSubscriptions: "Abonnements",
