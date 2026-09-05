@@ -122,6 +122,9 @@ export type RecordPaymentInput = {
   // Requis uniquement si paymentMethod === "MOBILE_MONEY" (section 17).
   phoneNumber?: string;
   externalReference?: string;
+  // Cle d'idempotence generee cote client (module collecte hors ligne,
+  // section 22) — voir recordPayment() ci-dessous.
+  clientRequestId?: string | null;
 };
 
 // Resout et valide le perimetre/l'emplacement communs a tous les modes de
@@ -189,6 +192,21 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
   if (!input.amount || input.amount <= 0) throw new ApiError(400, "Montant invalide.");
   if (!input.paymentMethod?.trim()) throw new ApiError(400, "Mode de paiement requis.");
 
+  // Idempotence hors-ligne (section 22) : une soumission mise en file
+  // d'attente locale (agent sans reseau) peut etre rejouee plusieurs fois
+  // apres resynchronisation si le client n'a jamais recu la reponse du
+  // premier essai reussi. Verifiee EN PREMIER, avant toute validation
+  // metier qui pourrait ne plus etre vraie pour ce meme paiement (ex.
+  // obligation deja soldee PAR ce paiement) — jamais un double encaissement,
+  // jamais non plus une erreur de validation perimee sur un rejeu legitime.
+  if (input.clientRequestId?.trim()) {
+    const existing = await prisma.payment.findUnique({
+      where: { clientRequestId: input.clientRequestId.trim() },
+      include: { taxType: true, receipt: true },
+    });
+    if (existing) return { ...existing, receipt: existing.receipt };
+  }
+
   const context = await resolvePaymentContext(actor, input);
 
   if (input.paymentMethod.trim() === "MOBILE_MONEY") {
@@ -219,6 +237,7 @@ export async function recordPayment(actor: CurrentUser, input: RecordPaymentInpu
         gpsLng: input.gpsLng ?? null,
         arrondissementId: context.arrondissementId,
         collectedById: actor.id,
+        clientRequestId: input.clientRequestId?.trim() || null,
       },
       include: { taxType: true },
     });

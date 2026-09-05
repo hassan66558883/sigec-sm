@@ -879,6 +879,12 @@ model Payment {
   // imputation d'obligation) jusqu'a confirmation reelle (voir
   // services/mobile-money.ts et services/payment-provider.ts).
   status           String   @default("PAID")
+  // Cle d'idempotence generee cote client (module collecte hors ligne,
+  // section 22) : une soumission en file d'attente locale rejouee apres
+  // resynchronisation renvoie le paiement deja cree au lieu d'en creer un
+  // second — jamais de double encaissement pour une meme intention de
+  // paiement. Null pour tout paiement enregistre en ligne normalement.
+  clientRequestId  String?  @unique
   createdAt        DateTime @default(now())
 
   payer          Citizen                 @relation(fields: [payerId], references: [id])

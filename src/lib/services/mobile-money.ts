@@ -59,6 +59,7 @@ export async function initiateMobileMoneyPayment(actor: CurrentUser, input: Reco
       arrondissementId: context.arrondissementId,
       collectedById: actor.id,
       status: "PENDING",
+      clientRequestId: input.clientRequestId?.trim() || null,
     },
   });
 
