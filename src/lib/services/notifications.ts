@@ -6,7 +6,7 @@ import { ApiError } from "@/lib/api";
 // (architecture prevue, non implementee — necessiterait un fournisseur) :
 // uniquement in-app, visible depuis la cloche de /admin.
 
-async function notifyUsers(userIds: string[], input: { title: string; message: string; severity?: string; link?: string }) {
+export async function notifyUsers(userIds: string[], input: { title: string; message: string; severity?: string; link?: string }) {
   if (userIds.length === 0) return;
   await prisma.staffNotification.createMany({
     data: userIds.map((userId) => ({
@@ -27,6 +27,22 @@ export async function notifyArrondissementSupervisors(arrondissementId: string, 
     where: {
       isActive: true,
       roles: { some: { role: { permissions: { some: { permission: { code: "fraud:resolve" } } } } } },
+      OR: [{ organizationLevel: "CENTRAL" }, { arrondissements: { some: { arrondissementId } } }],
+    },
+    select: { id: true },
+  });
+  await notifyUsers(users.map((u) => u.id), input);
+}
+
+// Agents habilites a affecter les plaintes (complaints:assign) d'un
+// arrondissement donne, ou en portee globale — meme forme que
+// notifyArrondissementSupervisors, permission differente (module Plaintes
+// & Doleances, Phase 11 : notifications).
+export async function notifyComplaintAgents(arrondissementId: string, input: { title: string; message: string; severity?: string; link?: string }) {
+  const users = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      roles: { some: { role: { permissions: { some: { permission: { code: "complaints:assign" } } } } } },
       OR: [{ organizationLevel: "CENTRAL" }, { arrondissements: { some: { arrondissementId } } }],
     },
     select: { id: true },

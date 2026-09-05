@@ -5,6 +5,7 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { ATTACHMENT_MAX_PER_COMPLAINT } from "@/lib/complaint-attachment-constants";
+import { notifyComplaintAgents, notifyUsers } from "@/lib/services/notifications";
 
 const CATEGORIES = ["VOIRIE", "PROPRETE", "ECLAIRAGE", "EAU", "SECURITE", "AUTRE"];
 
@@ -163,6 +164,12 @@ export async function submitComplaint(account: CitizenAccountWithCitizen, input:
     entityId: created.id,
     arrondissementId: created.arrondissementId,
     newValue: { caseNumber: created.caseNumber, category: created.category, citizenAccountId: account.id },
+  });
+
+  await notifyComplaintAgents(created.arrondissementId, {
+    title: "Nouvelle plainte",
+    message: `${created.caseNumber} — ${input.description.trim().slice(0, 120)}`,
+    link: `/admin/complaints/${created.id}`,
   });
 
   return created;
@@ -357,6 +364,17 @@ export async function transitionComplaint(actor: CurrentUser, id: string, toStat
     newValue: { status: toStatus },
   });
 
+  if (toStatus === "RESOLVED" || toStatus === "REJECTED" || toStatus === "CLOSED") {
+    const messageByStatus: Record<string, string> = {
+      RESOLVED: `Votre dossier ${updated.caseNumber} a ete marque resolu. Vous pouvez evaluer la prise en charge depuis votre espace.`,
+      REJECTED: `Votre dossier ${updated.caseNumber} a ete rejete. Motif : ${updated.rejectionReason ?? "non precise"}.`,
+      CLOSED: `Votre dossier ${updated.caseNumber} a ete cloture.`,
+    };
+    await prisma.notification.create({
+      data: { citizenAccountId: updated.citizenAccountId, title: "Mise a jour de votre plainte", message: messageByStatus[toStatus] },
+    });
+  }
+
   return updated;
 }
 
@@ -439,6 +457,12 @@ export async function assignComplaintToAgent(actor: CurrentUser, id: string, age
     entityId: id,
     arrondissementId: before.arrondissementId,
     newValue: { agentUserId, dueAt, slaHours },
+  });
+
+  await notifyUsers([agentUserId], {
+    title: "Plainte assignee",
+    message: `Le dossier ${updated.caseNumber} vous a ete assigne (echeance : ${dueAt.toLocaleDateString("fr-FR")}).`,
+    link: `/admin/complaints/${id}`,
   });
 
   return updated;
@@ -566,9 +590,28 @@ export async function addComplaintCommentAsCitizen(account: CitizenAccountWithCi
   if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
   if (complaint.citizenAccountId !== account.id) throw new ApiError(403, "Ce dossier ne vous appartient pas.");
 
-  return prisma.complaintComment.create({
+  const created = await prisma.complaintComment.create({
     data: { complaintId, authorType: "CITIZEN", authorCitizenId: account.id, message: message.trim() },
   });
+
+  // Notifie l'agent assigne s'il y en a un, sinon les agents de
+  // l'arrondissement en general — un message citoyen ne doit jamais rester
+  // invisible faute d'affectation.
+  if (complaint.assignedToId) {
+    await notifyUsers([complaint.assignedToId], {
+      title: "Nouveau message citoyen",
+      message: `${complaint.caseNumber} : ${message.trim().slice(0, 120)}`,
+      link: `/admin/complaints/${complaintId}`,
+    });
+  } else {
+    await notifyComplaintAgents(complaint.arrondissementId, {
+      title: "Nouveau message citoyen",
+      message: `${complaint.caseNumber} : ${message.trim().slice(0, 120)}`,
+      link: `/admin/complaints/${complaintId}`,
+    });
+  }
+
+  return created;
 }
 
 export async function addComplaintCommentAsStaff(actor: CurrentUser, complaintId: string, message: string) {
@@ -591,6 +634,15 @@ export async function addComplaintCommentAsStaff(actor: CurrentUser, complaintId
     arrondissementId: complaint.arrondissementId,
     newValue: { message: message.trim() },
   });
+
+  await prisma.notification.create({
+    data: {
+      citizenAccountId: complaint.citizenAccountId,
+      title: "Nouveau message sur votre plainte",
+      message: `${complaint.caseNumber} : ${message.trim().slice(0, 120)}`,
+    },
+  });
+
   return created;
 }
 
@@ -646,6 +698,14 @@ export async function escalateComplaint(actor: CurrentUser, id: string, toLevel:
     oldValue: { level: fromLevel },
     newValue: { level: toLevel, reason: reason?.trim(), supervisorId },
   });
+
+  if (supervisorId) {
+    await notifyUsers([supervisorId], {
+      title: "Dossier escalade vers vous",
+      message: `Le dossier ${complaint.caseNumber} vous a ete escalade.${reason?.trim() ? ` Motif : ${reason.trim()}` : ""}`,
+      link: `/admin/complaints/${id}`,
+    });
+  }
 
   return created;
 }

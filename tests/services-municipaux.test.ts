@@ -19,6 +19,8 @@ import {
   getComplaintAttachmentForCitizen,
   getComplaintAttachmentForStaff,
   listComplaintsForExport,
+  addComplaintCommentAsCitizen,
+  addComplaintCommentAsStaff,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -219,6 +221,61 @@ describe("plaintes citoyennes — guichet numerique", () => {
     await testPrisma.user.update({ where: { id: supervisor.id }, data: { isActive: false } });
     const otherComplaint = await submitComplaint(account, { category: "SECURITE", description: "Deuxieme test, superviseur inactif." });
     await expect(escalateComplaint(staff, otherComplaint.id, "SUPERVISOR", undefined, supervisor.id)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("notifications (section 32, in-app) : nouvelle plainte, affectation, escalade, resolution/rejet et messages generent bien une notification reelle en base", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const agentRole = await testPrisma.role.findUniqueOrThrow({ where: { code: "COMPLAINTS_AGENT" } });
+    const realAgent = await testPrisma.user.create({
+      data: {
+        name: uid("Agent reel"),
+        email: `${uid("agent")}@test.local`,
+        password: "hash-factice",
+        organizationLevel: "ARRONDISSEMENT",
+        roles: { create: { roleId: agentRole.id } },
+        arrondissements: { create: { arrondissementId: arrA } },
+      },
+    });
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve"] });
+    const supervisor = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign"] });
+
+    // 1. Depot : notifie les agents dont le ROLE reel (en base) porte
+    // complaints:assign dans cet arrondissement — pas les objets de test
+    // construits en memoire par createTestUser(), qui n'ont pas de UserRole reel.
+    const complaint = await submitComplaint(account, { category: "AUTRE", description: "Test notifications." });
+    const newComplaintNotifs = await testPrisma.staffNotification.findMany({ where: { userId: realAgent.id, link: `/admin/complaints/${complaint.id}` } });
+    expect(newComplaintNotifs.length).toBeGreaterThanOrEqual(1);
+    expect(newComplaintNotifs[0].title).toBe("Nouvelle plainte");
+
+    // 2. Affectation a un agent precis (notifyUsers ne verifie pas de role reel).
+    await transitionComplaint(staff, complaint.id, "RECEIVED");
+    await transitionComplaint(staff, complaint.id, "VERIFYING");
+    await assignComplaintToDepartment(staff, complaint.id, (await testPrisma.department.create({ data: { name: uid("Service"), code: uid("SRV") } })).id);
+    await assignComplaintToAgent(staff, complaint.id, realAgent.id);
+    const assignNotifs = await testPrisma.staffNotification.findMany({ where: { userId: realAgent.id, title: "Plainte assignee" } });
+    expect(assignNotifs.length).toBeGreaterThanOrEqual(1);
+
+    // 3. Escalade vers un superviseur nomme.
+    await escalateComplaint(staff, complaint.id, "SUPERVISOR", "Test.", supervisor.id);
+    const escalationNotifs = await testPrisma.staffNotification.findMany({ where: { userId: supervisor.id, title: "Dossier escalade vers vous" } });
+    expect(escalationNotifs.length).toBe(1);
+
+    // 4. Message citoyen -> notifie l'agent assigne (realAgent, deja affecte a l'etape 2).
+    await addComplaintCommentAsCitizen(account, complaint.id, "Des nouvelles ?");
+    const citizenMsgNotifs = await testPrisma.staffNotification.findMany({ where: { userId: realAgent.id, title: "Nouveau message citoyen" } });
+    expect(citizenMsgNotifs.length).toBe(1);
+
+    // 5. Message agent -> notifie le citoyen (modele Notification, realm distinct).
+    await addComplaintCommentAsStaff(staff, complaint.id, "On y travaille.");
+    const staffMsgNotifs = await testPrisma.notification.findMany({ where: { citizenAccountId: account.id, title: "Nouveau message sur votre plainte" } });
+    expect(staffMsgNotifs.length).toBe(1);
+
+    // 6. Resolution -> notifie le citoyen.
+    await transitionComplaint(staff, complaint.id, "IN_PROGRESS");
+    await transitionComplaint(staff, complaint.id, "RESOLVED");
+    const resolvedNotifs = await testPrisma.notification.findMany({ where: { citizenAccountId: account.id, message: { contains: "resolu" } } });
+    expect(resolvedNotifs.length).toBe(1);
   });
 
   it("le tableau de bord agent (KPI) compte correctement nouvelles/urgentes/mes-plaintes, et la vue filtree ne renvoie que les dossiers correspondants", async () => {
