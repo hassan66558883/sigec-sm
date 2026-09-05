@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ApiError, handleApiError } from "@/lib/api";
-import { getBusiness, updateBusiness, setBusinessStatus } from "@/lib/services/businesses";
+import { getBusiness, updateBusiness, setBusinessStatus, transferBusinessOwnership } from "@/lib/services/businesses";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +23,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     if (body.action === "set_status") {
       return NextResponse.json({ data: await setBusinessStatus(user, id, body.status) });
+    }
+    if (body.action === "transfer_ownership") {
+      return NextResponse.json({ data: await transferBusinessOwnership(user, id, body.newOwnerId, body.reason) });
     }
     return NextResponse.json({ data: await updateBusiness(user, id, body) });
   } catch (error) {

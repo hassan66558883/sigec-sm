@@ -9,6 +9,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { QrPanel } from "@/components/finances/qr-panel";
+import { TransferOwnershipPanel } from "@/components/finances/transfer-ownership-panel";
 
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Actif",
@@ -50,8 +51,15 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
       />
 
       <Card>
-        <div className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Proprietaire</div>
-        <div className="text-sm">{business.owner.firstName} {business.owner.lastName}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Proprietaire</div>
+            <div className="text-sm">{business.owner.firstName} {business.owner.lastName}</div>
+          </div>
+          {can(user, "businesses", "transfer") && (
+            <TransferOwnershipPanel businessId={business.id} currentOwnerName={`${business.owner.firstName} ${business.owner.lastName}`} />
+          )}
+        </div>
         <div className="mt-3 text-xs font-medium uppercase text-[var(--color-text-muted)]">Activite</div>
         <div className="text-sm">{business.activityRef?.name ?? business.activity ?? "—"}</div>
         <div className="mt-3 text-xs font-medium uppercase text-[var(--color-text-muted)]">Localisation</div>

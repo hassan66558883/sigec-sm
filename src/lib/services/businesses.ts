@@ -190,3 +190,39 @@ export async function setBusinessStatus(actor: CurrentUser, id: string, status: 
   });
   return updated;
 }
+
+// Cession/mutation de propriete (module paiement QR, section 27) : change
+// le proprietaire legal enregistre. Ne touche JAMAIS l'historique
+// (ObligationPaiement/Payment restent attribues au proprietaire de
+// l'epoque — ils etaient legitimement dus par lui) ni le QR actif (il
+// identifie l'emplacement commercial, jamais la personne — voir
+// resolveEntityForAdmin() dans qr-codes.ts, qui ne lit jamais ownerId).
+// Seules les NOUVELLES obligations generees apres la cession seront liees
+// au nouveau proprietaire.
+export async function transferBusinessOwnership(actor: CurrentUser, id: string, newOwnerId: string, reason: string) {
+  if (!can(actor, "businesses", "transfer")) throw new ApiError(403, "Permission insuffisante.");
+  if (!reason?.trim()) throw new ApiError(400, "Un motif est requis.");
+  if (!newOwnerId) throw new ApiError(400, "Nouveau proprietaire requis.");
+
+  const before = await prisma.business.findUnique({ where: { id } });
+  if (!before) throw new ApiError(404, "Boutique/commerce introuvable.");
+  if (!canAccessArrondissement(actor, before.arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
+  if (before.ownerId === newOwnerId) throw new ApiError(400, "Le nouveau proprietaire est deja le proprietaire actuel.");
+
+  const newOwner = await prisma.citizen.findUnique({ where: { id: newOwnerId } });
+  if (!newOwner) throw new ApiError(404, "Nouveau proprietaire introuvable.");
+
+  const updated = await prisma.business.update({ where: { id }, data: { ownerId: newOwnerId }, include: { owner: true } });
+
+  await logAudit({
+    user: actor,
+    action: "OWNERSHIP_TRANSFER",
+    module: "businesses",
+    entityType: "Business",
+    entityId: id,
+    arrondissementId: before.arrondissementId,
+    oldValue: { ownerId: before.ownerId },
+    newValue: { ownerId: newOwnerId, reason: reason.trim() },
+  });
+  return updated;
+}

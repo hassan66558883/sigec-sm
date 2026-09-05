@@ -43,7 +43,7 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   land: ["view", "create", "issue_title"],
   urbanism: ["view", "create", "review", "inspect", "decide"],
   // Phase 5 — Finances municipales
-  businesses: ["view", "create", "edit"],
+  businesses: ["view", "create", "edit", "transfer"],
   markets: ["view", "create", "edit"],
   payments: ["view", "create", "export", "cancel", "refund"],
   // Phase 6 — Services municipaux
@@ -300,7 +300,7 @@ const ROLES: {
       "applications:view", "applications:approve", "applications:reject",
       "land:view", "land:create", "land:issue_title",
       "urbanism:view", "urbanism:create", "urbanism:review", "urbanism:inspect", "urbanism:decide",
-      "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
+      "businesses:view", "businesses:create", "businesses:edit", "businesses:transfer", "markets:view", "markets:create", "markets:edit",
       "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:export",
@@ -351,7 +351,7 @@ const ROLES: {
       "applications:view", "applications:approve", "applications:reject",
       "land:view", "land:issue_title",
       "urbanism:view", "urbanism:decide",
-      "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
+      "businesses:view", "businesses:create", "businesses:edit", "businesses:transfer", "markets:view", "markets:create", "markets:edit",
       "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
       "complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:export",
