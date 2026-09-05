@@ -71,7 +71,8 @@ model Department {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  users User[]
+  users      User[]
+  complaints Complaint[]
 }
 
 // Roles minimum prevus par la specification (section 18). D'autres roles
@@ -230,6 +231,7 @@ model Quartier {
   businesses        Business[]
   markets           Market[]
   agentAffectations AgentAffectation[]
+  complaints        Complaint[]
 
   @@index([arrondissementId])
 }
@@ -920,39 +922,188 @@ model Association {
   @@index([arrondissementId])
 }
 
-// Guichet numerique des plaintes (section 13). Soumise depuis le portail
-// citoyen ; suivie par les agents avec un historique d'etapes.
-// status: NEW | RECEIVED | ASSIGNED | IN_PROGRESS | PENDING | RESOLVED | CLOSED
+// Categorie de signalement, administrable (module Plaintes & Doleances,
+// section 6) — remplace la liste figee CATEGORIES codee en dur dans
+// complaints.ts. Seed initial : une ligne par ancien code (VOIRIE,
+// PROPRETE, ECLAIRAGE, EAU, SECURITE, AUTRE) pour que les plaintes
+// existantes restent coherentes une fois `Complaint.categoryId` renseigne.
+model ComplaintCategory {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  subcategories ComplaintSubcategory[]
+  complaints    Complaint[]
+}
+
+model ComplaintSubcategory {
+  id         String  @id @default(cuid())
+  categoryId String
+  code       String
+  name       String
+  isActive   Boolean @default(true)
+
+  category   ComplaintCategory @relation(fields: [categoryId], references: [id])
+  complaints Complaint[]
+
+  @@unique([categoryId, code])
+}
+
+// Guichet numerique des plaintes (module Plaintes & Doleances). Soumise
+// depuis le portail citoyen ; suivie par les agents avec un historique
+// d'etapes (ComplaintUpdate) et un workflow a 13 etats (voir
+// src/lib/services/complaints.ts pour la table de transitions autorisees) :
+// DRAFT | SUBMITTED | RECEIVED | VERIFYING | NEEDS_INFO | ASSIGNED_DEPT |
+// ASSIGNED_AGENT | IN_PROGRESS | WAITING | RESOLVED | VALIDATING | CLOSED |
+// REJECTED — remplace l'ancien statut simplifie a 7 valeurs (NEW/RECEIVED/
+// ASSIGNED/IN_PROGRESS/PENDING/RESOLVED/CLOSED), conserve en compatibilite
+// via la meme colonne `status` (String libre, pas d'enum — convention deja
+// suivie par tout le reste du schema).
+//
+// La plupart des nouveaux champs sont optionnels : les plaintes existantes
+// (creees avant cette migration) restent valides sans backfill obligatoire,
+// seuls category/categoryId different (categoryId sera backfille depuis
+// l'ancien champ `category` par la migration elle-meme).
 model Complaint {
   id               String    @id @default(cuid())
   caseNumber       String    @unique
+  sequence         Int       @default(autoincrement()) // pour generateComplaintNumber() — meme convention que Receipt.sequence
+  type             String    @default("PLAINTE") // PLAINTE | DOLEANCE | SIGNALEMENT | SUGGESTION | RECLAMATION | INTERVENTION | URGENCE
   citizenAccountId String
-  category         String // VOIRIE | PROPRETE | ECLAIRAGE | EAU | SECURITE | AUTRE
+  category         String // ancien champ libre, conserve pour compatibilite — voir categoryId
+  categoryId       String?
+  subcategoryId    String?
+  title            String? // "Objet" (section 8) — optionnel : absent sur les plaintes anterieures a cette migration
   description      String
+  priority         String    @default("NORMAL") // FAIBLE | NORMAL | IMPORTANT | URGENT | CRITIQUE
   status           String    @default("NEW")
   arrondissementId String
-  assignedToId     String?
-  resolutionNotes  String?
-  resolvedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  quartierId       String?
+  address          String?
+  landmark         String? // "point de repere"
+  latitude         Float?
+  longitude        Float?
+  problemAt        DateTime? // date/heure du probleme, facultative (section 8)
 
-  citizenAccount CitizenAccount    @relation(fields: [citizenAccountId], references: [id])
-  arrondissement Arrondissement    @relation(fields: [arrondissementId], references: [id])
-  updates        ComplaintUpdate[]
+  assignedDepartmentId String?
+  assignedToId         String? // agent responsable
+  supervisorId         String?
+
+  receivedAt   DateTime?
+  assignedAt   DateTime?
+  startedAt    DateTime?
+  dueAt        DateTime? // echeance SLA (section 16)
+  slaHours     Int? // delai cible fige au moment de l'affectation, selon la priorite
+  resolvedAt   DateTime?
+  validatedAt  DateTime?
+  closedAt     DateTime?
+
+  resolutionNotes String?
+  rejectionReason String?
+  mergedIntoId    String? // detection de doublons (section 26) : ce dossier a ete fusionne dans un autre
+  deletedAt       DateTime? // soft delete (section 43) — jamais de suppression physique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  citizenAccount     CitizenAccount         @relation(fields: [citizenAccountId], references: [id])
+  arrondissement     Arrondissement         @relation(fields: [arrondissementId], references: [id])
+  quartier           Quartier?              @relation(fields: [quartierId], references: [id])
+  categoryRef        ComplaintCategory?     @relation(fields: [categoryId], references: [id])
+  subcategoryRef     ComplaintSubcategory?  @relation(fields: [subcategoryId], references: [id])
+  assignedDepartment Department?            @relation(fields: [assignedDepartmentId], references: [id])
+  mergedInto         Complaint?             @relation("ComplaintMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom         Complaint[]            @relation("ComplaintMerge")
+  updates            ComplaintUpdate[]
+  attachments        ComplaintAttachment[]
+  comments           ComplaintComment[]
+  satisfaction       ComplaintSatisfaction?
+  escalations        ComplaintEscalation[]
 
   @@index([arrondissementId])
   @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+  @@index([assignedToId])
+  @@index([dueAt])
 }
 
 // Historique des etapes de traitement — visible par le citoyen dans son
-// suivi de dossier (section 13 : "recevoir un numero de dossier, suivre le
-// traitement").
+// suivi de dossier (section 17 : timeline complete).
 model ComplaintUpdate {
   id          String   @id @default(cuid())
   complaintId String
   status      String
   note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+// Pieces jointes (section 9) — metadonnees uniquement ; le fichier lui-meme
+// vit hors base (voir docs de stockage existantes, meme convention que
+// Certificate/CitizenDocument : jamais de BYTEA en base pour un fichier).
+// `uploadedByCitizenAccountId` XOR `uploadedByUserId` selon l'auteur.
+model ComplaintAttachment {
+  id                         String   @id @default(cuid())
+  complaintId                String
+  fileName                   String
+  storagePath                String
+  mimeType                   String
+  sizeBytes                  Int
+  uploadedByCitizenAccountId String?
+  uploadedByUserId           String?
+  createdAt                  DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+// Messagerie citoyen <-> mairie liee au dossier (section 18). `authorType`
+// distingue l'emetteur puisque AuditLog.userId ne peut pas referencer un
+// CitizenAccount (meme contrainte que logAudit, voir audit.ts).
+model ComplaintComment {
+  id                 String   @id @default(cuid())
+  complaintId        String
+  authorType         String // CITIZEN | STAFF
+  authorUserId       String?
+  authorCitizenId    String?
+  message            String
+  createdAt          DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+// Evaluation de satisfaction post-resolution (section 28) — une seule par
+// dossier.
+model ComplaintSatisfaction {
+  id           String   @id @default(cuid())
+  complaintId  String   @unique
+  wasResolved  String // OUI | PARTIEL | NON
+  rating       Int // 1 a 5
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+}
+
+// Escalade (section 27) — trace chaque saut de niveau (agent -> superviseur
+// -> directeur -> administration centrale), independamment de
+// ComplaintUpdate qui trace les changements de statut.
+model ComplaintEscalation {
+  id          String   @id @default(cuid())
+  complaintId String
+  fromLevel   String
+  toLevel     String
+  reason      String?
   createdById String
   createdAt   DateTime @default(now())
 
