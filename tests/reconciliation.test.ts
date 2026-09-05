@@ -7,6 +7,7 @@ import {
   listReconciliationBatches,
   getReconciliationBatch,
   resolveReconciliationEntry,
+  getReconciliationHealthSummary,
 } from "../src/lib/services/reconciliation";
 import { createTestCity, createTestArrondissement, createTestUser, createTestCitizen, testPrisma, uid, closeTestDb } from "./helpers/fixtures";
 
@@ -178,5 +179,43 @@ describe("rapprochement prestataire/banque", () => {
     expect(resolved.resolved).toBe(true);
 
     await expect(resolveReconciliationEntry(admin, unmatchedEntry.id, "encore")).rejects.toMatchObject({ status: 400 });
+  });
+
+  // Tableau de bord (section 51) : signal de sante du rapprochement — le
+  // rapprochement est une fonction centrale non territorialisee (voir
+  // decision documentee sur reconciliation:view), donc verifie ici via un
+  // diff avant/apres plutot qu'un perimetre isole (impossible a isoler par
+  // arrondissement pour ce module).
+  it("getReconciliationHealthSummary compte les ecarts non resolus, retourne null sans permission", async () => {
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["payments:create", "mobile_money:confirm", "reconciliation:view", "reconciliation:create", "reconciliation:resolve"],
+    });
+    const owner = await createTestCitizen(arrA);
+    const provider = registerTestProvider();
+    const matchedRef = await makeConfirmedTransaction(admin, owner, 2000, provider);
+    const unmatchedRef = uid("MMREF");
+
+    const before = await getReconciliationHealthSummary(admin);
+    expect(before).not.toBeNull();
+
+    const periodStart = new Date(Date.now() - 60 * 60 * 1000).toISOString().slice(0, 10);
+    const periodEnd = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
+    const csvText = [`reference,montant`, `${matchedRef},2000`, `${unmatchedRef},999`].join("\n");
+    const batch = await ingestReconciliationStatement(admin, { provider, periodStart, periodEnd, fileName: "sante.csv", csvText });
+
+    const afterIngest = await getReconciliationHealthSummary(admin);
+    expect(afterIngest!.openDiscrepancies - before!.openDiscrepancies).toBe(1); // seul unmatchedRef est un ecart
+    expect(afterIngest!.lastBatchAt).not.toBeNull();
+
+    const detail = await getReconciliationBatch(admin, batch.id);
+    const unmatchedEntry = detail.entries.find((e) => e.status === "UNMATCHED_EXTERNAL")!;
+    await resolveReconciliationEntry(admin, unmatchedEntry.id, "Investigue.");
+
+    const afterResolve = await getReconciliationHealthSummary(admin);
+    expect(afterResolve!.openDiscrepancies).toBe(before!.openDiscrepancies);
+
+    const noPerm = await createTestUser({ organizationLevel: "CENTRAL", permissions: [] });
+    expect(await getReconciliationHealthSummary(noPerm)).toBeNull();
   });
 });

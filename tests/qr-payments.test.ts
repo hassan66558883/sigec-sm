@@ -5,6 +5,7 @@ import { createObligation } from "../src/lib/services/obligations";
 import { generateQrCode, revokeQrCode } from "../src/lib/services/qr-codes";
 import { initiateQrPayment } from "../src/lib/services/qr-payments";
 import { confirmMobileMoneyPayment } from "../src/lib/services/mobile-money";
+import { getQrRevenueToday } from "../src/lib/services/payments";
 import { verifyReceiptPublic } from "../src/lib/services/receipts";
 import {
   createTestCity,
@@ -80,6 +81,40 @@ describe("module paiement QR — initiation de paiement anonyme", () => {
     expect(verification.found).toBe(true);
     expect(verification.valid).toBe(true);
     if (verification.found) expect(verification.amount).toBe(20000);
+  });
+
+  // Tableau de bord (section 51) : le signal "recettes QR aujourd'hui" ne
+  // doit compter QUE les paiements confirmes via channel="QR" — verifie
+  // avec un acteur scope a l'arrondissement (pas CENTRAL/portee globale)
+  // pour isoler ce test des autres paiements QR crees ailleurs dans la
+  // suite partagee (meme base de test pour tous les fichiers).
+  it("getQrRevenueToday ne compte que les paiements QR confirmes aujourd'hui, dans le perimetre de l'acteur", async () => {
+    const admin = await createTestUser({
+      arrondissementIds: [arrA],
+      permissions: ["businesses:create", "tariffs:create", "obligations:create", "qr_codes:generate", "mobile_money:confirm", "payments:view"],
+    });
+    const owner = await createTestCitizen(arrA);
+    const business = await createBusiness(admin, { name: uid("Boutique Revenu QR"), ownerId: owner.id, arrondissementId: arrA });
+    const tarif = await createOrReviseTariff(admin, {
+      code: uid("TARIF"),
+      label: "Taxe test revenu QR",
+      emplacementType: "BOUTIQUE",
+      periodicity: "MENSUELLE",
+      amount: 6000,
+    });
+    const obligation = await createObligation(admin, { citizenId: owner.id, businessId: business.id, tarifId: tarif.id, period: "2026-09", dueDate: "2026-09-30" });
+    const qr = await generateQrCode(admin, "BUSINESS", business.id);
+
+    const before = await getQrRevenueToday(admin);
+    const { transaction } = await initiateQrPayment(qr.token, { obligationId: obligation.id, providerCode: "MANUAL" });
+    // Pas encore confirme -> ne doit pas encore compter.
+    const whilePending = await getQrRevenueToday(admin);
+    expect(whilePending?.total).toBe(before?.total);
+
+    await confirmMobileMoneyPayment(admin, transaction.id);
+    const after = await getQrRevenueToday(admin);
+    expect((after?.total ?? 0) - (before?.total ?? 0)).toBe(6000);
+    expect((after?.count ?? 0) - (before?.count ?? 0)).toBe(1);
   });
 
   it("refuse un QR revoque, une facture d'une autre entite, une facture deja soldee/annulee ou a solde nul", async () => {

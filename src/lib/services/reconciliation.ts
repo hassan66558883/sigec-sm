@@ -168,6 +168,21 @@ export async function listReconciliationBatches(actor: CurrentUser) {
   return prisma.reconciliationBatch.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
 }
 
+// Sante du rapprochement pour le tableau de bord (section 51) — jamais un
+// nouveau widget dedie separe, seulement un signal de plus dans le
+// tableau de bord existant (voir admin/page.tsx). Non-bloquant, sans
+// permission dediee : retourne null si l'appelant n'a pas reconciliation:view
+// plutot que de lever une erreur (meme convention que getFinanceSummary,
+// consomme dans un contexte deja permission-gate par l'appelant).
+export async function getReconciliationHealthSummary(actor: CurrentUser) {
+  if (!can(actor, "reconciliation", "view")) return null;
+  const [openDiscrepancies, lastBatch] = await Promise.all([
+    prisma.reconciliationEntry.count({ where: { status: { not: "MATCHED" }, resolved: false } }),
+    prisma.reconciliationBatch.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+  ]);
+  return { openDiscrepancies, lastBatchAt: lastBatch?.createdAt ?? null };
+}
+
 export async function getReconciliationBatch(actor: CurrentUser, id: string) {
   if (!can(actor, "reconciliation", "view")) throw new ApiError(403, "Permission insuffisante.");
   const batch = await prisma.reconciliationBatch.findUnique({

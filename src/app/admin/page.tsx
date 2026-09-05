@@ -5,9 +5,10 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { arrondissementScopeWhere, can } from "@/lib/rbac";
 import { listAuditLogs } from "@/lib/audit";
-import { getFinanceSummary, getRevenueTrend } from "@/lib/services/payments";
+import { getFinanceSummary, getRevenueTrend, getQrRevenueToday } from "@/lib/services/payments";
 import { getMunicipalRevenueOverview } from "@/lib/services/dashboard";
 import { getRecoveryStats, getPopulationTrend, getCivilStatusTrend, getArrondissementStatsReport } from "@/lib/services/analytics";
+import { getReconciliationHealthSummary } from "@/lib/services/reconciliation";
 import { cached, scopeCacheKey } from "@/lib/cache";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
@@ -155,7 +156,9 @@ export default async function AdminDashboardPage() {
   const canViewAudit = can(user, "audit", "view");
   const canViewRevenue = can(user, "payments", "view");
 
-  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview, recoveryStats, arrondissementStats] =
+  const canViewReconciliation = can(user, "reconciliation", "view");
+
+  const [arrondissements, roleCount, departmentCount, recentAudit, financeSummary, revenueOverview, recoveryStats, arrondissementStats, reconciliationHealth, qrRevenueToday] =
     await Promise.all([
       prisma.arrondissement.findMany({
         where: scopeWhere,
@@ -175,6 +178,12 @@ export default async function AdminDashboardPage() {
       user
         ? cached(`dashboard:arrondissementStats:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getArrondissementStatsReport(user))
         : Promise.resolve([]),
+      canViewReconciliation && user
+        ? cached(`dashboard:reconciliationHealth:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getReconciliationHealthSummary(user))
+        : Promise.resolve(null),
+      canViewRevenue && user
+        ? cached(`dashboard:qrRevenueToday:${scopeCacheKey(user)}`, DASHBOARD_CACHE_TTL_MS, () => getQrRevenueToday(user))
+        : Promise.resolve(null),
     ]);
 
   const quartierTotal = arrondissements.reduce((sum, a) => sum + a._count.quartiers, 0);
@@ -239,6 +248,26 @@ export default async function AdminDashboardPage() {
                 hint={
                   <Link href="/admin/fraud" className="inline-flex items-center gap-1 text-[var(--color-primary)] hover:underline">
                     {t("dashboard.viewFraud")} <IconArrowUpRight className="h-3 w-3" />
+                  </Link>
+                }
+              />
+            )}
+            {qrRevenueToday && (
+              <StatCard
+                label={t("dashboard.statQrRevenueToday")}
+                value={formatFcfa(qrRevenueToday.total)}
+                hint={t("dashboard.hintQrPaymentsCount", { count: qrRevenueToday.count })}
+                tone="primary"
+              />
+            )}
+            {reconciliationHealth && (
+              <StatCard
+                label={t("dashboard.statReconciliationDiscrepancies")}
+                value={reconciliationHealth.openDiscrepancies}
+                tone={reconciliationHealth.openDiscrepancies > 0 ? "danger" : "success"}
+                hint={
+                  <Link href="/admin/reconciliation" className="inline-flex items-center gap-1 text-[var(--color-primary)] hover:underline">
+                    {t("dashboard.viewReconciliation")} <IconArrowUpRight className="h-3 w-3" />
                   </Link>
                 }
               />

@@ -401,6 +401,24 @@ export async function getFinanceSummary(user: CurrentUser) {
   };
 }
 
+// Revenu via scan QR aujourd'hui (module paiement QR, section 51) — un
+// signal cross-cutting de plus pour le tableau de bord (jamais une page
+// dediee separee, voir admin/page.tsx), pas une nouvelle ventilation
+// generale : MobileMoneyTransaction.channel="QR" est deja le marqueur
+// exact pose par initiateQrPayment() (qr-payments.ts), rien de plus a
+// calculer.
+export async function getQrRevenueToday(user: CurrentUser) {
+  if (!can(user, "payments", "view")) return null;
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const agg = await prisma.payment.aggregate({
+    where: { ...recordScopeWhere(user), status: "PAID", paymentDate: { gte: startOfDay }, mobileMoney: { channel: "QR" } },
+    _sum: { amount: true },
+    _count: true,
+  });
+  return { total: agg._sum.amount ?? 0, count: agg._count };
+}
+
 // Tendance des recettes mensuelles (tableau de bord, section 10). Payment
 // est deja indexe sur paymentDate — agregation Postgres, pas de
 // regroupement cote Node.
