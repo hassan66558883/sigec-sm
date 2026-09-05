@@ -96,7 +96,14 @@ export async function proxy(req: NextRequest) {
       const loginUrl = new URL("/login", req.url);
       loginUrl.searchParams.set("next", pathname);
       response = NextResponse.redirect(loginUrl);
-    } else if (pathname !== "/admin/reset-password") {
+    } else if (session.mfaPending && pathname !== "/admin/mfa-verify") {
+      // Mot de passe verifie mais second facteur pas encore franchi pour
+      // CETTE session (voir mfaPending sur le JWT, lib/auth.ts) : bloque tout
+      // le reste de /admin, y compris /admin/reset-password — prouver
+      // l'identite complete passe avant toute autre action, meme un
+      // changement de mot de passe force.
+      response = NextResponse.redirect(new URL("/admin/mfa-verify", req.url));
+    } else if (pathname !== "/admin/reset-password" && pathname !== "/admin/mfa-verify") {
       const user = await prisma.user.findUnique({
         where: { id: session.sub },
         select: { mustResetPwd: true, isActive: true },

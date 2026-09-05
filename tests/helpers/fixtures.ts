@@ -59,6 +59,8 @@ export async function createTestUser(options: {
     email: user.email,
     isActive: true,
     mustResetPwd: false,
+    mfaEnabled: false,
+    mfaPending: false,
     roles: [],
     permissions: new Set(options.permissions ?? []),
     organizationLevel,

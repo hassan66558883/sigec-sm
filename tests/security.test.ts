@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { generate } from "otplib";
 import { validatePasswordStrength } from "../src/lib/password-policy";
 import { recordLoginAttempt, isAccountLocked } from "../src/lib/services/login-security";
 import { createUser, resetUserPasswordByAdmin } from "../src/lib/services/users";
+import { beginMfaSetup, confirmMfaSetup, verifyMfaCode, disableMfaSelf, disableMfaByAdmin } from "../src/lib/services/mfa";
 import { createTestCity, createTestArrondissement, createTestUser, testPrisma, uid, closeTestDb } from "./helpers/fixtures";
 
 // Module securite (master instruction, sections 2/6/25) — politique de mot
@@ -109,6 +111,86 @@ describe("reinitialisation de mot de passe par un administrateur", () => {
     const noPerm = await createTestUser({ organizationLevel: "CENTRAL", permissions: [] });
     await expect(resetUserPasswordByAdmin(noPerm, target.id, "Abcdefghij1")).rejects.toMatchObject({ status: 403 });
     await expect(resetUserPasswordByAdmin(admin, target.id, "faible")).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe("authentification a deux facteurs (MFA / TOTP)", () => {
+  it("configuration complete : n'active qu'apres un code reel verifie, jamais avant", async () => {
+    const agent = await createTestUser({});
+
+    const { secret, qrDataUrl } = await beginMfaSetup(agent);
+    expect(qrDataUrl).toMatch(/^data:image\/png;base64,/);
+
+    // Configuration commencee mais pas confirmee : le compte reste non
+    // protege, un mauvais code ne peut jamais activer le MFA par erreur.
+    await expect(confirmMfaSetup(agent, "000000")).rejects.toMatchObject({ status: 400 });
+    const stillOff = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(stillOff.mfaEnabled).toBe(false);
+
+    const validCode = await generate({ secret });
+    const backupCodes = await confirmMfaSetup(agent, validCode);
+    expect(backupCodes).toHaveLength(10);
+
+    const enabled = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(enabled.mfaEnabled).toBe(true);
+    expect(enabled.mfaSecret).not.toBe(secret); // chiffre au repos, jamais stocke en clair
+    expect(enabled.mfaBackupCodes).toHaveLength(10);
+
+    // Deja active : une 2e configuration est refusee tant que l'existante
+    // n'a pas ete retiree.
+    await expect(beginMfaSetup(agent)).rejects.toMatchObject({ status: 400 });
+
+    // La 2e etape de connexion (verifyMfaCode) accepte le meme secret.
+    const loginCode = await generate({ secret });
+    expect(await verifyMfaCode(agent.id, loginCode)).toBe(true);
+    expect(await verifyMfaCode(agent.id, "000000")).toBe(false);
+  });
+
+  it("un code de secours fonctionne une seule fois puis est consomme", async () => {
+    const agent = await createTestUser({});
+    const { secret } = await beginMfaSetup(agent);
+    const backupCodes = await confirmMfaSetup(agent, await generate({ secret }));
+
+    const usedCode = backupCodes[0];
+    expect(await verifyMfaCode(agent.id, usedCode)).toBe(true);
+    // Usage unique : le meme code de secours ne refonctionne pas une 2e fois.
+    expect(await verifyMfaCode(agent.id, usedCode)).toBe(false);
+
+    const remaining = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(remaining.mfaBackupCodes).toHaveLength(9);
+  });
+
+  it("l'auto-desactivation exige un code valide ; l'admin peut desactiver sans code (recuperation)", async () => {
+    const agent = await createTestUser({});
+    const { secret } = await beginMfaSetup(agent);
+    await confirmMfaSetup(agent, await generate({ secret }));
+
+    await expect(disableMfaSelf(agent, "000000")).rejects.toMatchObject({ status: 400 });
+    let current = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(current.mfaEnabled).toBe(true);
+
+    await disableMfaSelf(agent, await generate({ secret }));
+    current = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(current.mfaEnabled).toBe(false);
+    expect(current.mfaSecret).toBeNull();
+    expect(current.mfaBackupCodes).toHaveLength(0);
+
+    // Recuperation admin (perte de l'authenticator ET des codes de secours) :
+    // reconfigure le MFA puis fait desactiver par un admin sans code, comme
+    // resetUserPasswordByAdmin pour le mot de passe.
+    const { secret: secret2 } = await beginMfaSetup(agent);
+    await confirmMfaSetup(agent, await generate({ secret: secret2 }));
+
+    const admin = await createTestUser({ organizationLevel: "CENTRAL", permissions: ["users:edit"] });
+    const noPerm = await createTestUser({ organizationLevel: "CENTRAL", permissions: [] });
+    await expect(disableMfaByAdmin(noPerm, agent.id)).rejects.toMatchObject({ status: 403 });
+
+    await disableMfaByAdmin(admin, agent.id);
+    const afterAdminDisable = await testPrisma.user.findUniqueOrThrow({ where: { id: agent.id } });
+    expect(afterAdminDisable.mfaEnabled).toBe(false);
+
+    const audit = await testPrisma.auditLog.findFirst({ where: { action: "MFA_DISABLED_BY_ADMIN", entityId: agent.id } });
+    expect(audit).not.toBeNull();
   });
 });
 

@@ -123,6 +123,8 @@ async function main() {
     email: demoAgentUser.email,
     isActive: true,
     mustResetPwd: false,
+    mfaEnabled: false,
+    mfaPending: false,
     roles: [{ code: "COMPLAINTS_AGENT", name: "Agent plaintes" }],
     permissions: new Set([
       "complaints:view", "complaints:assign", "complaints:update",

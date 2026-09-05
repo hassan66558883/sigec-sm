@@ -29,11 +29,19 @@ export async function isAccountLocked(email: string): Promise<boolean> {
     where: { email: email.toLowerCase(), success: true },
     orderBy: { createdAt: "desc" },
   });
+  // gte (pas gt) sur lastSuccess.createdAt : createdAt n'a qu'une precision
+  // milliseconde (TIMESTAMP(3)) — un echec pouvait, sous charge, partager
+  // exactement le meme horodatage que le succes qui le precede de justesse
+  // et se voir alors exclu a tort par un "gt" strict (bug constate : le
+  // compteur restait sous le seuil alors qu'il aurait du le franchir). En
+  // cas d'egalite reelle, compter l'echec comme posterieur au succes est le
+  // choix le plus sur pour un mecanisme de securite (au pire un verrouillage
+  // un cran plus tot que necessaire, jamais l'inverse).
   const recentFailures = await prisma.loginAttempt.count({
     where: {
       email: email.toLowerCase(),
       success: false,
-      createdAt: lastSuccess ? { gte: since, gt: lastSuccess.createdAt } : { gte: since },
+      createdAt: lastSuccess ? { gte: since > lastSuccess.createdAt ? since : lastSuccess.createdAt } : { gte: since },
     },
   });
   if (recentFailures < thresholds.loginLockoutMaxAttempts) return false;

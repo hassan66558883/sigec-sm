@@ -16,12 +16,16 @@ export function UserMenu({
   changePasswordLabel,
   logoutLabel,
   changePasswordHref = "/admin/reset-password",
+  securityLabel = "Securite (MFA)",
+  securityHref = "/admin/security",
 }: {
   name: string;
   roleLabel: string;
   changePasswordLabel: string;
   logoutLabel: string;
   changePasswordHref?: string;
+  securityLabel?: string;
+  securityHref?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -68,6 +72,12 @@ export function UserMenu({
             className="block rounded-md px-3 py-2 text-start text-sm text-[var(--color-text)] transition hover:bg-[var(--color-surface-hover)]"
           >
             {changePasswordLabel}
+          </Link>
+          <Link
+            href={securityHref}
+            className="block rounded-md px-3 py-2 text-start text-sm text-[var(--color-text)] transition hover:bg-[var(--color-surface-hover)]"
+          >
+            {securityLabel}
           </Link>
           <div className="my-1 border-t border-[var(--color-border-subtle)]" />
           <LogoutButton label={logoutLabel} />

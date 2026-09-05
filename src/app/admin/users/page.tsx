@@ -6,6 +6,7 @@ import { listUsers } from "@/lib/services/users";
 import { UserForm } from "@/components/users/user-form";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
 import { ResetUserPasswordButton } from "@/components/users/reset-user-password-button";
+import { DisableUserMfaButton } from "@/components/users/disable-user-mfa-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -71,6 +72,13 @@ export default async function UsersPage() {
       sortValue: (u) => (u.isActive ? 1 : 0),
     },
     {
+      key: "mfa",
+      header: "MFA",
+      render: (u) => <StatusBadge label={u.mfaEnabled ? "Actif" : "Inactif"} tone={u.mfaEnabled ? "success" : "neutral"} />,
+      sortable: true,
+      sortValue: (u) => (u.mfaEnabled ? 1 : 0),
+    },
+    {
       key: "actions",
       header: "",
       align: "end",
@@ -78,6 +86,7 @@ export default async function UsersPage() {
         can(user, "users", "edit") && (
           <div className="flex items-center justify-end gap-2">
             <ResetUserPasswordButton userId={u.id} />
+            {u.mfaEnabled && <DisableUserMfaButton userId={u.id} />}
             <ToggleActiveButton endpoint={`/api/users/${u.id}`} isActive={u.isActive} disabled={u.id === user.id} />
           </div>
         ),

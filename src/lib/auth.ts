@@ -15,6 +15,13 @@ export type SessionPayload = {
   sub: string; // userId
   name: string;
   email: string;
+  // Vrai entre un mot de passe verifie et un code MFA verifie (module
+  // securite, section 2) — porte par le JWT lui-meme (propriete de CETTE
+  // session/connexion), jamais recalcule depuis user.mfaEnabled : sinon un
+  // utilisateur ayant deja franchi le second facteur devrait le refaire a
+  // chaque requete tant que le MFA reste active sur son compte. Absent (donc
+  // falsy) pour tout compte sans MFA active.
+  mfaPending?: boolean;
 };
 
 export async function createSessionToken(payload: SessionPayload) {
@@ -35,7 +42,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     ) {
       return null;
     }
-    return { sub: payload.sub, name: payload.name, email: payload.email };
+    return { sub: payload.sub, name: payload.name, email: payload.email, mfaPending: payload.mfaPending === true };
   } catch {
     return null;
   }
@@ -55,6 +62,8 @@ export type CurrentUser = {
   email: string;
   isActive: boolean;
   mustResetPwd: boolean;
+  mfaEnabled: boolean;
+  mfaPending: boolean;
   roles: { code: string; name: string }[];
   permissions: Set<string>; // "<module>:<action>"
   organizationLevel: OrganizationLevel;
@@ -94,6 +103,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: user.email,
     isActive: user.isActive,
     mustResetPwd: user.mustResetPwd,
+    mfaEnabled: user.mfaEnabled,
+    mfaPending: session.mfaPending === true,
     roles: user.roles.map((ur) => ({ code: ur.role.code, name: ur.role.name })),
     permissions,
     organizationLevel,

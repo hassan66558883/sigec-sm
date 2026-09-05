@@ -46,6 +46,19 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // Authentification a deux facteurs (module securite, section 2/24) — TOTP,
+  // portee aux seuls comptes agents/administrateurs pour cette phase (pas le
+  // portail citoyen). mfaSecret chiffre au repos (lib/encryption.ts) : ce
+  // n'est pas un hash, le secret doit rester recalculable a chaque
+  // verification. mfaSecret est deja renseigne pendant la configuration en
+  // attente (avant confirmation), mfaEnabled ne bascule qu'apres un premier
+  // code reel verifie (voir services/mfa.ts). mfaBackupCodes : hashes bcrypt
+  // de codes a usage unique, jamais le texte en clair.
+  mfaEnabled      Boolean   @default(false)
+  mfaSecret       String?
+  mfaBackupCodes  String[]  @default([])
+  mfaEnabledAt    DateTime?
+
   department               Department?              @relation(fields: [departmentId], references: [id])
   roles                    UserRole[]
   arrondissements          UserArrondissement[]

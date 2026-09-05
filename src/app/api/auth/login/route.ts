@@ -78,21 +78,44 @@ export async function POST(req: NextRequest) {
   }
 
   await recordLoginAttempt(email, ipAddress, userAgent, true);
-  const token = await createSessionToken({ sub: user.id, name: user.name, email: user.email });
+  // Si le MFA est active sur ce compte (section 2), le mot de passe seul ne
+  // suffit pas encore : la session est emise mais marquee mfaPending, ce qui
+  // fait rediriger toute navigation /admin vers /admin/mfa-verify (voir
+  // proxy.ts) jusqu'a verification du second facteur — meme mecanique que
+  // mustResetPwd, deja eprouvee.
+  const token = await createSessionToken({ sub: user.id, name: user.name, email: user.email, mfaPending: user.mfaEnabled });
 
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  // "LOGIN" doit signifier une identite entierement prouvee : si le MFA est
+  // actif, ce mot de passe correct n'en est qu'une moitie — lastLoginAt et
+  // l'evenement LOGIN sont donc differes jusqu'a /api/auth/mfa/verify (voir
+  // ce fichier), qui journalise LOGIN a la place une fois le second facteur
+  // verifie. Sans ce report, un mot de passe compromis mais un MFA jamais
+  // franchi apparaitrait a tort comme une connexion complete dans l'audit.
+  if (user.mfaEnabled) {
+    await logAudit({
+      user: { id: user.id, name: user.name },
+      action: "LOGIN_PASSWORD_VERIFIED",
+      module: "auth",
+      entityType: "User",
+      entityId: user.id,
+      ipAddress,
+      userAgent,
+      newValue: { mfaPending: true },
+    });
+  } else {
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await logAudit({
+      user: { id: user.id, name: user.name },
+      action: "LOGIN",
+      module: "auth",
+      entityType: "User",
+      entityId: user.id,
+      ipAddress,
+      userAgent,
+    });
+  }
 
-  await logAudit({
-    user: { id: user.id, name: user.name },
-    action: "LOGIN",
-    module: "auth",
-    entityType: "User",
-    entityId: user.id,
-    ipAddress,
-    userAgent,
-  });
-
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true, mfaRequired: user.mfaEnabled });
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
