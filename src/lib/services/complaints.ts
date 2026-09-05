@@ -112,6 +112,15 @@ export async function submitComplaint(account: CitizenAccountWithCitizen, input:
   if (!CATEGORIES.includes(input.category)) throw new ApiError(400, "Categorie invalide.");
   if (!input.description?.trim()) throw new ApiError(400, "Description requise.");
   if (input.type && !COMPLAINT_TYPES.includes(input.type)) throw new ApiError(400, "Type de demande invalide.");
+  // Coordonnees choisies par le citoyen sur la carte interactive (section 12) —
+  // valider les bornes geographiques standard : une valeur hors plage ne peut
+  // venir que d'un client altere, jamais d'un clic reel sur la carte.
+  if (input.latitude !== undefined && (typeof input.latitude !== "number" || Number.isNaN(input.latitude) || input.latitude < -90 || input.latitude > 90)) {
+    throw new ApiError(400, "Latitude invalide.");
+  }
+  if (input.longitude !== undefined && (typeof input.longitude !== "number" || Number.isNaN(input.longitude) || input.longitude < -180 || input.longitude > 180)) {
+    throw new ApiError(400, "Longitude invalide.");
+  }
   // Le citoyen ne peut jamais choisir une priorite superieure a NORMAL —
   // seul un agent peut requalifier vers IMPORTANT/URGENT/CRITIQUE (section 8 :
   // "empecher qu'un citoyen puisse artificiellement augmenter une priorite").

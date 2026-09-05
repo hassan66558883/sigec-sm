@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LocationMap } from "@/components/municipal/location-map-loader";
 
 const TYPE_OPTIONS = [
   { value: "PLAINTE", label: "Plainte" },
@@ -25,6 +26,8 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
   const [quartierId, setQuartierId] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +61,8 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
         quartierId: quartierId || undefined,
         address: address.trim() || undefined,
         landmark: landmark.trim() || undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
         title: title.trim() || undefined,
         description: description.trim(),
       }),
@@ -80,6 +85,8 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
     setQuartierId("");
     setAddress("");
     setLandmark("");
+    setLatitude(null);
+    setLongitude(null);
     setTitle("");
     setDescription("");
     setConfirmedCase(null);
@@ -180,6 +187,17 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
             <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Point de repere (facultatif)</label>
             <input value={landmark} onChange={(e) => setLandmark(e.target.value)} placeholder="ex: pres du marche central" className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm" />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
+              Emplacement sur la carte (facultatif) — cliquez pour placer un repere
+            </label>
+            <LocationMap latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
+            {latitude != null && longitude != null && (
+              <button type="button" onClick={() => { setLatitude(null); setLongitude(null); }} className="mt-1 text-xs text-[var(--color-text-muted)] hover:underline">
+                Retirer le repere
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -205,6 +223,9 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
           <dt className="text-[var(--color-text-muted)]">Quartier</dt>
           <dd className="col-span-2">{quartiers.find((q) => q.id === quartierId)?.name ?? "Non precise"}</dd>
           {address && (<><dt className="text-[var(--color-text-muted)]">Adresse</dt><dd className="col-span-2">{address}</dd></>)}
+          {latitude != null && longitude != null && (
+            <><dt className="text-[var(--color-text-muted)]">Repere carte</dt><dd className="col-span-2">{latitude.toFixed(5)}, {longitude.toFixed(5)}</dd></>
+          )}
           {title && (<><dt className="text-[var(--color-text-muted)]">Objet</dt><dd className="col-span-2">{title}</dd></>)}
           <dt className="text-[var(--color-text-muted)]">Description</dt>
           <dd className="col-span-2 whitespace-pre-wrap">{description}</dd>

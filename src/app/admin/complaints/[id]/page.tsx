@@ -7,6 +7,7 @@ import { listUsers } from "@/lib/services/users";
 import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { ComplaintActions, COMPLAINT_STATUS_LABEL, DuplicateMergeButton } from "@/components/municipal/complaint-actions";
+import { LocationMap } from "@/components/municipal/location-map-loader";
 import { PageHeading } from "@/components/ui/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -90,6 +91,11 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
             <div className="mt-3 text-xs font-medium uppercase text-[var(--color-text-muted)]">Localisation</div>
             <div className="text-sm text-[var(--color-text-muted)]">{[complaint.address, complaint.landmark].filter(Boolean).join(" — ")}</div>
           </>
+        )}
+        {complaint.latitude != null && complaint.longitude != null && (
+          <div className="mt-3">
+            <LocationMap latitude={complaint.latitude} longitude={complaint.longitude} readOnly />
+          </div>
         )}
         {complaint.assignedDepartment && (
           <>

@@ -78,6 +78,18 @@ describe("plaintes citoyennes — guichet numerique", () => {
     expect(mine.map((c) => c.id)).toContain(complaint.id);
   });
 
+  it("le repere geographique choisi sur la carte (section 12) est valide en bornes avant d'etre enregistre", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+
+    await expect(submitComplaint(account, { category: "ECLAIRAGE", description: "test", latitude: 999, longitude: 15 })).rejects.toMatchObject({ status: 400 });
+    await expect(submitComplaint(account, { category: "ECLAIRAGE", description: "test", latitude: 12, longitude: -999 })).rejects.toMatchObject({ status: 400 });
+
+    const pinned = await submitComplaint(account, { category: "ECLAIRAGE", description: "Lampadaire localise sur la carte.", latitude: 12.1348, longitude: 15.0557 });
+    expect(pinned.latitude).toBeCloseTo(12.1348);
+    expect(pinned.longitude).toBeCloseTo(15.0557);
+  });
+
   it("un agent fait progresser une plainte a travers le workflow complet (13 etats) ; chaque etape journalise un update ; l'isolation territoriale et les transitions invalides sont refusees", async () => {
     const citizen = await createTestCitizen(arrA);
     const account = await createTestCitizenAccount(citizen.id);
