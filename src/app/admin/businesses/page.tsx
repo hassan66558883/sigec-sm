@@ -8,6 +8,7 @@ import { listCitizens } from "@/lib/services/citizens";
 import { listActivities } from "@/lib/services/activities";
 import { BusinessForm } from "@/components/finances/business-form";
 import { BusinessStatusSelect } from "@/components/finances/business-status-select";
+import { BulkQrPrintButton } from "@/components/finances/bulk-qr-print-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
@@ -91,13 +92,18 @@ export default async function BusinessesPage({ searchParams }: { searchParams: P
         title="Boutiques & commercants"
         description="Redevables de patente et taxes municipales (module recensement)."
         action={
-          can(user, "businesses", "create") && (
-            <BusinessForm
-              arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
-              citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }))}
-              activities={activities.map((a) => ({ id: a.id, label: a.name }))}
-            />
-          )
+          <div className="flex items-center gap-2">
+            {can(user, "qr_codes", "bulk_generate") && businesses.length > 0 && (
+              <BulkQrPrintButton entityType="BUSINESS" entityIds={businesses.map((b) => b.id)} label="Imprimer les QR (cette page)" />
+            )}
+            {can(user, "businesses", "create") && (
+              <BusinessForm
+                arrondissements={arrondissements.map((a) => ({ id: a.id, label: a.name }))}
+                citizens={citizens.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName} (${c.uniqueNumber})` }))}
+                activities={activities.map((a) => ({ id: a.id, label: a.name }))}
+              />
+            )}
+          </div>
         }
       />
 

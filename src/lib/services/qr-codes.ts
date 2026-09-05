@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { generateVerificationToken } from "@/lib/ids";
 import { withBalance } from "@/lib/services/obligations";
 import { detectInvalidQrScan, detectQrScanVolumeAnomaly } from "@/lib/services/fraud";
+import { generateQrStickerSheetPdf, type StickerItem } from "@/lib/pdf-stickers";
 
 // Systeme QR reutilisable (module paiement QR, section 3) : entityType/
 // entityId est une reference polymorphe deliberee vers n'importe quelle
@@ -20,9 +21,9 @@ export type QrEntityType = (typeof QR_ENTITY_TYPES)[number];
 
 const OPEN_OBLIGATION_STATUSES = ["A_PAYER", "PARTIELLEMENT_PAYE", "EN_RETARD"];
 
-type ResolvedEntity = { arrondissementId: string; label: string; reference: string | null };
+export type ResolvedEntity = { arrondissementId: string; label: string; reference: string | null };
 
-async function resolveEntityForAdmin(entityType: string, entityId: string): Promise<ResolvedEntity> {
+export async function resolveEntityForAdmin(entityType: string, entityId: string): Promise<ResolvedEntity> {
   if (entityType === "BUSINESS") {
     const business = await prisma.business.findUnique({ where: { id: entityId } });
     if (!business) throw new ApiError(404, "Commerce introuvable.");
@@ -197,6 +198,48 @@ export async function listQrCodesForEntity(actor: CurrentUser, entityType: strin
   const entity = await resolveEntityForAdmin(entityType, entityId);
   if (!canAccessArrondissement(actor, entity.arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
   return prisma.qrCode.findMany({ where: { entityType, entityId }, orderBy: { createdAt: "desc" } });
+}
+
+const BULK_MAX_ENTITIES = 200;
+
+// Generation groupee de stickers QR imprimables (section 38) : reutilise
+// generateQrCode() entite par entite (memes regles/permissions/journal
+// d'audit que la generation individuelle — aucune duplication de logique),
+// mais NE REGENERE JAMAIS un QR deja actif pour une entite qui en a deja
+// un (une entite ne peut avoir qu'un seul QR actif — regle deja imposee
+// par generateQrCode() lui-meme). Un lot melange donc naturellement
+// entites deja equipees et nouvelles entites, produisant une seule
+// planche PDF pour l'ensemble.
+export async function bulkGenerateQrStickers(actor: CurrentUser, entityType: string, entityIds: string[], baseUrl: string): Promise<Buffer> {
+  if (!can(actor, "qr_codes", "bulk_generate")) throw new ApiError(403, "Permission insuffisante.");
+  if (!QR_ENTITY_TYPES.includes(entityType as QrEntityType)) throw new ApiError(400, "Type d'entite QR invalide.");
+  if (!Array.isArray(entityIds) || entityIds.length === 0) throw new ApiError(400, "Aucune entite selectionnee.");
+  if (entityIds.length > BULK_MAX_ENTITIES) throw new ApiError(400, `Maximum ${BULK_MAX_ENTITIES} entites par lot.`);
+
+  const items: StickerItem[] = [];
+  for (const entityId of entityIds) {
+    const entity = await resolveEntityForAdmin(entityType, entityId).catch(() => null);
+    if (!entity || !canAccessArrondissement(actor, entity.arrondissementId)) continue;
+
+    let qr = await prisma.qrCode.findFirst({ where: { entityType, entityId, status: "ACTIVE" } });
+    if (!qr) qr = await generateQrCode(actor, entityType, entityId);
+
+    const png = await generateEntityQrPng(qr.token, baseUrl);
+    items.push({ png, label: entity.label, reference: entity.reference ?? entity.label });
+  }
+
+  if (items.length === 0) throw new ApiError(400, "Aucune entite valide dans votre perimetre.");
+
+  await logAudit({
+    user: actor,
+    action: "QR_BULK_GENERATE",
+    module: "qr_codes",
+    entityType: "QrCode",
+    entityId: entityType,
+    newValue: { entityType, requested: entityIds.length, produced: items.length },
+  });
+
+  return generateQrStickerSheetPdf(items);
 }
 
 // --- Scan public (aucune authentification — section 41) ---------------------

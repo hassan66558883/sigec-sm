@@ -7,6 +7,7 @@ import { listCitizens } from "@/lib/services/citizens";
 import { MarketForm } from "@/components/finances/market-form";
 import { StallPanel } from "@/components/finances/stall-panel";
 import { MarketStatusSelect } from "@/components/finances/market-status-select";
+import { BulkQrPrintButton } from "@/components/finances/bulk-qr-print-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card } from "@/components/ui/card";
@@ -55,6 +56,9 @@ export default async function MarketsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-[var(--color-text-muted)]">{m.stalls.length} emplacement(s)</span>
+                {can(user, "qr_codes", "bulk_generate") && m.stalls.length > 0 && (
+                  <BulkQrPrintButton entityType="MARKET_STALL" entityIds={m.stalls.map((s) => s.id)} label="Imprimer les QR" />
+                )}
                 {can(user, "markets", "edit") ? (
                   <MarketStatusSelect id={m.id} status={m.status} />
                 ) : (
