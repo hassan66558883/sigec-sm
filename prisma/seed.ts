@@ -74,7 +74,7 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   // administrateurs autorises). delete/api_manage/webhooks_manage/
   // mapping_manage/documentation/health non declarees ici : pas de
   // fonctionnalite reelle correspondante avant une phase ulterieure.
-  integration: ["view", "create", "update", "test", "logs", "retry", "credentials", "webhooks_manage", "documentation"],
+  integration: ["view", "create", "update", "test", "logs", "retry", "credentials", "webhooks_manage", "documentation", "mapping_manage", "import_export"],
 };
 
 // Permissions commerciales de l'editeur TECHNOTCHAD (gestion des abonnements
@@ -321,7 +321,7 @@ const ROLES: {
       "fraud:view", "fraud:resolve",
       "qr_codes:view", "qr_codes:generate", "qr_codes:revoke", "qr_codes:replace", "qr_codes:verify_install", "qr_codes:bulk_generate",
       "reconciliation:view", "reconciliation:create", "reconciliation:resolve",
-      "integration:view", "integration:create", "integration:update", "integration:test", "integration:logs", "integration:retry", "integration:credentials", "integration:webhooks_manage", "integration:documentation",
+      "integration:view", "integration:create", "integration:update", "integration:test", "integration:logs", "integration:retry", "integration:credentials", "integration:webhooks_manage", "integration:documentation", "integration:mapping_manage", "integration:import_export",
     ],
   },
   {

@@ -77,6 +77,8 @@ const fr = {
     integrationErrors: "Error Management",
     integrationDocumentation: "API Documentation",
     integrationApiTester: "API Tester",
+    integrationMapping: "Data Mapping",
+    integrationImportExport: "Import / Export",
     technotchadDashboard: "Tableau de bord",
     technotchadClients: "Clients",
     technotchadSubscriptions: "Abonnements",

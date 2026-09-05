@@ -2164,3 +2164,67 @@ model IntegrationWebhookDelivery {
   @@index([webhookId])
   @@index([nextRetryAt])
 }
+
+// Data Mapping Engine (section 11) — associe les colonnes d'un fichier
+// externe aux champs SIGEC-SM. entityType n'a qu'une seule valeur possible
+// pour l'instant ("CITIZENS") : etendre CITIZENS_TARGET_FIELDS
+// (integration-mapping.ts) plutot que d'ajouter un type sans champs cibles
+// reels derriere.
+model IntegrationMapping {
+  id          String   @id @default(cuid())
+  name        String
+  entityType  String   @default("CITIZENS")
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rules      IntegrationMappingRule[]
+  importJobs IntegrationImportJob[]
+
+  @@index([entityType])
+}
+
+// Une regle = une colonne source -> un champ cible, avec transformation
+// optionnelle (section 11 : mapping direct, transformation, valeurs par
+// defaut, conversion de date/texte — lookup tables et mapping conditionnel
+// restent hors scope tant qu'aucun cas reel ne les exige).
+model IntegrationMappingRule {
+  id              String @id @default(cuid())
+  mappingId       String
+  sourceField     String
+  targetField     String
+  transform       String  @default("DIRECT") // DIRECT|DEFAULT_VALUE|UPPERCASE|LOWERCASE|DATE_FORMAT
+  transformConfig String? // JSON, ex {"defaultValue":"Tchadienne"} ou {"format":"DD/MM/YYYY"}
+  order           Int     @default(0)
+
+  mapping IntegrationMapping @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+
+  @@index([mappingId])
+}
+
+// Import/Export (section 14) : jamais d'import direct sans validation
+// prealable (section 14 : "Ne jamais importer directement sans
+// validation") — previewImport() valide et stocke validatedRows (JSON,
+// lignes deja transformees + leur diagnostic) SANS rien ecrire dans
+// Citizen ; seul commitImport() cree reellement les enregistrements,
+// action distincte et explicite.
+model IntegrationImportJob {
+  id            String    @id @default(cuid())
+  mappingId     String?
+  entityType    String
+  fileName      String
+  totalRows     Int
+  validRows     Int
+  invalidRows   Int
+  importedRows  Int       @default(0)
+  status        String    @default("PREVIEWED") // PREVIEWED|IMPORTED|FAILED
+  validatedRows String? // JSON : lignes mappees + diagnostic (valid/erreurs) — jamais persistees ailleurs
+  errors        String? // JSON : erreurs d'ecriture rencontrees a l'import reel
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  importedAt    DateTime?
+
+  mapping IntegrationMapping? @relation(fields: [mappingId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
