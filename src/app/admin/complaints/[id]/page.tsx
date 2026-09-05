@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { getComplaintForStaff, computeSlaStatus } from "@/lib/services/complaints";
+import { getComplaintForStaff, computeSlaStatus, findSimilarComplaints } from "@/lib/services/complaints";
 import { listUsers } from "@/lib/services/users";
 import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
-import { ComplaintActions, COMPLAINT_STATUS_LABEL } from "@/components/municipal/complaint-actions";
+import { ComplaintActions, COMPLAINT_STATUS_LABEL, DuplicateMergeButton } from "@/components/municipal/complaint-actions";
 import { PageHeading } from "@/components/ui/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -36,9 +36,10 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
     throw e;
   }
 
-  const [departments, users] = await Promise.all([
+  const [departments, users, similar] = await Promise.all([
     prisma.department.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     listUsers(user),
+    can(user, "complaints", "assign") ? findSimilarComplaints(user, id) : Promise.resolve([]),
   ]);
 
   const sla = complaint.dueAt ? computeSlaStatus(complaint.dueAt, complaint.resolvedAt, complaint.slaHours) : null;
@@ -61,6 +62,17 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
           </div>
         }
       />
+
+      {complaint.mergedInto && (
+        <Card>
+          <p className="text-sm">
+            Ce dossier a ete fusionne dans{" "}
+            <Link href={`/admin/complaints/${complaint.mergedInto.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+              {complaint.mergedInto.caseNumber}
+            </Link>.
+          </p>
+        </Card>
+      )}
 
       <Card>
         <div className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Citoyen</div>
@@ -133,6 +145,40 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
                 </div>
                 {esc.reason && <div className="text-[var(--color-text-muted)]">{esc.reason}</div>}
                 <div className="mt-1 text-xs text-[var(--color-text-muted)]">{new Date(esc.createdAt).toLocaleString("fr-FR")}</div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {complaint.mergedFrom.length > 0 && (
+        <Card padding="p-0">
+          <CardHeader title="Dossiers fusionnes dans celui-ci" />
+          <ul className="divide-y divide-[var(--color-border-subtle)]">
+            {complaint.mergedFrom.map((m) => (
+              <li key={m.id} className="px-5 py-3 text-sm">
+                <Link href={`/admin/complaints/${m.id}`} className="font-medium text-[var(--color-primary)] hover:underline">{m.caseNumber}</Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {!complaint.mergedInto && similar.length > 0 && (
+        <Card padding="p-0">
+          <CardHeader title="Doublons potentiels" />
+          <ul className="divide-y divide-[var(--color-border-subtle)]">
+            {similar.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+                <div>
+                  <Link href={`/admin/complaints/${s.id}`} className="font-medium text-[var(--color-primary)] hover:underline">{s.caseNumber}</Link>
+                  <span className="ml-2 text-[var(--color-text-muted)]">
+                    {s.citizenAccount.citizen.firstName} {s.citizenAccount.citizen.lastName} — {COMPLAINT_STATUS_LABEL[s.status] ?? s.status}
+                  </span>
+                </div>
+                {can(user, "complaints", "assign") && (
+                  <DuplicateMergeButton id={complaint.id} keepId={s.id} keepCaseNumber={s.caseNumber} />
+                )}
               </li>
             ))}
           </ul>

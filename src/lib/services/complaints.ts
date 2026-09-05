@@ -209,7 +209,7 @@ export async function listComplaintsForStaffPage(
   view: ComplaintDashboardView = "all",
 ) {
   if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
-  const where = { ...recordScopeWhere(user), deletedAt: null, ...dashboardViewWhere(view, user.id, new Date()) };
+  const where = { ...recordScopeWhere(user), deletedAt: null, mergedIntoId: null, ...dashboardViewWhere(view, user.id, new Date()) };
   const [rows, total] = await Promise.all([
     prisma.complaint.findMany({
       where,
@@ -228,7 +228,7 @@ export async function listComplaintsForStaffPage(
 // comptage cote application.
 export async function getComplaintsDashboardStats(user: CurrentUser) {
   if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
-  const base = { ...recordScopeWhere(user), deletedAt: null };
+  const base = { ...recordScopeWhere(user), deletedAt: null, mergedIntoId: null };
   const now = new Date();
 
   const [total, mine, newCount, urgent, late, today, waiting, resolved] = await Promise.all([
@@ -259,6 +259,8 @@ export async function getComplaintForStaff(user: CurrentUser, id: string) {
       comments: { orderBy: { createdAt: "asc" } },
       satisfaction: true,
       escalations: { orderBy: { createdAt: "asc" } },
+      mergedInto: true,
+      mergedFrom: true,
     },
   });
   if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
@@ -601,4 +603,74 @@ export async function escalateComplaint(actor: CurrentUser, id: string, toLevel:
   });
 
   return created;
+}
+
+// --- Detection de doublons (section 26) -------------------------------------
+// Heuristique volontairement simple et transparente (pas de similarite
+// textuelle/ML) : meme categorie, meme localisation (quartier si connu,
+// sinon arrondissement), dossier encore actif, cree dans les 30 derniers
+// jours. Mieux vaut rater un doublon que proposer une fusion hasardeuse
+// entre deux dossiers sans rapport reel — jamais de fusion automatique
+// (section 26 : "ne jamais supprimer automatiquement... sans regle claire").
+const DUPLICATE_WINDOW_DAYS = 30;
+
+export async function findSimilarComplaints(user: CurrentUser, complaintId: string) {
+  if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (!canAccessArrondissement(user, complaint.arrondissementId)) throw new ApiError(403, "Plainte hors de votre perimetre.");
+  if (complaint.mergedIntoId) return [];
+
+  const since = new Date(Date.now() - DUPLICATE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  return prisma.complaint.findMany({
+    where: {
+      id: { not: complaintId },
+      deletedAt: null,
+      mergedIntoId: null,
+      category: complaint.category,
+      ...(complaint.quartierId ? { quartierId: complaint.quartierId } : { arrondissementId: complaint.arrondissementId }),
+      status: ACTIVE_STATUSES,
+      createdAt: { gte: since },
+    },
+    include: { citizenAccount: { include: { citizen: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+}
+
+export async function mergeComplaints(actor: CurrentUser, keepId: string, mergeId: string) {
+  if (!can(actor, "complaints", "assign")) throw new ApiError(403, "Permission insuffisante.");
+  if (keepId === mergeId) throw new ApiError(400, "Un dossier ne peut pas etre fusionne avec lui-meme.");
+
+  const [keep, merge] = await Promise.all([
+    prisma.complaint.findUnique({ where: { id: keepId } }),
+    prisma.complaint.findUnique({ where: { id: mergeId } }),
+  ]);
+  if (!keep || keep.deletedAt) throw new ApiError(404, "Dossier a conserver introuvable.");
+  if (!merge || merge.deletedAt) throw new ApiError(404, "Dossier a fusionner introuvable.");
+  if (!canAccessArrondissement(actor, keep.arrondissementId) || !canAccessArrondissement(actor, merge.arrondissementId)) {
+    throw new ApiError(403, "Dossier hors de votre perimetre.");
+  }
+  if (merge.mergedIntoId) throw new ApiError(400, "Ce dossier a deja ete fusionne.");
+  if (keep.mergedIntoId) throw new ApiError(400, "Le dossier a conserver est lui-meme fusionne dans un autre.");
+
+  const [updated] = await prisma.$transaction([
+    prisma.complaint.update({ where: { id: mergeId }, data: { mergedIntoId: keepId } }),
+    prisma.complaintUpdate.create({
+      data: { complaintId: mergeId, status: merge.status, note: `Dossier fusionne avec ${keep.caseNumber}.`, createdById: actor.id },
+    }),
+  ]);
+
+  await logAudit({
+    user: actor,
+    action: "MERGE",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: mergeId,
+    arrondissementId: merge.arrondissementId,
+    oldValue: { mergedIntoId: null },
+    newValue: { mergedIntoId: keepId, keptCaseNumber: keep.caseNumber },
+  });
+
+  return updated;
 }

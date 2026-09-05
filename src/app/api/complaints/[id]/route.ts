@@ -8,6 +8,7 @@ import {
   assignComplaintToAgent,
   requalifyComplaintPriority,
   escalateComplaint,
+  mergeComplaints,
 } from "@/lib/services/complaints";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (body.action === "escalate") {
       return NextResponse.json({ data: await escalateComplaint(user, id, body.toLevel, body.reason) });
+    }
+    if (body.action === "merge") {
+      return NextResponse.json({ data: await mergeComplaints(user, body.keepId, id) });
     }
     throw new ApiError(400, "Action invalide.");
   } catch (error) {

@@ -12,6 +12,8 @@ import {
   requalifyComplaintPriority,
   escalateComplaint,
   getComplaintsDashboardStats,
+  findSimilarComplaints,
+  mergeComplaints,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -22,6 +24,7 @@ import {
   createTestCitizenAccount,
   closeTestDb,
   testPrisma,
+  uid,
 } from "./helpers/fixtures";
 
 describe("associations & ONG", () => {
@@ -194,6 +197,56 @@ describe("plaintes citoyennes — guichet numerique", () => {
     const { rows: urgentView } = await listComplaintsForStaffPage(staff, 1, 25, "urgent");
     expect(urgentView.map((c) => c.id)).toContain(urgentOne.id);
     expect(urgentView.map((c) => c.id)).not.toContain(newOne.id);
+  });
+
+  it("detecte les doublons (meme categorie/localisation, dossier actif recent) et la fusion lie sans jamais supprimer", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const staff = await createTestUser({
+      arrondissementIds: [arrA],
+      permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve"],
+    });
+    const department = await testPrisma.department.create({ data: { name: uid("Service Test"), code: uid("SRV") } });
+
+    const first = await submitComplaint(account, { category: "ECLAIRAGE", description: "Lampadaire eteint rue X (doublon 1)." });
+    const second = await submitComplaint(account, { category: "ECLAIRAGE", description: "Meme lampadaire signale par un autre riverain." });
+    const unrelated = await submitComplaint(account, { category: "VOIRIE", description: "Nid de poule sans rapport." });
+    const alreadyHandled = await submitComplaint(account, { category: "ECLAIRAGE", description: "Meme lampadaire, deja resolu avant." });
+    await transitionComplaint(staff, alreadyHandled.id, "RECEIVED");
+    await transitionComplaint(staff, alreadyHandled.id, "VERIFYING");
+    await assignComplaintToDepartment(staff, alreadyHandled.id, department.id);
+    await assignComplaintToAgent(staff, alreadyHandled.id, staff.id);
+    await transitionComplaint(staff, alreadyHandled.id, "IN_PROGRESS");
+    await transitionComplaint(staff, alreadyHandled.id, "RESOLVED");
+
+    const similarToFirst = await findSimilarComplaints(staff, first.id);
+    expect(similarToFirst.map((c) => c.id)).toContain(second.id);
+    expect(similarToFirst.map((c) => c.id)).not.toContain(unrelated.id);
+    // Un dossier deja resolu n'est jamais propose comme cible de fusion — fusionner
+    // un signalement actif dans un dossier deja cloture n'aurait aucun sens operationnel.
+    expect(similarToFirst.map((c) => c.id)).not.toContain(alreadyHandled.id);
+
+    await expect(mergeComplaints(staff, first.id, first.id)).rejects.toMatchObject({ status: 400 });
+
+    const statsBefore = await getComplaintsDashboardStats(staff);
+    const merged = await mergeComplaints(staff, first.id, second.id);
+    expect(merged.mergedIntoId).toBe(first.id);
+    const statsAfter = await getComplaintsDashboardStats(staff);
+    expect(statsAfter.total).toBe(statsBefore.total - 1); // le dossier fusionne sort des vues actives, sans etre supprime
+
+    const secondFull = await testPrisma.complaint.findUnique({ where: { id: second.id } });
+    expect(secondFull).not.toBeNull(); // jamais de suppression physique (section 26)
+    expect(secondFull!.mergedIntoId).toBe(first.id);
+
+    const firstDetail = await getComplaintForStaff(staff, first.id);
+    expect(firstDetail.mergedFrom.map((c) => c.id)).toContain(second.id);
+    const secondDetail = await getComplaintForStaff(staff, second.id);
+    expect(secondDetail.mergedInto?.id).toBe(first.id);
+
+    // Un dossier deja fusionne ne peut pas etre refusionne, et n'apparait plus comme doublon potentiel.
+    await expect(mergeComplaints(staff, first.id, second.id)).rejects.toMatchObject({ status: 400 });
+    const similarAfterMerge = await findSimilarComplaints(staff, first.id);
+    expect(similarAfterMerge.map((c) => c.id)).not.toContain(second.id);
   });
 });
 

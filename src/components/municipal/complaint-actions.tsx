@@ -279,3 +279,52 @@ const simpleOptions = SIMPLE_NEXT_STATUS[status] ?? [];
     </div>
   );
 }
+
+// Detection de doublons (section 26) — fusionne le dossier affiche (`id`)
+// dans un dossier candidat plus ancien. La fusion ne supprime jamais rien :
+// le dossier fusionne garde son historique, seul `mergedIntoId` est pose.
+export function DuplicateMergeButton({ id, keepId, keepCaseNumber }: { id: string; keepId: string; keepCaseNumber: string }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium hover:bg-gray-50"
+      >
+        Fusionner dans celui-ci
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-[var(--color-text-muted)]">Fusionner ce dossier dans {keepCaseNumber} ?</p>
+      <div className="flex gap-2">
+        <button
+          onClick={async () => {
+            setLoading(true);
+            setError(null);
+            try {
+              await patchComplaint(id, { action: "merge", keepId });
+              router.refresh();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Echec de la fusion.");
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
+          className="rounded-md px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60"
+          style={{ background: "var(--color-primary)" }}
+        >
+          {loading ? "..." : "Confirmer la fusion"}
+        </button>
+        <button onClick={() => setConfirming(false)} className="text-xs text-[var(--color-text-muted)]">Annuler</button>
+      </div>
+      {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+    </div>
+  );
+}
