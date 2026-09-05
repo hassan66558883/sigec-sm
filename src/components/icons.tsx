@@ -62,6 +62,15 @@ export function IconShieldCheck({ className }: IconProps) {
   );
 }
 
+export function IconPlug({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={base} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M9 3v5M15 3v5M7 8h10l-1 5a5 5 0 0 1-5 4 5 5 0 0 1-5-4l-1-5Z" />
+      <path d="M12 17v4" />
+    </svg>
+  );
+}
+
 export function IconClipboardList({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={base} strokeLinecap="round" strokeLinejoin="round" className={className}>

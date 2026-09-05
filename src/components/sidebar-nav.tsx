@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconUsersGroup, IconMapPin, IconCoins, IconBuildingOffice, IconShieldCheck } from "@/components/icons";
+import { IconUsersGroup, IconMapPin, IconCoins, IconBuildingOffice, IconShieldCheck, IconPlug } from "@/components/icons";
 import { makeT, type Dictionary, type TranslationKey } from "@/lib/i18n/translate";
 
 const NAV_SECTIONS: {
@@ -83,6 +83,17 @@ const NAV_SECTIONS: {
       { href: "/admin/users", labelKey: "sidebar.users", module: "users" },
       { href: "/admin/roles", labelKey: "sidebar.roles", module: "roles" },
       { href: "/admin/audit", labelKey: "sidebar.audit", module: "audit" },
+    ],
+  },
+  {
+    titleKey: "sidebar.sectionIntegration",
+    icon: <IconPlug className="h-3.5 w-3.5" />,
+    items: [
+      { href: "/admin/integration", labelKey: "sidebar.integrationDashboard", exact: true, module: "integration" },
+      { href: "/admin/integration/systems", labelKey: "sidebar.integrationSystems", module: "integration" },
+      { href: "/admin/integration/api-keys", labelKey: "sidebar.integrationApiKeys", module: "integration" },
+      { href: "/admin/integration/logs", labelKey: "sidebar.integrationLogs", module: "integration" },
+      { href: "/admin/integration/errors", labelKey: "sidebar.integrationErrors", module: "integration" },
     ],
   },
   {

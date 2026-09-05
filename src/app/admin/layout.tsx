@@ -13,7 +13,7 @@ const NAV_MODULES = [
   "applications", "land", "urbanism", "businesses", "markets", "payments",
   "associations", "complaints", "infrastructure",
   "tariffs", "obligations", "collectors", "receipts",
-  "caisses", "versements", "mobile_money", "fraud",
+  "caisses", "versements", "mobile_money", "fraud", "integration",
   // TECHNOTCHAD (editeur) — visible uniquement pour les roles technotchad_*,
   // jamais pour les roles municipaux (voir l'exclusion "ALL" dans
   // prisma/seed.ts, regle 23 : separation stricte commercial/municipal).

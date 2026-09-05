@@ -1981,3 +1981,131 @@ model TechnoSubscriptionRenewal {
 
   @@index([subscriptionId])
 }
+
+// --- Integration & Interoperability Center (Phase 1) --------------------
+//
+// SIGEC-SM comme plateforme interoperable : systemes externes (banques,
+// mobile money, administrations, ERP...) connectes via l'API Gateway
+// UNIQUEMENT — aucun acces direct a la base (voir lib/integration/gateway.ts).
+// Phase 1 pose les fondations reellement utilisees des maintenant :
+// systemes connectes, cles API, journal des appels, erreurs. Webhooks,
+// mapping de donnees, synchronisation et import/export sont des phases
+// ulterieures (non construites ici pour ne pas ecrire d'ecrans sans
+// backend reel, voir la regle "no mock screens" de l'instruction).
+model IntegrationSystem {
+  id                 String    @id @default(cuid())
+  name               String
+  code               String    @unique
+  organization       String?
+  type               String // Government|Bank|MobileMoney|ERP|Police|Justice|Health|Education|Tax|Treasury|SMS|Email|Identity|Cadastre|ExternalApplication|Other
+  description        String?
+  baseUrl            String?
+  authType           String    @default("API_KEY") // API_KEY|OAUTH2|NONE
+  environment        String    @default("DEVELOPMENT") // DEVELOPMENT|STAGING|PRODUCTION
+  status             String    @default("TESTING") // CONNECTED|WARNING|OFFLINE|DISABLED|TESTING
+  contact            String?
+  enabled            Boolean   @default(true)
+  rateLimitPerMinute Int       @default(100)
+  lastTestAt         DateTime?
+  lastTestOk         Boolean?
+  lastTestMessage    String?
+  lastSyncAt         DateTime?
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  credential IntegrationCredential?
+  apiKeys    IntegrationApiKey[]
+  logs       IntegrationLog[]
+  errors     IntegrationError[]
+
+  @@index([status])
+  @@index([enabled])
+  @@index([type])
+}
+
+// Secrets chiffres au repos (AES-256-GCM, lib/encryption.ts) — jamais en
+// clair, jamais rehaches (contrairement a une cle API : un secret client
+// OAuth doit rester recuperable pour signer les requetes sortantes).
+model IntegrationCredential {
+  id           String   @id @default(cuid())
+  systemId     String   @unique
+  clientId     String?
+  clientSecret String? // chiffre
+  oauthConfig  String? // JSON chiffre (scopes, token URL, etc.)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  system IntegrationSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+// Cles API pour l'authentification systeme-a-systeme (section 17). Le
+// secret brut n'est JAMAIS stocke ni relisible apres creation — seul un
+// hash bcrypt (meme convention que les mots de passe/codes de secours MFA).
+// keyPrefix (non secret) permet de retrouver la ligne AVANT le bcrypt.compare
+// couteux, puisqu'un hash bcrypt ne permet aucune recherche directe par
+// egalite.
+model IntegrationApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  systemId    String?
+  keyPrefix   String    @unique
+  keyHash     String
+  scopes      String[]  @default([])
+  status      String    @default("ACTIVE") // ACTIVE|REVOKED|DISABLED
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  system IntegrationSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+// Journal de chaque transaction passee par l'API Gateway (section 19) —
+// aussi bien les succes que les echecs d'authentification/scope/quota.
+model IntegrationLog {
+  id             String   @id @default(cuid())
+  systemId       String?
+  endpoint       String
+  method         String
+  statusCode     Int
+  responseTimeMs Int
+  success        Boolean
+  errorMessage   String?
+  ipAddress      String?
+  correlationId  String
+  requestId      String
+  createdAt      DateTime @default(now())
+
+  system IntegrationSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+
+  @@index([systemId])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@index([success])
+}
+
+// Erreurs d'integration surfacees pour investigation (section 20). Phase 1 :
+// alimentee par les echecs de Test Connection et les rejets de la gateway
+// (cle invalide/expiree, scope manquant, quota depasse) — pas encore par des
+// webhooks/synchronisations, qui n'existent pas avant une phase ulterieure.
+model IntegrationError {
+  id           String    @id @default(cuid())
+  systemId     String?
+  endpoint     String
+  errorType    String
+  message      String
+  retryCount   Int       @default(0)
+  status       String    @default("NEW") // NEW|RETRYING|RESOLVED|FAILED|IGNORED
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  system IntegrationSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([systemId])
+}

@@ -69,6 +69,12 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   // distinct de versements (especes physique) : fonction financiere
   // centrale, jamais territorialisee (un seul releve bancaire municipal).
   reconciliation: ["view", "create", "resolve"],
+  // Integration & Interoperability Center (Phase 1) — credentials separee du
+  // reste (section 31 : cles API/secrets accessibles aux seuls
+  // administrateurs autorises). delete/api_manage/webhooks_manage/
+  // mapping_manage/documentation/health non declarees ici : pas de
+  // fonctionnalite reelle correspondante avant une phase ulterieure.
+  integration: ["view", "create", "update", "test", "logs", "retry", "credentials"],
 };
 
 // Permissions commerciales de l'editeur TECHNOTCHAD (gestion des abonnements
@@ -315,6 +321,7 @@ const ROLES: {
       "fraud:view", "fraud:resolve",
       "qr_codes:view", "qr_codes:generate", "qr_codes:revoke", "qr_codes:replace", "qr_codes:verify_install", "qr_codes:bulk_generate",
       "reconciliation:view", "reconciliation:create", "reconciliation:resolve",
+      "integration:view", "integration:create", "integration:update", "integration:test", "integration:logs", "integration:retry", "integration:credentials",
     ],
   },
   {

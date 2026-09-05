@@ -39,7 +39,13 @@ export function requiresCsrfCheck(method: string) {
 // l'occasion de lire le cookie CSRF. Leur securite vient d'ailleurs (secret
 // partage / verification de signature propre au prestataire) — voir le
 // commentaire dans chaque route.
-const CSRF_EXEMPT_PREFIXES = ["/api/payments/callback/", "/api/cron/"];
+// /api/v1/ (Integration & Interoperability Center) : systeme-a-systeme,
+// authentifie par cle API (Authorization: Bearer / X-API-Key) via l'API
+// Gateway (lib/integration/gateway.ts) — jamais par le cookie de session
+// navigateur que le CSRF protege. Le jeton CSRF n'a jamais pu etre lu par cet
+// appelant (ce n'est pas notre propre frontend), donc l'exiger serait a la
+// fois inutile et bloquerait toute integration legitime.
+const CSRF_EXEMPT_PREFIXES = ["/api/payments/callback/", "/api/cron/", "/api/v1/"];
 
 export function isCsrfExempt(pathname: string) {
   return CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix));
