@@ -27,6 +27,16 @@ export async function getMarket(user: CurrentUser, id: string) {
   return market;
 }
 
+export async function getStall(user: CurrentUser, id: string) {
+  const stall = await prisma.marketStall.findUnique({
+    where: { id },
+    include: { market: { include: { arrondissement: true, quartier: true } }, occupant: true, obligations: true },
+  });
+  if (!stall) throw new ApiError(404, "Emplacement introuvable.");
+  if (!canAccessArrondissement(user, stall.market.arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
+  return stall;
+}
+
 export type CreateMarketInput = {
   name: string;
   address?: string;

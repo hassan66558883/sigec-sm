@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createMarket, createStall, setStallStatus, setMarketStatus, getMarket } from "../src/lib/services/markets";
+import { createMarket, createStall, setStallStatus, setMarketStatus, getMarket, getStall } from "../src/lib/services/markets";
 import { createHousehold } from "../src/lib/services/households";
 import { createActivity, setActivityActive, listActivities } from "../src/lib/services/activities";
 import { declareRecognition, validateRecognition } from "../src/lib/services/recognitions";
@@ -64,6 +64,22 @@ describe("marches & emplacements", () => {
 
     const outOfScope = await createTestUser({ arrondissementIds: [arrB], permissions: [] });
     await expect(getMarket(outOfScope, market.id)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("getStall renvoie l'emplacement avec son marche/occupant et applique l'isolation territoriale", async () => {
+    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["markets:create"] });
+    const market = await createMarket(agent, { name: "Marche Detail", arrondissementId: arrA });
+    const stall = await createStall(agent, { marketId: market.id, code: uid("ETAL") });
+    const tenant = await createTestCitizen(arrA);
+    await setStallStatus(agent, stall.id, "OCCUPIED", tenant.id);
+
+    const fetched = await getStall(agent, stall.id);
+    expect(fetched.market.id).toBe(market.id);
+    expect(fetched.occupant?.id).toBe(tenant.id);
+
+    const outOfScope = await createTestUser({ arrondissementIds: [arrB], permissions: [] });
+    await expect(getStall(outOfScope, stall.id)).rejects.toMatchObject({ status: 403 });
+    await expect(getStall(agent, "introuvable")).rejects.toMatchObject({ status: 404 });
   });
 });
 

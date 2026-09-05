@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -57,7 +58,9 @@ export function StallPanel({ marketId, stalls, citizens, canManage }: { marketId
       <div className="flex flex-wrap gap-2">
         {stalls.map((s) => (
           <div key={s.id} className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs">
-            <span className="font-medium">{s.code}</span>
+            <Link href={`/admin/markets/stalls/${s.id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+              {s.code}
+            </Link>
             {canManage ? (
               <select
                 value={s.status}
