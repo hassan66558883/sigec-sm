@@ -262,6 +262,71 @@ export async function resolveQrToken(token: string): Promise<QrScanResult> {
   return { found: false };
 }
 
+// --- Scan agent (collecte terrain, section 21) ------------------------------
+
+export type QrCollectionResult = {
+  entityType: QrEntityType;
+  entityLabel: string;
+  citizen: { id: string; firstName: string; lastName: string; uniqueNumber: string; phone: string | null };
+  obligations: ReturnType<typeof withBalance>[];
+};
+
+// Resolution authentifiee d'un QR pour un agent en collecte terrain (section
+// 21 : "l'agent scanne le QR pour identifier l'entite et encaisser").
+// Contrairement a resolveQrToken() (scan public, anonymise), ici l'agent est
+// deja authentifie et doit connaitre le payeur legal (proprietaire/occupant)
+// pour enregistrer le paiement via le meme flux que la recherche manuelle
+// (recordPayment() dans payments.ts, inchange). Le controle de zone
+// anti-fraude (isAgentAssignedToZone) reste applique par recordPayment lui
+// meme, pas ici — cette fonction ne fait qu'identifier l'entite/le solde.
+export async function resolveQrForCollection(actor: CurrentUser, token: string): Promise<QrCollectionResult> {
+  if (!can(actor, "payments", "create")) throw new ApiError(403, "Permission insuffisante.");
+  const qr = await prisma.qrCode.findUnique({ where: { token } });
+  if (!qr) throw new ApiError(404, "QR introuvable.");
+  if (qr.status !== "ACTIVE") throw new ApiError(400, "Ce QR n'est plus valide.");
+
+  let citizen: { id: string; firstName: string; lastName: string; uniqueNumber: string; phone: string | null };
+  let entityLabel: string;
+  let obligationWhere: { businessId: string } | { marketStallId: string };
+  let arrondissementId: string;
+
+  if (qr.entityType === "BUSINESS") {
+    const business = await prisma.business.findUnique({ where: { id: qr.entityId }, include: { owner: true } });
+    if (!business) throw new ApiError(404, "Commerce introuvable.");
+    citizen = business.owner;
+    entityLabel = business.name;
+    obligationWhere = { businessId: business.id };
+    arrondissementId = business.arrondissementId;
+  } else if (qr.entityType === "MARKET_STALL") {
+    const stall = await prisma.marketStall.findUnique({ where: { id: qr.entityId }, include: { occupant: true, market: true } });
+    if (!stall) throw new ApiError(404, "Emplacement introuvable.");
+    if (!stall.occupant) throw new ApiError(400, "Cet emplacement n'a pas d'occupant enregistre.");
+    citizen = stall.occupant;
+    entityLabel = `${stall.market.name} — ${stall.code}`;
+    obligationWhere = { marketStallId: stall.id };
+    arrondissementId = stall.market.arrondissementId;
+  } else {
+    throw new ApiError(400, "Type d'entite QR invalide.");
+  }
+
+  if (!canAccessArrondissement(actor, arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
+
+  const obligations = await prisma.obligationPaiement.findMany({
+    where: { ...obligationWhere, status: { in: OPEN_OBLIGATION_STATUSES } },
+    include: { tarif: true },
+    orderBy: { dueDate: "asc" },
+  });
+
+  await recordEvent(qr.id, "SCANNED_BY_AGENT", actor.id);
+
+  return {
+    entityType: qr.entityType as QrEntityType,
+    entityLabel,
+    citizen: { id: citizen.id, firstName: citizen.firstName, lastName: citizen.lastName, uniqueNumber: citizen.uniqueNumber, phone: citizen.phone },
+    obligations: obligations.map(withBalance),
+  };
+}
+
 async function buildScanResult(
   qr: { status: string },
   info: {

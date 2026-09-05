@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QrScanner } from "@/components/finances/qr-scanner";
 
 type Citizen = { id: string; firstName: string; lastName: string; uniqueNumber: string; phone: string | null };
 type Obligation = {
@@ -23,9 +24,12 @@ function formatFcfa(amount: number) {
 }
 
 export function CollecteClient({ agentId }: { agentId: string | null }) {
+  const [mode, setMode] = useState<"manual" | "qr">("manual");
   const [search, setSearch] = useState("");
   const [citizens, setCitizens] = useState<Citizen[]>([]);
   const [selected, setSelected] = useState<Citizen | null>(null);
+  const [entityLabel, setEntityLabel] = useState<string | null>(null);
+  const [scannedToken, setScannedToken] = useState<string | null>(null);
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
@@ -53,16 +57,44 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
   }
 
   async function refreshObligations(citizenId: string) {
+    if (scannedToken) {
+      await refreshFromQrToken(scannedToken);
+      return;
+    }
     const res = await fetch(`/api/obligations?citizenId=${citizenId}`);
     const data = await res.json();
     setObligations(res.ok ? data.data.filter((o: Obligation) => o.status !== "PAYE" && o.status !== "ANNULE") : []);
   }
 
+  async function refreshFromQrToken(token: string) {
+    const res = await fetch(`/api/qr/resolve?token=${encodeURIComponent(token)}`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) setObligations(data.data.obligations);
+  }
+
   async function selectCitizen(citizen: Citizen) {
     setSelected(citizen);
+    setEntityLabel(null);
+    setScannedToken(null);
     setResult(null);
     setError(null);
     await refreshObligations(citizen.id);
+  }
+
+  async function onQrToken(token: string) {
+    setError(null);
+    setResult(null);
+    const res = await fetch(`/api/qr/resolve?token=${encodeURIComponent(token)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error ?? "QR introuvable ou invalide.");
+      return;
+    }
+    setSelected(data.data.citizen);
+    setEntityLabel(data.data.entityLabel);
+    setObligations(data.data.obligations);
+    setScannedToken(token);
+    setCitizens([]);
   }
 
   function startPayment(obligation: Obligation) {
@@ -115,17 +147,36 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <form onSubmit={onSearch} className="flex gap-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Nom, telephone ou numero contribuable..."
-          className="flex-1 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
-        />
-        <button type="submit" className="rounded-md px-3 py-2 text-sm font-medium text-white" style={{ background: "var(--color-primary)" }}>
-          Rechercher
+      <div className="flex gap-2 text-sm">
+        <button
+          onClick={() => setMode("manual")}
+          className={`flex-1 rounded-md border py-1.5 font-medium ${mode === "manual" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"}`}
+        >
+          Recherche manuelle
         </button>
-      </form>
+        <button
+          onClick={() => setMode("qr")}
+          className={`flex-1 rounded-md border py-1.5 font-medium ${mode === "qr" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"}`}
+        >
+          Scanner un QR
+        </button>
+      </div>
+
+      {mode === "manual" ? (
+        <form onSubmit={onSearch} className="flex gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Nom, telephone ou numero contribuable..."
+            className="flex-1 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
+          />
+          <button type="submit" className="rounded-md px-3 py-2 text-sm font-medium text-white" style={{ background: "var(--color-primary)" }}>
+            Rechercher
+          </button>
+        </form>
+      ) : (
+        <QrScanner onToken={onQrToken} />
+      )}
 
       {!selected && error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
 
@@ -172,6 +223,7 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
       {selected && (
         <div className="space-y-3">
           <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            {entityLabel && <div className="mb-1 text-xs font-medium uppercase text-[var(--color-primary)]">{entityLabel}</div>}
             <div className="font-medium">{selected.firstName} {selected.lastName}</div>
             <div className="text-xs text-[var(--color-text-muted)]">{selected.uniqueNumber}</div>
           </div>

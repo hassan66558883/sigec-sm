@@ -10,6 +10,7 @@ import {
   inspectQrCode,
   listQrCodesForEntity,
   resolveQrToken,
+  resolveQrForCollection,
 } from "../src/lib/services/qr-codes";
 import {
   createTestCity,
@@ -175,5 +176,65 @@ describe("module paiement QR — generation, revocation, remplacement, scan publ
     expect(inspected.entityLabel).toBe("Boutique Install");
     const eventTypes = inspected.events.map((e) => e.event);
     expect(eventTypes).toEqual(expect.arrayContaining(["GENERATED", "INSTALLED"]));
+  });
+
+  // Scan agent en collecte terrain (section 21) — contrairement au scan
+  // public, l'agent authentifie recoit le payeur legal + le detail complet
+  // des obligations (pas d'anonymisation), pour reutiliser le meme flux de
+  // paiement que la recherche manuelle (recordPayment()).
+  it("renvoie le payeur legal et les obligations completes d'une boutique, journalise SCANNED_BY_AGENT", async () => {
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["businesses:create", "tariffs:create", "obligations:create", "qr_codes:generate"],
+    });
+    const owner = await createTestCitizen(arrA, { firstName: "Occupant", lastName: "Boutique" });
+    const business = await createBusiness(admin, { name: "Boutique Collecte", ownerId: owner.id, arrondissementId: arrA });
+    const tarif = await createOrReviseTariff(admin, {
+      code: uid("TARIF"),
+      label: "Taxe test collecte",
+      emplacementType: "BOUTIQUE",
+      periodicity: "MENSUELLE",
+      amount: 9000,
+    });
+    await createObligation(admin, { citizenId: owner.id, businessId: business.id, tarifId: tarif.id, period: "2026-09", dueDate: "2026-09-30" });
+    const qr = await generateQrCode(admin, "BUSINESS", business.id);
+
+    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["payments:create"] });
+    const result = await resolveQrForCollection(agent, qr.token);
+
+    expect(result.entityType).toBe("BUSINESS");
+    expect(result.entityLabel).toBe("Boutique Collecte");
+    expect(result.citizen.id).toBe(owner.id);
+    expect(result.citizen.firstName).toBe("Occupant");
+    expect(result.obligations).toHaveLength(1);
+    expect(result.obligations[0].balance).toBe(9000);
+
+    const qrAfter = await testPrisma.qrCode.findUnique({ where: { id: qr.id }, include: { events: true } });
+    expect(qrAfter?.events.map((e) => e.event)).toContain("SCANNED_BY_AGENT");
+  });
+
+  it("refuse un QR revoque, un agent hors permission, un agent hors perimetre, et un emplacement de marche sans occupant", async () => {
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["businesses:create", "qr_codes:generate", "qr_codes:revoke", "markets:create"],
+    });
+    const owner = await createTestCitizen(arrA);
+    const business = await createBusiness(admin, { name: "Boutique Refus Collecte", ownerId: owner.id, arrondissementId: arrA });
+    const qr = await generateQrCode(admin, "BUSINESS", business.id);
+
+    const noPerm = await createTestUser({ arrondissementIds: [arrA], permissions: [] });
+    await expect(resolveQrForCollection(noPerm, qr.token)).rejects.toMatchObject({ status: 403 });
+
+    const outOfScope = await createTestUser({ arrondissementIds: [arrB], permissions: ["payments:create"] });
+    await expect(resolveQrForCollection(outOfScope, qr.token)).rejects.toMatchObject({ status: 403 });
+
+    await revokeQrCode(admin, qr.id, "Test.");
+    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["payments:create"] });
+    await expect(resolveQrForCollection(agent, qr.token)).rejects.toMatchObject({ status: 400 });
+
+    const market = await testPrisma.market.create({ data: { name: uid("Marche"), arrondissementId: arrA } });
+    const stallNoOccupant = await testPrisma.marketStall.create({ data: { marketId: market.id, code: "C01" } });
+    const qrStall = await generateQrCode(admin, "MARKET_STALL", stallNoOccupant.id);
+    await expect(resolveQrForCollection(agent, qrStall.token)).rejects.toMatchObject({ status: 400 });
   });
 });
