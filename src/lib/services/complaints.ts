@@ -234,6 +234,23 @@ export async function listComplaintsForStaffPage(
   return { rows, total, page, pageSize };
 }
 
+// Export CSV (section 31 : rapports/exports executifs) — meme perimetre
+// territorial et memes filtres de vue que le tableau de bord, mais sans
+// pagination : un export doit refleter le total reel, pas seulement la
+// page affichee a l'ecran. Plafond de securite (5000 lignes) contre une
+// requete degeneree, largement au-dessus de tout volume realiste pour
+// Ville de N'Djamena — pas un cache-misere comme listPayments()'s take:100.
+export async function listComplaintsForExport(user: CurrentUser, view: ComplaintDashboardView = "all") {
+  if (!can(user, "complaints", "export")) throw new ApiError(403, "Permission insuffisante.");
+  const where = { ...recordScopeWhere(user), deletedAt: null, mergedIntoId: null, ...dashboardViewWhere(view, user.id, new Date()) };
+  return prisma.complaint.findMany({
+    where,
+    include: { citizenAccount: { include: { citizen: true } }, assignedDepartment: true },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+  });
+}
+
 // KPI du tableau de bord agent/superviseur (section 21/23) — 8 requetes
 // COUNT paralleles, jamais un fetch de toutes les lignes suivi d'un
 // comptage cote application.

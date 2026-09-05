@@ -2,22 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-export const COMPLAINT_STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Brouillon",
-  SUBMITTED: "Soumis",
-  RECEIVED: "Recu",
-  VERIFYING: "En verification",
-  NEEDS_INFO: "A completer",
-  ASSIGNED_DEPT: "Affecte",
-  ASSIGNED_AGENT: "Assigne",
-  IN_PROGRESS: "En cours",
-  WAITING: "En attente",
-  RESOLVED: "Resolu",
-  VALIDATING: "En validation",
-  CLOSED: "Cloture",
-  REJECTED: "Rejete",
-};
+import { COMPLAINT_STATUS_LABEL } from "@/lib/complaint-labels";
 
 // Transitions de statut simples (sans donnee complementaire requise) —
 // l'affectation a un service/agent a son propre selecteur ci-dessous,

@@ -18,6 +18,7 @@ import {
   addComplaintAttachmentAsStaff,
   getComplaintAttachmentForCitizen,
   getComplaintAttachmentForStaff,
+  listComplaintsForExport,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -213,6 +214,25 @@ describe("plaintes citoyennes — guichet numerique", () => {
     const { rows: urgentView } = await listComplaintsForStaffPage(staff, 1, 25, "urgent");
     expect(urgentView.map((c) => c.id)).toContain(urgentOne.id);
     expect(urgentView.map((c) => c.id)).not.toContain(newOne.id);
+
+    // L'export CSV exige sa propre permission (distincte de "view"), respecte
+    // le meme perimetre territorial/filtre de vue, et n'est jamais paginee —
+    // les 2 dossiers crees ci-dessus doivent y figurer integralement.
+    const staffNoExport = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view"] });
+    await expect(listComplaintsForExport(staffNoExport, "all")).rejects.toMatchObject({ status: 403 });
+
+    const exportStaff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:export"] });
+    const exported = await listComplaintsForExport(exportStaff, "all");
+    expect(exported.map((c) => c.id)).toEqual(expect.arrayContaining([newOne.id, urgentOne.id]));
+
+    const exportedUrgent = await listComplaintsForExport(exportStaff, "urgent");
+    expect(exportedUrgent.map((c) => c.id)).toContain(urgentOne.id);
+    expect(exportedUrgent.map((c) => c.id)).not.toContain(newOne.id);
+
+    const arrOther = (await createTestArrondissement((await createTestCity()).id, 1)).id;
+    const exportOutOfScope = await createTestUser({ arrondissementIds: [arrOther], permissions: ["complaints:view", "complaints:export"] });
+    const exportedOutOfScope = await listComplaintsForExport(exportOutOfScope, "all");
+    expect(exportedOutOfScope.map((c) => c.id)).not.toContain(newOne.id);
   });
 
   it("detecte les doublons (meme categorie/localisation, dossier actif recent) et la fusion lie sans jamais supprimer", async () => {

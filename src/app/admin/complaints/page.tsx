@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { Pagination } from "@/components/ui/pagination";
-import { COMPLAINT_STATUS_LABEL } from "@/components/municipal/complaint-actions";
+import { COMPLAINT_STATUS_LABEL } from "@/lib/complaint-labels";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie",
@@ -22,7 +22,7 @@ const PRIORITY_LABEL: Record<string, string> = { FAIBLE: "Faible", NORMAL: "Norm
 const PRIORITY_TONE: Record<string, StatusTone> = { FAIBLE: "neutral", NORMAL: "neutral", IMPORTANT: "warning", URGENT: "danger", CRITIQUE: "danger" };
 // Ancien vocabulaire (NEW/ASSIGNED/PENDING) conserve pour les rares
 // plaintes creees avant le workflow a 13 etats (module Plaintes &
-// Doleances) — COMPLAINT_STATUS_LABEL (complaint-actions.tsx) est la
+// Doleances) — COMPLAINT_STATUS_LABEL (lib/complaint-labels.ts) est la
 // reference pour toute nouvelle plainte, fusionnee ici pour l'affichage.
 const STATUS_LABEL: Record<string, string> = {
   NEW: "Nouveau",
@@ -137,7 +137,20 @@ export default async function ComplaintsPage({
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Plaintes & doleances" description="Guichet numerique — suivi des signalements citoyens." />
+      <PageHeading
+        title="Plaintes & doleances"
+        description="Guichet numerique — suivi des signalements citoyens."
+        action={
+          can(user, "complaints", "export") && (
+            <a
+              href={view !== "all" ? `/api/complaints/export?view=${view}` : "/api/complaints/export"}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-hover)]"
+            >
+              Exporter (CSV)
+            </a>
+          )
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total" value={stats.total} tone="primary" />

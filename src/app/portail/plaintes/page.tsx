@@ -8,7 +8,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { COMPLAINT_STATUS_LABEL } from "@/components/municipal/complaint-actions";
+import { COMPLAINT_STATUS_LABEL } from "@/lib/complaint-labels";
 import { AttachmentList } from "@/components/municipal/attachment-list";
 import { AttachmentUploader } from "@/components/municipal/attachment-uploader";
 import { ATTACHMENT_MAX_PER_COMPLAINT } from "@/lib/complaint-attachment-constants";

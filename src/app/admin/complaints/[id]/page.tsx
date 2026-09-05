@@ -6,7 +6,8 @@ import { getComplaintForStaff, computeSlaStatus, findSimilarComplaints } from "@
 import { listUsers } from "@/lib/services/users";
 import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
-import { ComplaintActions, COMPLAINT_STATUS_LABEL, DuplicateMergeButton } from "@/components/municipal/complaint-actions";
+import { ComplaintActions, DuplicateMergeButton } from "@/components/municipal/complaint-actions";
+import { COMPLAINT_STATUS_LABEL } from "@/lib/complaint-labels";
 import { LocationMap } from "@/components/municipal/location-map-loader";
 import { AttachmentList } from "@/components/municipal/attachment-list";
 import { AttachmentUploader } from "@/components/municipal/attachment-uploader";
