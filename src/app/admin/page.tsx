@@ -52,7 +52,7 @@ function trendBadge(pct: number, label: string) {
   if (pct === 0) return undefined;
   const up = pct > 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-emerald-600" : "text-rose-600"}`}>
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
       {up ? <IconArrowUpRight className="h-3 w-3" /> : <IconArrowDownRight className="h-3 w-3" />}
       {up ? "+" : ""}
       {pct}% {label}

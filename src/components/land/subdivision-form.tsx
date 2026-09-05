@@ -37,7 +37,7 @@ export function SubdivisionForm({ arrondissements }: { arrondissements: Option[]
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-gray-50">
+      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]">
         + Nouveau lotissement
       </button>
     );

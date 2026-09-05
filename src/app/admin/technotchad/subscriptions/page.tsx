@@ -59,7 +59,7 @@ export default async function TechnotchadSubscriptionsPage() {
             {subscriptions.map((s) => (
               <tr key={s.id} className="transition hover:bg-[var(--tc-accent-soft)]/40">
                 <td className="px-5 py-3">
-                  <span className="rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-[var(--color-text-muted)]">{s.subscriptionNumber}</span>
+                  <span className="rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-[var(--color-text-muted)] dark:bg-white/10">{s.subscriptionNumber}</span>
                 </td>
                 <td className="px-5 py-3 font-medium text-[var(--color-text)]">{s.client.legalName}</td>
                 <td className="px-5 py-3 text-[var(--color-text)]">

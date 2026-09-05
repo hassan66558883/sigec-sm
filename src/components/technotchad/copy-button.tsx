@@ -23,7 +23,7 @@ export function CopyButton({ value }: { value: string }) {
       title="Copier"
       className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-muted)] transition hover:bg-[var(--tc-accent-soft)] hover:text-[var(--tc-accent-dark)]"
     >
-      {copied ? <IconCheck className="h-3.5 w-3.5 text-emerald-600" /> : <IconCopy className="h-3.5 w-3.5" />}
+      {copied ? <IconCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <IconCopy className="h-3.5 w-3.5" />}
     </button>
   );
 }

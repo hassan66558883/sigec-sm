@@ -73,21 +73,21 @@ export function CaseWorkflowActions({
   return (
     <div className="flex flex-wrap gap-2">
       {status === "SUBMITTED" && canReview && (
-        <button onClick={() => send("review", false)} disabled={loading} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-60">
+        <button onClick={() => send("review", false)} disabled={loading} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-surface-hover)] disabled:opacity-60">
           Debuter l&apos;instruction
         </button>
       )}
       {status === "UNDER_REVIEW" && canInspect && (
-        <button onClick={() => setShowNotes("inspect")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+        <button onClick={() => setShowNotes("inspect")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-surface-hover)]">
           Marquer controle effectue
         </button>
       )}
       {status === "INSPECTED" && canDecide && (
         <>
-          <button onClick={() => setShowNotes("approve")} className="rounded-md border border-[var(--color-success)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-success)] hover:bg-green-50">
+          <button onClick={() => setShowNotes("approve")} className="rounded-md border border-[var(--color-success)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-success)] hover:bg-[var(--color-success)]/10">
             Approuver
           </button>
-          <button onClick={() => setShowNotes("reject")} className="rounded-md border border-[var(--color-danger)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] hover:bg-red-50">
+          <button onClick={() => setShowNotes("reject")} className="rounded-md border border-[var(--color-danger)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10">
             Rejeter
           </button>
         </>

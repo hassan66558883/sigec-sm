@@ -30,7 +30,7 @@ export function ValidateButton({ endpoint, label = "Valider" }: { endpoint: stri
       <button
         onClick={onClick}
         disabled={loading}
-        className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] transition hover:bg-green-50 disabled:opacity-60"
+        className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] transition hover:bg-[var(--color-success)]/10 disabled:opacity-60"
       >
         {loading ? "..." : label}
       </button>

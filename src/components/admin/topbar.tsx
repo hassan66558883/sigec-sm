@@ -1,5 +1,6 @@
 import { IconMapPin } from "@/components/icons";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileMenuButton } from "@/components/admin/sidebar-drawer";
 import { GlobalSearch } from "@/components/admin/global-search";
 import { NotificationBell } from "@/components/admin/notification-bell";
@@ -56,6 +57,7 @@ export function Topbar({
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <NotificationBell dict={dict} initialUnread={unreadNotifications} />
+        <ThemeToggle variant="onDark" />
         <LanguageSwitcher locale={locale} variant="onDark" />
         <div className="mx-1 hidden h-6 w-px bg-white/20 sm:block" />
         <UserMenu

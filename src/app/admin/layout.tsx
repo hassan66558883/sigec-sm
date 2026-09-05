@@ -65,7 +65,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       isRtl={isRtl}
       className={isRtl ? "shadow-[-2px_0_24px_-4px_rgb(15_23_42_/_0.08)]" : "shadow-[2px_0_24px_-4px_rgb(15_23_42_/_0.08)]"}
     >
-      <div className="flex h-full flex-col" style={{ background: "linear-gradient(180deg, #ffffff, #f6f8fc)" }}>
+      <div className="flex h-full flex-col" style={{ background: "var(--gradient-sidebar)" }}>
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md"

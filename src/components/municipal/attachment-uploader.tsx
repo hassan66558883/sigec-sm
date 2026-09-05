@@ -46,7 +46,7 @@ export function AttachmentUploader({ uploadUrl }: { uploadUrl: string }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={loading}
-        className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-60"
+        className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-surface-hover)] disabled:opacity-60"
       >
         {loading ? "Envoi..." : "Ajouter une piece jointe"}
       </button>

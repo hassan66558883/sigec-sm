@@ -31,7 +31,7 @@ export function PayForm({ obligationId, defaultPhone }: { obligationId: string; 
 
   if (pending) {
     return (
-      <p className="rounded-md border border-[var(--color-border)] bg-gray-50 p-3 text-sm text-[var(--color-text-muted)]">
+      <p className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm text-[var(--color-text-muted)]">
         Paiement initie. Il sera confirme des reception effective par le prestataire — votre reçu sera disponible
         automatiquement dans &quot;Mes paiements&quot; une fois la confirmation recue.
       </p>

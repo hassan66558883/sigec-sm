@@ -135,7 +135,7 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
             <button
               key={c.id}
               onClick={() => selectCitizen(c)}
-              className="block w-full px-4 py-3 text-left text-sm hover:bg-gray-50"
+              className="block w-full px-4 py-3 text-left text-sm hover:bg-[var(--color-surface-hover)]"
             >
               <div className="font-medium">{c.firstName} {c.lastName}</div>
               <div className="text-xs text-[var(--color-text-muted)]">{c.uniqueNumber} {c.phone ? `— ${c.phone}` : ""}</div>
@@ -145,7 +145,7 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
       )}
 
       {result?.kind === "receipt" && (
-        <div className="rounded-lg border border-[var(--color-success)]/30 bg-green-50 p-4 text-center">
+        <div className="rounded-lg border border-[var(--color-success)]/30 bg-[var(--color-success)]/10 p-4 text-center">
           <div className="text-sm font-semibold text-[var(--color-success)]">Paiement enregistre</div>
           <div className="mt-1 text-lg font-semibold">{formatFcfa(result.amount)}</div>
           <div className="mt-1 text-xs text-[var(--color-text-muted)]">Reçu {result.number}</div>
@@ -157,7 +157,7 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
       )}
 
       {result?.kind === "pending" && (
-        <div className="rounded-lg border border-[var(--color-warning)]/30 bg-amber-50 p-4 text-center">
+        <div className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-4 text-center">
           <div className="text-sm font-semibold text-[var(--color-warning)]">Transaction Mobile Money initiee</div>
           <div className="mt-1 text-lg font-semibold">{formatFcfa(result.amount)}</div>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
@@ -239,7 +239,7 @@ export function CollecteClient({ agentId }: { agentId: string | null }) {
                 ) : (
                   <button
                     onClick={() => startPayment(o)}
-                    className="mt-3 w-full rounded-md border border-[var(--color-border)] py-1.5 text-sm text-[var(--color-primary)] hover:bg-gray-50"
+                    className="mt-3 w-full rounded-md border border-[var(--color-border)] py-1.5 text-sm text-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]"
                   >
                     Encaisser
                   </button>

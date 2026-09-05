@@ -23,14 +23,14 @@ export function ValidateVersementButtons({ id }: { id: string }) {
       <button
         onClick={() => decide(true)}
         disabled={loading !== null}
-        className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-green-50 disabled:opacity-60"
+        className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-60"
       >
         {loading === "approve" ? "..." : "Valider"}
       </button>
       <button
         onClick={() => decide(false)}
         disabled={loading !== null}
-        className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-red-50 disabled:opacity-60"
+        className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 disabled:opacity-60"
       >
         {loading === "reject" ? "..." : "Rejeter"}
       </button>

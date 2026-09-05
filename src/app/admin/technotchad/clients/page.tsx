@@ -75,7 +75,7 @@ export default async function TechnotchadClientsPage() {
                 </td>
                 <td className="px-5 py-3 font-mono text-xs text-[var(--color-text-muted)]">{c.clientCode}</td>
                 <td className="px-5 py-3">
-                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-slate-300">
                     {TYPE_LABELS[c.clientType] ?? c.clientType}
                   </span>
                 </td>

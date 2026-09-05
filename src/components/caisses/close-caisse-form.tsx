@@ -30,7 +30,7 @@ export function CloseCaisseForm({ id }: { id: string }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:bg-gray-50">
+      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]">
         Cloturer
       </button>
     );

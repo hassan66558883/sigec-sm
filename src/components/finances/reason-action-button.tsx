@@ -50,7 +50,7 @@ export function ReasonActionButton({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] transition hover:bg-red-50"
+        className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] transition hover:bg-[var(--color-danger)]/10"
       >
         {label}
       </button>

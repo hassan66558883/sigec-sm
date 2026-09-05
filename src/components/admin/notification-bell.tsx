@@ -17,7 +17,11 @@ type NotificationItem = {
   isRead: boolean;
 };
 
-const SEVERITY_DOT: Record<string, string> = { INFO: "bg-sky-500", WARNING: "bg-amber-500", CRITICAL: "bg-rose-500" };
+const SEVERITY_DOT: Record<string, string> = {
+  INFO: "bg-[var(--color-info)]",
+  WARNING: "bg-[var(--color-warning)]",
+  CRITICAL: "bg-[var(--color-danger)]",
+};
 
 // Cloche + panneau deroulant (section 6/30). Reutilise l'API
 // /api/notifications deja existante (utilisee jusqu'ici uniquement par la
@@ -94,7 +98,7 @@ export function NotificationBell({ dict, initialUnread }: { dict: Dictionary; in
                 {items.slice(0, 8).map((n) => (
                   <li key={n.id} className={`px-4 py-2.5 text-sm transition hover:bg-[var(--color-surface-hover)] ${n.isRead ? "" : "bg-[var(--color-primary-light)]/40"}`}>
                     <div className="flex items-start gap-2">
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[n.severity] ?? "bg-gray-400"}`} />
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[n.severity] ?? "bg-[var(--color-text-muted)]"}`} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-[var(--color-text)]">{n.title}</p>
                         <p className="line-clamp-2 text-xs text-[var(--color-text-muted)]">{n.message}</p>

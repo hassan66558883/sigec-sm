@@ -18,10 +18,10 @@ export function TechnoStatCard({
   tone?: "indigo" | "violet" | "emerald" | "amber";
 }) {
   const toneClasses: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100",
-    violet: "bg-violet-50 text-violet-600 group-hover:bg-violet-100",
-    emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
-    amber: "bg-amber-50 text-amber-600 group-hover:bg-amber-100",
+    indigo: "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-300 dark:group-hover:bg-indigo-500/25",
+    violet: "bg-violet-50 text-violet-600 group-hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:group-hover:bg-violet-500/25",
+    emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:group-hover:bg-emerald-500/25",
+    amber: "bg-amber-50 text-amber-600 group-hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:group-hover:bg-amber-500/25",
   };
 
   return (

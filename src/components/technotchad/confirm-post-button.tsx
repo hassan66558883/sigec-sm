@@ -36,7 +36,7 @@ export function ConfirmPostButton({
   }
 
   const color = variant === "danger" ? "var(--color-danger)" : "var(--tc-accent-dark)";
-  const hoverBg = variant === "danger" ? "hover:bg-red-50" : "hover:bg-[var(--tc-accent-soft)]";
+  const hoverBg = variant === "danger" ? "hover:bg-[var(--color-danger)]/10" : "hover:bg-[var(--tc-accent-soft)]";
 
   if (!open) {
     return (

@@ -6,7 +6,7 @@ const TONE_CLASSES: Record<string, string> = {
   primary: "bg-[var(--color-primary-light)] text-[var(--color-primary)] group-hover:bg-[var(--color-primary)]/15",
   gold: "bg-[var(--color-accent-soft)] text-[var(--color-accent)] group-hover:bg-[var(--color-accent)]/20",
   success: "bg-[var(--color-success)]/10 text-[var(--color-success)] group-hover:bg-[var(--color-success)]/20",
-  warning: "bg-[var(--color-warning)]/10 text-[#8a6200] group-hover:bg-[var(--color-warning)]/20",
+  warning: "bg-[var(--color-warning)]/10 text-[var(--color-warning-text)] group-hover:bg-[var(--color-warning)]/20",
   danger: "bg-[var(--color-danger)]/10 text-[var(--color-danger)] group-hover:bg-[var(--color-danger)]/20",
 };
 

@@ -36,7 +36,7 @@ export function IssueTitleButton({ parcelId, citizens }: { parcelId: string; cit
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-gray-50">
+      <button onClick={() => setOpen(true)} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]">
         Emettre un titre
       </button>
     );

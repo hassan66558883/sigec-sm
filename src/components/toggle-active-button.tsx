@@ -40,8 +40,8 @@ export function ToggleActiveButton({
         disabled={loading || disabled}
         className={`rounded-md border px-2.5 py-1 text-xs font-medium transition disabled:opacity-60 ${
           isActive
-            ? "border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-red-50"
-            : "border-[var(--color-success)]/30 text-[var(--color-success)] hover:bg-green-50"
+            ? "border-[var(--color-danger)]/30 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+            : "border-[var(--color-success)]/30 text-[var(--color-success)] hover:bg-[var(--color-success)]/10"
         }`}
       >
         {loading ? "..." : isActive ? "Desactiver" : "Activer"}

@@ -40,7 +40,7 @@ export default async function TechnotchadLicensesPage() {
               <tr key={l.id} className="transition hover:bg-[var(--tc-accent-soft)]/40">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded-md bg-gray-100 px-2 py-1 font-mono text-xs tracking-tight text-[var(--color-text-muted)]">{l.licenseKey}</span>
+                    <span className="rounded-md bg-gray-100 px-2 py-1 font-mono text-xs tracking-tight text-[var(--color-text-muted)] dark:bg-white/10">{l.licenseKey}</span>
                     <CopyButton value={l.licenseKey} />
                   </div>
                 </td>

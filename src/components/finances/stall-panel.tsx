@@ -8,10 +8,10 @@ type Option = { id: string; label: string };
 
 const STATUS_LABEL: Record<string, string> = { AVAILABLE: "Disponible", OCCUPIED: "Occupe", RESERVED: "Reserve", SUSPENDED: "Suspendu" };
 const STATUS_CLASS: Record<string, string> = {
-  AVAILABLE: "bg-gray-100 text-[var(--color-text-muted)]",
-  OCCUPIED: "bg-green-100 text-[var(--color-success)]",
-  RESERVED: "bg-amber-100 text-[var(--color-warning)]",
-  SUSPENDED: "bg-red-100 text-[var(--color-danger)]",
+  AVAILABLE: "bg-[var(--color-neutral-soft)] text-[var(--color-text-muted)]",
+  OCCUPIED: "bg-[var(--color-success)]/15 text-[var(--color-success)]",
+  RESERVED: "bg-[var(--color-warning)]/15 text-[var(--color-warning-text)]",
+  SUSPENDED: "bg-[var(--color-danger)]/15 text-[var(--color-danger)]",
 };
 
 export function StallPanel({ marketId, stalls, citizens, canManage }: { marketId: string; stalls: Stall[]; citizens: Option[]; canManage: boolean }) {

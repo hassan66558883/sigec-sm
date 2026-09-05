@@ -55,7 +55,7 @@ export function ApplicationActions({ id, canApprove, canReject }: { id: string; 
           <button
             onClick={approve}
             disabled={loading !== null}
-            className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-green-50 disabled:opacity-60"
+            className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-60"
           >
             {loading === "approve" ? "..." : "Approuver"}
           </button>
@@ -63,7 +63,7 @@ export function ApplicationActions({ id, canApprove, canReject }: { id: string; 
         {canReject && !rejecting && (
           <button
             onClick={() => setRejecting(true)}
-            className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-red-50"
+            className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
           >
             Rejeter
           </button>

@@ -64,10 +64,10 @@ export function ConfirmTransactionButtons({ id }: { id: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <button onClick={confirm} disabled={loading !== null} className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-green-50 disabled:opacity-60">
+      <button onClick={confirm} disabled={loading !== null} className="rounded-md border border-[var(--color-success)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-60">
         {loading === "confirm" ? "..." : "Confirmer reception"}
       </button>
-      <button onClick={() => setFailing(true)} className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-red-50">
+      <button onClick={() => setFailing(true)} className="rounded-md border border-[var(--color-danger)]/30 px-2.5 py-1 text-xs font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10">
         Echec
       </button>
       {error && <span className="text-xs text-[var(--color-danger)]">{error}</span>}

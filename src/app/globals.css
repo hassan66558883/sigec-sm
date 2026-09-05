@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Bascule le variant `dark:` de Tailwind sur notre attribut explicite
+   [data-theme="dark"] (bascule manuelle via ThemeToggle, jamais automatique
+   sur prefers-color-scheme) plutot que sa detection media-query par defaut —
+   permet d'utiliser `dark:bg-...`/`dark:text-...` normalement partout dans
+   l'app pour les teintes ponctuelles (messages d'erreur/succes, chips de
+   statut) qui n'utilisaient pas encore les jetons CSS centralises ci-dessous. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* Redefinit les jetons de theme Tailwind (rounded-md/lg, shadow-sm/md) pour
    toute l'application : chaque page utilise deja ces classes utilitaires
    (457 rounded-md/lg, 135 shadow-sm au dernier comptage) — les affiner ici
@@ -21,16 +29,64 @@
   --color-bg: #f5f8fa;
   --color-bg-subtle: #fafbfc; /* chrome plus clair que le fond de contenu */
   --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff; /* aucune distinction en clair aujourd'hui — reserve pour modales/cartes surelevees */
   --color-surface-hover: #e6f2fa; /* survol des lignes/menus deroulants */
   --color-text: #263238;
   --color-text-muted: #607d8b;
+  --color-warning-text: #8a6200; /* texte sur fond "warning" translucide — contraste verifie separement du fond */
   --color-border: #dce6eb;
   --color-border-subtle: #eaf0f3; /* separateurs internes (cartes, menus) */
   --color-success: #2e9d68;
   --color-warning: #f2a900;
   --color-danger: #d9534f;
+  --color-info: #0369a1;
+  --color-info-soft: #f0f9ff;
+  --color-neutral-text: #4b5563;
+  --color-neutral-soft: #f3f4f6;
   --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   --gradient-gold: linear-gradient(135deg, #ffc94d, var(--color-accent));
+  --gradient-sidebar: linear-gradient(180deg, #ffffff, #f6f8fc);
+}
+
+/* Theme sombre (bascule explicite via [data-theme], jamais automatique sur
+   prefers-color-scheme — voir ThemeToggle) — identite SIGEC-SM preservee
+   (bleu + or), jamais une simple inversion des couleurs claires : fond
+   bleu-gris profond, cartes legerement plus claires que le fond, hierarchie
+   de surfaces (surface < surface-elevated), bordures discretes.
+   --color-primary-light et --color-surface-hover ne reprennent PAS
+   litteralement les teintes "vives" fournies pour le mode sombre : ces deux
+   jetons servent exclusivement de fond translucide/discret derriere du texte
+   (badges, survols de lignes — voir leurs usages reels dans le code, jamais
+   comme couleur de premier plan), une teinte vive y casserait le contraste
+   plutot que de l'ameliorer — memes principes de hierarchie de surfaces que
+   demandes, valeurs adaptees en consequence. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #126a9f;
+  --color-primary-dark: #16415c;
+  --color-primary-light: #15374a;
+  --color-accent: #f2a900;
+  --color-accent-soft: #4a3915;
+  --color-bg: #0b1720;
+  --color-bg-subtle: #101f2b;
+  --color-surface: #142936;
+  --color-surface-elevated: #193442;
+  --color-surface-hover: #193442;
+  --color-text: #f5f8fa;
+  --color-text-muted: #8fa3ad;
+  --color-warning-text: #ffd873;
+  --color-border: #29424f;
+  --color-border-subtle: #1d3846;
+  --color-success: #39ad78;
+  --color-warning: #f2a900;
+  --color-danger: #e06460;
+  --color-info: #4da3d8;
+  --color-info-soft: #163247;
+  --color-neutral-text: #c4d0d6;
+  --color-neutral-soft: #1d3846;
+  --gradient-sidebar: linear-gradient(180deg, var(--color-surface), var(--color-bg-subtle));
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 0 rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
 }
 
 html,
@@ -48,6 +104,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+[data-theme="dark"] body {
+  background:
+    radial-gradient(1200px 480px at 15% -10%, rgb(28 131 197 / 0.08), transparent),
+    radial-gradient(900px 420px at 100% 0%, rgb(242 169 0 / 0.04), transparent),
+    var(--color-bg);
+}
+
+/* Transition douce lors du basculement (section 4 de la demande) — limitee
+   aux proprietes de couleur, jamais `all` (evite tout risque de saccade sur
+   des changements de mise en page sans rapport). */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
+}
+
 /* Identite visuelle TECHNOTCHAD (espace editeur/commercial) — palette indigo
    distincte du bleu institutionnel municipal, pour signaler visuellement
    qu'on quitte l'espace metier SIGEC-SM tout en restant dans la meme coquille
@@ -60,6 +134,48 @@ body {
   --tc-grad-from: #4338ca;
   --tc-grad-via: #6366f1;
   --tc-grad-to: #8b5cf6;
+}
+
+/* TECHNOTCHAD reste INDIGO/VIOLET en sombre, jamais le bleu/or municipal —
+   palette complete separee (fond/surface/texte/bordure propres), pas
+   seulement un accent recolore sur le fond sombre SIGEC-SM. */
+[data-theme="dark"] .tc-scope {
+  --color-surface: #18152d;
+  --color-surface-elevated: #211d3b;
+  --color-surface-hover: #211d3b;
+  --color-text: #f5f3ff;
+  --color-text-muted: #aaa3c2;
+  --color-border: #342e52;
+  --color-border-subtle: #342e52;
+  --tc-accent: #4338ca;
+  --tc-accent-dark: #312e81;
+  --tc-accent-soft: #211d3b;
+  --tc-accent-ring: rgba(67, 56, 202, 0.4);
+  --tc-grad-from: #312e81;
+  --tc-grad-via: #4338ca;
+  --tc-grad-to: #8b5cf6;
+}
+
+/* Bascule clair/sombre (ThemeToggle) — l'icone visible et la position du
+   curseur suivent directement l'attribut data-theme, jamais un state React
+   (voir le commentaire dans theme-toggle.tsx). */
+.theme-toggle-thumb {
+  transform: translateX(0.15rem);
+  transition-property: transform, background-color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+[data-theme="dark"] .theme-toggle-thumb {
+  transform: translateX(1.6rem);
+}
+.theme-toggle-moon {
+  display: none;
+}
+[data-theme="dark"] .theme-toggle-sun {
+  display: none;
+}
+[data-theme="dark"] .theme-toggle-moon {
+  display: block;
 }
 
 @keyframes tc-fade-in {

@@ -50,13 +50,13 @@ export default async function VerifyReceiptPage({ params }: { params: Promise<{ 
         </div>
 
         {!result.found ? (
-          <div className="mx-8 mb-8 rounded-xl border border-rose-200 bg-rose-50 p-5 text-center">
+          <div className="mx-8 mb-8 rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-center">
             <div className="text-lg font-semibold text-[var(--color-danger)]">REÇU INTROUVABLE</div>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">Aucun reçu ne correspond a ce code de verification.</p>
           </div>
         ) : (
           <div className="px-8 pb-8">
-            <div className={`rounded-xl p-5 text-center ${result.valid ? "border border-emerald-200 bg-emerald-50" : "border border-rose-200 bg-rose-50"}`}>
+            <div className={`rounded-xl p-5 text-center ${result.valid ? "border border-[var(--color-success)]/30 bg-[var(--color-success)]/10" : "border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10"}`}>
               <div className={`text-lg font-semibold ${result.valid ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
                 {result.valid ? "✓ REÇU AUTHENTIQUE" : "REÇU ANNULE"}
               </div>

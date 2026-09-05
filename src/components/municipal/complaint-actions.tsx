@@ -246,23 +246,23 @@ const simpleOptions = SIMPLE_NEXT_STATUS[status] ?? [];
         <button
           key={s}
           onClick={() => { setMode("simple"); setTarget(s); }}
-          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-surface-hover)]"
         >
           {COMPLAINT_STATUS_LABEL[s]}
         </button>
       ))}
       {canShowAssignDept && (
-        <button onClick={() => setMode("department")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+        <button onClick={() => setMode("department")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-surface-hover)]">
           Affecter a un service
         </button>
       )}
       {canShowAssignAgent && (
-        <button onClick={() => setMode("agent")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+        <button onClick={() => setMode("agent")} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-surface-hover)]">
           Assigner un agent
         </button>
       )}
       {canShowReject && (
-        <button onClick={() => setMode("reject")} className="rounded-md border border-[var(--color-danger)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] hover:bg-red-50">
+        <button onClick={() => setMode("reject")} className="rounded-md border border-[var(--color-danger)]/30 px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10">
           Rejeter
         </button>
       )}
@@ -288,7 +288,7 @@ export function DuplicateMergeButton({ id, keepId, keepCaseNumber }: { id: strin
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium hover:bg-gray-50"
+        className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--color-surface-hover)]"
       >
         Fusionner dans celui-ci
       </button>
