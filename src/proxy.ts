@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { CITIZEN_SESSION_COOKIE, verifyCitizenSessionToken } from "@/lib/citizen-auth";
@@ -25,8 +26,44 @@ const API_RATE_MAX_ATTEMPTS = 300;
 // resolu depuis le cache RSC sans re-executer la verification.
 // Le reste (RBAC fin, perimetre territorial) reste dans les Server
 // Components/route handlers via getCurrentUser().
+// CSP par nonce (voir node_modules/next/dist/docs/01-app/02-guides/
+// content-security-policy.md) — remplace le header CSP statique qui vivait
+// jusqu'ici dans next.config.mjs. Ce dernier posait `script-src 'self'` SANS
+// 'unsafe-inline' ni nonce, en pensant qu'aucun script inline n'etait
+// utilise ; faux, Next.js insere lui-meme des <script> inline (le payload
+// RSC/hydratation via self.__next_f.push(...)) sur TOUTE page App Router,
+// qu'on en ecrive ou non. Resultat : la CSP bloquait sa propre
+// hydratation cote client depuis son introduction (commit du 2026-09-04),
+// silencieusement — aucune interaction (clic, formulaire) ne fonctionnait
+// plus dans un vrai navigateur, seule la verification HTTP directe (curl)
+// le masquait. Un nonce genere ici par requete, lu automatiquement par
+// Next pour ses propres scripts, corrige ceci sans revenir a
+// 'unsafe-inline' (qui annulerait l'interet de restreindre script-src).
+// Implique un rendu dynamique sur toute page utilisant ce nonce — deja le
+// cas ici : chaque page passe par getCurrentUser()/getCurrentCitizenAccount()
+// (lecture de cookies()), qui force deja un rendu dynamique.
+function buildCspHeader(nonce: string) {
+  const isDev = process.env.NODE_ENV === "development";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    // *.tile.openstreetmap.org : tuiles de la carte interactive (Leaflet,
+    // module Plaintes & Doleances, Phase 7) — chargees directement en <img>
+    // par Leaflet, jamais via next/image, donc pas d'allowlist next.config.
+    "img-src 'self' data: https://*.tile.openstreetmap.org",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const nonce = randomBytes(16).toString("base64");
+  const cspHeader = buildCspHeader(nonce);
 
   // CSRF (double-submit cookie, voir lib/csrf.ts) : verifie EN PREMIER, avant
   // toute logique de session/RBAC — une requete sans jeton CSRF valide est
@@ -124,9 +161,12 @@ export async function proxy(req: NextRequest) {
   }
 
   if (!response) {
-    response = NextResponse.next();
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-nonce", nonce);
+    response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
+  response.headers.set("Content-Security-Policy", cspHeader);
   ensureCsrfCookie(req, response);
   return response;
 }

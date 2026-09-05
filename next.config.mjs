@@ -22,18 +22,13 @@ const nextConfig = {
           // HSTS n'a d'effet que servi en HTTPS (le reverse proxy de
           // production doit terminer TLS) ; inoffensif en dev HTTP.
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
-          // CSP (absente jusqu'ici — voir audit securite 2026-09-02).
-          // `style-src 'unsafe-inline'` reste necessaire : l'app utilise
-          // massivement des attributs `style={{...}}` inline (degrades de
-          // couleur, notamment) plutot que des classes statiques — les
-          // retirer serait un chantier separe, pas un correctif ponctuel.
-          // Pas de `script-src 'unsafe-inline'` en revanche : aucun script
-          // inline n'est utilise dans l'app (verifie), donc pas necessaire.
-          {
-            key: "Content-Security-Policy",
-            value:
-              "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
-          },
+          // Content-Security-Policy : PAS ici. Un header statique ne peut pas
+          // porter de nonce (une valeur fixe au build, identique a chaque
+          // requete, n'apporte aucune protection). Le CSP par nonce vit
+          // desormais dans src/proxy.ts (voir son commentaire) — un premier
+          // essai statique ici (`script-src 'self'` sans nonce ni
+          // 'unsafe-inline') a bloque silencieusement toute l'hydratation
+          // React de l'app du 2026-09-04 au 2026-09-05.
         ],
       },
     ];
