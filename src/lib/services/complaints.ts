@@ -82,7 +82,12 @@ type CitizenAccountWithCitizen = { id: string; citizen: { arrondissementId: stri
 export async function listMyComplaints(account: CitizenAccountWithCitizen) {
   return prisma.complaint.findMany({
     where: { citizenAccountId: account.id, deletedAt: null },
-    include: { updates: { orderBy: { createdAt: "asc" } }, categoryRef: true, satisfaction: true },
+    include: {
+      updates: { orderBy: { createdAt: "asc" } },
+      comments: { orderBy: { createdAt: "asc" } },
+      categoryRef: true,
+      satisfaction: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -428,5 +433,80 @@ export async function createComplaintSubcategory(actor: CurrentUser, categoryId:
   const created = await prisma.complaintSubcategory.create({ data: { categoryId, code, name } });
 
   await logAudit({ user: actor, action: "CREATE", module: "complaints", entityType: "ComplaintSubcategory", entityId: created.id, newValue: { categoryId, code, name } });
+  return created;
+}
+
+// --- Satisfaction citoyenne (section 28) ------------------------------------
+
+const WAS_RESOLVED_VALUES = ["OUI", "PARTIEL", "NON"];
+
+export async function submitComplaintSatisfaction(
+  account: CitizenAccountWithCitizen,
+  complaintId: string,
+  input: { wasResolved: string; rating: number; comment?: string },
+) {
+  if (!WAS_RESOLVED_VALUES.includes(input.wasResolved)) throw new ApiError(400, "Valeur invalide.");
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) throw new ApiError(400, "Note invalide (1 a 5).");
+
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (complaint.citizenAccountId !== account.id) throw new ApiError(403, "Ce dossier ne vous appartient pas.");
+  if (complaint.status !== "CLOSED" && complaint.status !== "RESOLVED") {
+    throw new ApiError(400, "Le dossier doit d'abord etre resolu avant de pouvoir etre evalue.");
+  }
+
+  const existing = await prisma.complaintSatisfaction.findUnique({ where: { complaintId } });
+  if (existing) throw new ApiError(409, "Ce dossier a deja ete evalue.");
+
+  const created = await prisma.complaintSatisfaction.create({
+    data: { complaintId, wasResolved: input.wasResolved, rating: input.rating, comment: input.comment?.trim() },
+  });
+
+  await logAudit({
+    user: null,
+    action: "SATISFACTION",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: complaintId,
+    arrondissementId: complaint.arrondissementId,
+    newValue: { wasResolved: input.wasResolved, rating: input.rating },
+  });
+
+  return created;
+}
+
+// --- Messagerie citoyen <-> mairie (section 18) -----------------------------
+
+export async function addComplaintCommentAsCitizen(account: CitizenAccountWithCitizen, complaintId: string, message: string) {
+  if (!message?.trim()) throw new ApiError(400, "Message requis.");
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (complaint.citizenAccountId !== account.id) throw new ApiError(403, "Ce dossier ne vous appartient pas.");
+
+  return prisma.complaintComment.create({
+    data: { complaintId, authorType: "CITIZEN", authorCitizenId: account.id, message: message.trim() },
+  });
+}
+
+export async function addComplaintCommentAsStaff(actor: CurrentUser, complaintId: string, message: string) {
+  if (!can(actor, "complaints", "update")) throw new ApiError(403, "Permission insuffisante.");
+  if (!message?.trim()) throw new ApiError(400, "Message requis.");
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (!canAccessArrondissement(actor, complaint.arrondissementId)) throw new ApiError(403, "Plainte hors de votre perimetre.");
+
+  const created = await prisma.complaintComment.create({
+    data: { complaintId, authorType: "STAFF", authorUserId: actor.id, message: message.trim() },
+  });
+
+  await logAudit({
+    user: actor,
+    action: "COMMENT",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: complaintId,
+    arrondissementId: complaint.arrondissementId,
+    newValue: { message: message.trim() },
+  });
   return created;
 }
