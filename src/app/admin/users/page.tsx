@@ -5,6 +5,7 @@ import { can, arrondissementScopeWhere } from "@/lib/rbac";
 import { listUsers } from "@/lib/services/users";
 import { UserForm } from "@/components/users/user-form";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
+import { ResetUserPasswordButton } from "@/components/users/reset-user-password-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -73,7 +74,13 @@ export default async function UsersPage() {
       key: "actions",
       header: "",
       align: "end",
-      render: (u) => can(user, "users", "edit") && <ToggleActiveButton endpoint={`/api/users/${u.id}`} isActive={u.isActive} disabled={u.id === user.id} />,
+      render: (u) =>
+        can(user, "users", "edit") && (
+          <div className="flex items-center justify-end gap-2">
+            <ResetUserPasswordButton userId={u.id} />
+            <ToggleActiveButton endpoint={`/api/users/${u.id}`} isActive={u.isActive} disabled={u.id === user.id} />
+          </div>
+        ),
     },
   ];
 

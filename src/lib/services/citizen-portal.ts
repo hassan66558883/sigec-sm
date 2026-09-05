@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,9 +23,9 @@ export async function registerCitizenAccount(input: RegisterCitizenInput) {
   if (!uniqueNumber || !lastName || !email || !EMAIL_RE.test(email)) {
     throw new ApiError(400, "Numero de dossier, nom et email valides requis.");
   }
-  if (!input.password || input.password.length < 8) {
-    throw new ApiError(400, "Mot de passe d'au moins 8 caracteres requis.");
-  }
+  if (!input.password) throw new ApiError(400, "Mot de passe requis.");
+  const passwordError = validatePasswordStrength(input.password);
+  if (passwordError) throw new ApiError(400, passwordError);
 
   const citizen = await prisma.citizen.findUnique({ where: { uniqueNumber } });
   if (!citizen || citizen.lastName.toLowerCase() !== lastName.toLowerCase()) {

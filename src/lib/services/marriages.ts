@@ -5,6 +5,7 @@ import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { periodBounds } from "@/lib/date-buckets";
+import { detectDuplicateMarriageRegistration } from "@/lib/services/fraud";
 
 // KPI d'en-tete (tableau de bord Mariages, Phase 2).
 export async function getMarriagesPeriodStats(user: CurrentUser) {
@@ -107,6 +108,7 @@ export async function declareMarriage(actor: CurrentUser, input: DeclareMarriage
       marriagePlace: input.marriagePlace.trim(),
       regimeId: input.regimeId || null,
       arrondissementId: input.arrondissementId,
+      createdById: actor.id,
       witnesses: {
         create: (input.witnesses ?? [])
           .filter((w) => w.name?.trim())
@@ -126,6 +128,8 @@ export async function declareMarriage(actor: CurrentUser, input: DeclareMarriage
     newValue: { recordNumber: created.recordNumber },
   });
 
+  await detectDuplicateMarriageRegistration(created.id, created.husbandId, created.wifeId, created.arrondissementId);
+
   return created;
 }
 
@@ -138,6 +142,9 @@ export async function validateMarriage(actor: CurrentUser, id: string) {
   if (!before) throw new ApiError(404, "Dossier de mariage introuvable.");
   if (!canAccessArrondissement(actor, before.arrondissementId)) {
     throw new ApiError(403, "Dossier hors de votre perimetre.");
+  }
+  if (before.createdById && before.createdById === actor.id) {
+    throw new ApiError(403, "Separation des taches : vous ne pouvez pas valider un dossier que vous avez vous-meme enregistre.");
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 

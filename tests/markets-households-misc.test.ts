@@ -120,7 +120,10 @@ describe("reconnaissances d'enfant", () => {
   });
 
   it("valider une reconnaissance met a jour le lien parent sur le dossier de l'enfant, et refuse une seconde reconnaissance pour le meme enfant", async () => {
-    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["births:create", "recognitions:create", "recognitions:validate"] });
+    // Acteurs distincts (separation des taches, module securite section 5) :
+    // le declarant ne peut plus valider sa propre reconnaissance.
+    const agent = await createTestUser({ arrondissementIds: [arrA], permissions: ["births:create", "recognitions:create"] });
+    const validator = await createTestUser({ arrondissementIds: [arrA], permissions: ["recognitions:validate"] });
     const birth = await declareBirth(agent, {
       childFirstName: "Enfant",
       childLastName: "Test",
@@ -139,7 +142,8 @@ describe("reconnaissances d'enfant", () => {
       declareRecognition(agent, { childId: birth.childId, parentId: father.id, parentRole: "FATHER", arrondissementId: arrA }),
     ).rejects.toMatchObject({ status: 409 });
 
-    await validateRecognition(agent, recognition.id);
+    await expect(validateRecognition(agent, recognition.id)).rejects.toMatchObject({ status: 403 });
+    await validateRecognition(validator, recognition.id);
     const child = await testPrisma.citizen.findUniqueOrThrow({ where: { id: birth.childId } });
     expect(child.fatherId).toBe(father.id);
   });

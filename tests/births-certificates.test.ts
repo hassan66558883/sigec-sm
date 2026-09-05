@@ -39,9 +39,18 @@ describe("cycle de vie complet — naissance -> certificat -> verification -> re
   });
 
   it("cycle complet reussi : declarer -> valider -> emettre -> verifier publiquement -> revoquer", async () => {
+    // Deux acteurs distincts pour la declaration et la validation
+    // (separation des taches, module securite section 5) : la personne qui
+    // enregistre une naissance ne peut plus, depuis ce changement, valider
+    // elle-meme ce meme dossier, meme si son role cumule les deux
+    // permissions.
     const agent = await createTestUser({
       arrondissementIds: [arrondissementId],
-      permissions: ["births:create", "births:validate", "births:revoke", "certificates:create", "certificates:revoke"],
+      permissions: ["births:create", "births:revoke", "certificates:create", "certificates:revoke"],
+    });
+    const validator = await createTestUser({
+      arrondissementIds: [arrondissementId],
+      permissions: ["births:validate"],
     });
 
     const record = await declareBirth(agent, {
@@ -59,12 +68,15 @@ describe("cycle de vie complet — naissance -> certificat -> verification -> re
     expect(child).not.toBeNull();
     expect(child?.uniqueNumber).toMatch(/^CIT-/);
 
-    const validated = await validateBirthRecord(agent, record.id);
+    // Le declarant lui-meme ne peut pas valider son propre dossier.
+    await expect(validateBirthRecord(agent, record.id)).rejects.toMatchObject({ status: 403 });
+
+    const validated = await validateBirthRecord(validator, record.id);
     expect(validated.status).toBe("REGISTERED");
     expect(validated.registeredAt).not.toBeNull();
 
     // Re-valider un dossier deja enregistre doit echouer (transition invalide).
-    await expect(validateBirthRecord(agent, record.id)).rejects.toMatchObject({ status: 400 });
+    await expect(validateBirthRecord(validator, record.id)).rejects.toMatchObject({ status: 400 });
 
     const certificate = await issueBirthCertificate(agent, record.id);
     expect(certificate.status).toBe("VALID");
@@ -126,5 +138,37 @@ describe("cycle de vie complet — naissance -> certificat -> verification -> re
     });
     expect(auditEntry).not.toBeNull();
     expect(auditEntry?.userId).toBe(agent.id);
+  });
+
+  // Module securite, section 8 : detection de doublon d'etat civil — jamais
+  // bloquante (un homonyme reel existe), signale seulement pour
+  // investigation humaine.
+  it("signale un doublon suspecte quand un homonyme (meme nom/prenom/date de naissance) a deja un acte de naissance", async () => {
+    const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["births:create"] });
+
+    await declareBirth(agent, {
+      childFirstName: "Doublon",
+      childLastName: "Suspect",
+      childSex: "M",
+      dateOfBirth: "2026-07-01",
+      placeOfBirth: "Maternite",
+      declarantName: "Declarant Un",
+      arrondissementId,
+    });
+
+    const before = await testPrisma.fraudAlert.count({ where: { type: "DUPLICATE_BIRTH_SUSPECTED" } });
+
+    await declareBirth(agent, {
+      childFirstName: "Doublon",
+      childLastName: "Suspect",
+      childSex: "M",
+      dateOfBirth: "2026-07-01",
+      placeOfBirth: "Autre lieu",
+      declarantName: "Declarant Deux",
+      arrondissementId,
+    });
+
+    const after = await testPrisma.fraudAlert.count({ where: { type: "DUPLICATE_BIRTH_SUSPECTED" } });
+    expect(after - before).toBe(1);
   });
 });

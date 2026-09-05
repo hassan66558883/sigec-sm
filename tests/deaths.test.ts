@@ -15,10 +15,10 @@ describe("deces : mise a jour du fichier de population (section 38)", () => {
   });
 
   it("valider un deces marque le citoyen comme decede", async () => {
-    const agent = await createTestUser({
-      arrondissementIds: [arrondissementId],
-      permissions: ["deaths:create", "deaths:validate"],
-    });
+    // Acteurs distincts (separation des taches, module securite section 5) :
+    // le declarant ne peut plus valider son propre dossier.
+    const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["deaths:create"] });
+    const validator = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["deaths:validate"] });
     const citizen = await createTestCitizen(arrondissementId);
     expect(citizen.isDeceased).toBe(false);
 
@@ -31,7 +31,8 @@ describe("deces : mise a jour du fichier de population (section 38)", () => {
     });
     expect(record.status).toBe("DECLARED");
 
-    await validateDeathRecord(agent, record.id);
+    await expect(validateDeathRecord(agent, record.id)).rejects.toMatchObject({ status: 403 });
+    await validateDeathRecord(validator, record.id);
 
     const updated = await testPrisma.citizen.findUniqueOrThrow({ where: { id: citizen.id } });
     expect(updated.isDeceased).toBe(true);
@@ -58,5 +59,32 @@ describe("deces : mise a jour du fichier de population (section 38)", () => {
         arrondissementId,
       }),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  // Module securite, section 8 : detection de doublon d'etat civil — jamais
+  // bloquante. createTestCitizen() ne permet pas de fixer dateOfBirth (le
+  // detecteur l'exige pour comparer deux fiches distinctes), d'ou la
+  // creation directe ici plutot que via le helper.
+  it("signale un doublon suspecte quand un homonyme (meme nom/prenom/date de naissance) est deja marque decede", async () => {
+    const agent = await createTestUser({ arrondissementIds: [arrondissementId], permissions: ["deaths:create"] });
+    const dateOfBirth = new Date("1980-01-01");
+    await testPrisma.citizen.create({
+      data: { uniqueNumber: `CIT-${Date.now()}-A`, firstName: "Homonyme", lastName: "Decede", sex: "M", dateOfBirth, arrondissementId, isDeceased: true },
+    });
+    const secondCitizen = await testPrisma.citizen.create({
+      data: { uniqueNumber: `CIT-${Date.now()}-B`, firstName: "Homonyme", lastName: "Decede", sex: "M", dateOfBirth, arrondissementId },
+    });
+
+    const before = await testPrisma.fraudAlert.count({ where: { type: "DUPLICATE_DEATH_SUSPECTED" } });
+    await declareDeath(agent, {
+      deceasedId: secondCitizen.id,
+      dateOfDeath: "2026-05-12",
+      placeOfDeath: "Domicile",
+      declarantName: "Declarant",
+      arrondissementId,
+    });
+    const after = await testPrisma.fraudAlert.count({ where: { type: "DUPLICATE_DEATH_SUSPECTED" } });
+
+    expect(after - before).toBe(1);
   });
 });

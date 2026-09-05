@@ -59,6 +59,25 @@ model User {
   @@index([organizationLevel])
 }
 
+// Historique des tentatives de connexion (module securite) — jamais lie a
+// un User existant par FK (une tentative avec un email inconnu doit quand
+// meme etre tracee, pour la detection d'enumeration/brute-force). Sert au
+// verrouillage de compte : voir isAccountLocked() dans
+// services/login-security.ts, qui compte les echecs recents pour un email
+// donne independamment de l'IP d'origine (une attaque distribuee depuis
+// plusieurs IP contre UN SEUL compte contournerait sinon totalement le
+// rate-limit par IP existant dans rate-limit.ts).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ipAddress String?
+  userAgent String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
 // Services / directions centrales de la Mairie Centrale (section "Services
 // centraux"). Regroupe les utilisateurs CENTRAL par direction ; purement
 // organisationnel, ne restreint pas l'acces aux donnees (les permissions
@@ -391,6 +410,7 @@ model Recognition {
   declarationDate  DateTime @default(now())
   status           String   @default("DECLARED")
   arrondissementId String
+  createdById      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -425,6 +445,7 @@ model Marriage {
   regimeId         String?
   status           String   @default("DECLARED")
   arrondissementId String
+  createdById      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -458,6 +479,7 @@ model Divorce {
   divorceDate       DateTime
   status            String   @default("DECLARED")
   arrondissementId  String
+  createdById       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -481,6 +503,7 @@ model DeathRecord {
   declarantRelation String?
   status            String   @default("DECLARED")
   arrondissementId  String
+  createdById       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

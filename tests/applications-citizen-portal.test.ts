@@ -36,8 +36,11 @@ describe("demandes citoyennes — copies d'actes", () => {
   it("approuver une demande emet automatiquement le certificat et notifie le citoyen ; rejeter exige un motif", async () => {
     const agent = await createTestUser({
       arrondissementIds: [arrA],
-      permissions: ["births:create", "births:validate", "certificates:create", "applications:view", "applications:approve", "applications:reject"],
+      permissions: ["births:create", "certificates:create", "applications:view", "applications:approve", "applications:reject"],
     });
+    // Separation des taches (module securite section 5) : un second acteur
+    // valide le dossier, le declarant ne le pouvant plus lui-meme.
+    const validator = await createTestUser({ arrondissementIds: [arrA], permissions: ["births:validate"] });
     const birth = await declareBirth(agent, {
       childFirstName: "Demandeur",
       childLastName: "Test",
@@ -47,7 +50,7 @@ describe("demandes citoyennes — copies d'actes", () => {
       declarantName: "Declarant",
       arrondissementId: arrA,
     });
-    await validateBirthRecord(agent, birth.id);
+    await validateBirthRecord(validator, birth.id);
     const account = await createTestCitizenAccount(birth.childId);
 
     const application = await createApplication(account, { type: "BIRTH_CERTIFICATE_COPY", birthRecordId: birth.id });

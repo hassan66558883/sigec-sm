@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -16,8 +17,12 @@ export async function POST(req: NextRequest) {
   }
 
   const password = body.password;
-  if (!password || password.length < 8) {
-    return NextResponse.json({ error: "Mot de passe d'au moins 8 caracteres requis." }, { status: 400 });
+  if (!password) {
+    return NextResponse.json({ error: "Mot de passe requis." }, { status: 400 });
+  }
+  const passwordError = validatePasswordStrength(password);
+  if (passwordError) {
+    return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
   const hashed = await bcrypt.hash(password, 12);

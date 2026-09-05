@@ -69,6 +69,7 @@ export async function declareRecognition(actor: CurrentUser, input: DeclareRecog
       parentId: input.parentId,
       parentRole: input.parentRole,
       arrondissementId: input.arrondissementId,
+      createdById: actor.id,
     },
   });
 
@@ -91,6 +92,12 @@ export async function validateRecognition(actor: CurrentUser, id: string) {
   if (!before) throw new ApiError(404, "Reconnaissance introuvable.");
   if (!canAccessArrondissement(actor, before.arrondissementId)) {
     throw new ApiError(403, "Dossier hors de votre perimetre.");
+  }
+  // Separation des taches (module securite, section 5) : la personne qui a
+  // enregistre la declaration ne peut pas etre celle qui la valide, meme si
+  // son role cumule les deux permissions.
+  if (before.createdById && before.createdById === actor.id) {
+    throw new ApiError(403, "Separation des taches : vous ne pouvez pas valider un dossier que vous avez vous-meme enregistre.");
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 

@@ -17,6 +17,10 @@ const ALERT_TITLE: Record<string, string> = {
   QR_INVALID_REUSE: "Reutilisation de QR invalide",
   QR_SCAN_ANOMALY: "Volume de scans QR anormal",
   RECONCILIATION_DISCREPANCY: "Ecart de rapprochement prestataire",
+  EXCESSIVE_LOGIN_FAILURES: "Tentatives de connexion excessives",
+  DUPLICATE_BIRTH_SUSPECTED: "Doublon de naissance suspecte",
+  DUPLICATE_MARRIAGE_SUSPECTED: "Doublon de mariage suspecte",
+  DUPLICATE_DEATH_SUSPECTED: "Doublon de deces suspecte",
 };
 
 // Seuils configurables (section 23 : "Les seuils doivent etre
@@ -42,9 +46,17 @@ const DEFAULT_THRESHOLDS = {
   qrScanVolumeWindowMinutes: 60,
   qrScanVolumeMedium: 20,
   qrScanVolumeHigh: 50,
+  // Verrouillage de compte (module securite, section 2/25) : meme fenetre
+  // utilisee pour compter les echecs ET comme duree effective de
+  // verrouillage (voir isAccountLocked() dans login-security.ts) — un seul
+  // parametre plutot que deux etats a synchroniser (pas de "locked until"
+  // persiste separement : le verrouillage s'auto-resout des que les echecs
+  // recents sortent de la fenetre).
+  loginLockoutWindowMinutes: 15,
+  loginLockoutMaxAttempts: 5,
 };
 
-async function getThresholds() {
+export async function getThresholds() {
   const setting = await prisma.systemSetting.findUnique({ where: { key: "fraud_thresholds" } });
   if (!setting) return DEFAULT_THRESHOLDS;
   return { ...DEFAULT_THRESHOLDS, ...(setting.value as Partial<typeof DEFAULT_THRESHOLDS>) };
@@ -249,6 +261,90 @@ export async function raiseDuplicateAlert(
   arrondissementId?: string | null,
 ) {
   await raiseFraudAlert({ type, severity: "CRITICAL", description, arrondissementId });
+}
+
+// Verrouillage de compte (module securite, section 2/8) : un seul signal
+// leve UNE FOIS quand le seuil est franchi (pas a chaque tentative
+// suivante tant que le compte reste verrouille) pour ne pas noyer
+// /admin/fraud — voir isAccountLocked() dans login-security.ts, qui gere
+// le seuil lui-meme ; ce detecteur ne fait que journaliser l'evenement
+// pour investigation.
+export async function raiseExcessiveLoginFailures(email: string, attemptCount: number) {
+  await raiseFraudAlert({
+    type: "EXCESSIVE_LOGIN_FAILURES",
+    severity: attemptCount >= 10 ? "CRITICAL" : "HIGH",
+    description: `Compte ${email} verrouille apres ${attemptCount} echecs de connexion consecutifs.`,
+  });
+}
+
+// Detecteurs de doublon etat civil (module securite, section 8 : "Duplicate
+// birth/marriage/death registrations"). Contrairement aux doublons de
+// paiement (bloques par une contrainte d'unicite en base, section
+// raiseDuplicateAlert ci-dessus), un doublon d'etat civil N'EST PAS
+// structurellement impossible : BirthRecord.childId/DeathRecord.deceasedId
+// sont uniques PAR CITOYEN, mais rien n'empeche de creer un DEUXIEME
+// Citizen (par erreur de saisie ou par fraude) representant la meme
+// personne physique, avec sa propre declaration. Ces detecteurs comparent
+// donc les attributs (nom/prenom/date), jamais les identifiants — non
+// bloquants, ils signalent pour investigation humaine, ne refusent jamais
+// l'enregistrement (un homonyme reel existe).
+export async function detectDuplicateBirthRegistration(childId: string, firstName: string, lastName: string, dateOfBirth: Date, arrondissementId: string) {
+  const candidates = await prisma.citizen.findMany({
+    where: {
+      id: { not: childId },
+      firstName: { equals: firstName, mode: "insensitive" },
+      lastName: { equals: lastName, mode: "insensitive" },
+      dateOfBirth,
+      birthRecord: { isNot: null },
+    },
+    select: { id: true },
+  });
+  if (candidates.length === 0) return;
+  await raiseFraudAlert({
+    type: "DUPLICATE_BIRTH_SUSPECTED",
+    severity: "MEDIUM",
+    description: `Naissance declaree pour ${firstName} ${lastName} (${dateOfBirth.toISOString().slice(0, 10)}) : ${candidates.length} citoyen(s) homonyme(s) avec un acte de naissance deja existant.`,
+    arrondissementId,
+  });
+}
+
+export async function detectDuplicateMarriageRegistration(marriageId: string, husbandId: string, wifeId: string, arrondissementId: string) {
+  const activeMarriages = await prisma.marriage.findMany({
+    where: {
+      id: { not: marriageId },
+      OR: [{ husbandId }, { wifeId }, { husbandId: wifeId }, { wifeId: husbandId }],
+      divorce: null,
+    },
+    select: { id: true, recordNumber: true },
+  });
+  if (activeMarriages.length === 0) return;
+  await raiseFraudAlert({
+    type: "DUPLICATE_MARRIAGE_SUSPECTED",
+    severity: "HIGH",
+    description: `Mariage declare alors qu'au moins un des epoux figure deja dans un mariage actif (non divorce) : ${activeMarriages.map((m) => m.recordNumber).join(", ")}.`,
+    arrondissementId,
+  });
+}
+
+export async function detectDuplicateDeathRegistration(deceasedId: string, firstName: string, lastName: string, dateOfBirth: Date | null, arrondissementId: string) {
+  if (!dateOfBirth) return;
+  const candidates = await prisma.citizen.findMany({
+    where: {
+      id: { not: deceasedId },
+      firstName: { equals: firstName, mode: "insensitive" },
+      lastName: { equals: lastName, mode: "insensitive" },
+      dateOfBirth,
+      OR: [{ isDeceased: true }, { deathRecord: { isNot: null } }],
+    },
+    select: { id: true },
+  });
+  if (candidates.length === 0) return;
+  await raiseFraudAlert({
+    type: "DUPLICATE_DEATH_SUSPECTED",
+    severity: "MEDIUM",
+    description: `Deces declare pour ${firstName} ${lastName} : ${candidates.length} citoyen(s) homonyme(s) deja marque(s) decede(s).`,
+    arrondissementId,
+  });
 }
 
 // Rapprochement prestataire/banque (section 31) : un seul signal

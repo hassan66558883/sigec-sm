@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
 import { encryptField, decryptField } from "@/lib/encryption";
 import { periodBounds } from "@/lib/date-buckets";
+import { detectDuplicateDeathRegistration } from "@/lib/services/fraud";
 
 // KPI d'en-tete (tableau de bord Deces, Phase 2).
 export async function getDeathsPeriodStats(user: CurrentUser) {
@@ -103,6 +104,9 @@ export async function declareDeath(actor: CurrentUser, input: DeclareDeathInput)
   const existing = await prisma.deathRecord.findUnique({ where: { deceasedId: input.deceasedId } });
   if (existing) throw new ApiError(409, "Un acte de deces existe deja pour cette personne.");
 
+  const deceased = await prisma.citizen.findUnique({ where: { id: input.deceasedId } });
+  if (!deceased) throw new ApiError(404, "Personne decedee introuvable.");
+
   const created = await prisma.deathRecord.create({
     data: {
       recordNumber: generateRecordNumber("DEC"),
@@ -113,6 +117,7 @@ export async function declareDeath(actor: CurrentUser, input: DeclareDeathInput)
       declarantName: input.declarantName.trim(),
       declarantRelation: input.declarantRelation?.trim(),
       arrondissementId: input.arrondissementId,
+      createdById: actor.id,
     },
   });
 
@@ -126,6 +131,8 @@ export async function declareDeath(actor: CurrentUser, input: DeclareDeathInput)
     newValue: { recordNumber: created.recordNumber },
   });
 
+  await detectDuplicateDeathRegistration(deceased.id, deceased.firstName, deceased.lastName, deceased.dateOfBirth, created.arrondissementId);
+
   return created;
 }
 
@@ -136,6 +143,9 @@ export async function validateDeathRecord(actor: CurrentUser, id: string) {
   if (!before) throw new ApiError(404, "Declaration introuvable.");
   if (!canAccessArrondissement(actor, before.arrondissementId)) {
     throw new ApiError(403, "Dossier hors de votre perimetre.");
+  }
+  if (before.createdById && before.createdById === actor.id) {
+    throw new ApiError(403, "Separation des taches : vous ne pouvez pas valider une declaration que vous avez vous-meme enregistree.");
   }
   if (before.status !== "DECLARED") throw new ApiError(400, "Ce dossier n'est pas en attente de validation.");
 

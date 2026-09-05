@@ -29,6 +29,10 @@ const TYPE_LABEL: Record<string, string> = {
   QR_INVALID_REUSE: "QR invalide reutilise",
   QR_SCAN_ANOMALY: "Scans QR anormaux",
   RECONCILIATION_DISCREPANCY: "Ecart de rapprochement",
+  EXCESSIVE_LOGIN_FAILURES: "Compte verrouille (echecs de connexion)",
+  DUPLICATE_BIRTH_SUSPECTED: "Doublon de naissance suspecte",
+  DUPLICATE_MARRIAGE_SUSPECTED: "Doublon de mariage suspecte",
+  DUPLICATE_DEATH_SUSPECTED: "Doublon de deces suspecte",
 };
 
 type AlertRow = Awaited<ReturnType<typeof listFraudAlertsPage>>["rows"][number];

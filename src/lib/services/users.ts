@@ -4,6 +4,7 @@ import type { CurrentUser } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,9 +41,8 @@ export async function createUser(
   const email = input.email?.trim().toLowerCase();
   const phone = input.phone?.trim() || null;
   if (!name || !email || !EMAIL_RE.test(email)) throw new ApiError(400, "Nom et email valides requis.");
-  if (!input.password || input.password.length < 8) {
-    throw new ApiError(400, "Mot de passe d'au moins 8 caracteres requis.");
-  }
+  const passwordError = validatePasswordStrength(input.password);
+  if (passwordError) throw new ApiError(400, passwordError);
 
   const organizationLevel = input.organizationLevel === "CENTRAL" ? "CENTRAL" : "ARRONDISSEMENT";
 
@@ -119,4 +119,33 @@ export async function setUserActive(actor: CurrentUser, id: string, isActive: bo
     newValue: { isActive: updated.isActive },
   });
   return updated;
+}
+
+// Reinitialisation de mot de passe par un administrateur (module securite,
+// section 2/19) : la seule voie de recuperation pour un compte bloque,
+// puisqu'aucun service d'envoi d'email n'existe dans ce projet (decision
+// explicite de l'utilisateur — pas de flux "mot de passe oublie" par
+// courriel). Meme convention que createUser() : l'administrateur saisit
+// lui-meme le nouveau mot de passe (jamais genere puis affiche en clair
+// dans l'interface), et mustResetPwd force l'utilisateur a le changer a
+// sa prochaine connexion.
+export async function resetUserPasswordByAdmin(actor: CurrentUser, id: string, newPassword: string) {
+  if (!can(actor, "users", "edit")) throw new ApiError(403, "Permission insuffisante.");
+  const passwordError = validatePasswordStrength(newPassword);
+  if (passwordError) throw new ApiError(400, passwordError);
+
+  const before = await prisma.user.findUnique({ where: { id } });
+  if (!before) throw new ApiError(404, "Utilisateur introuvable.");
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id }, data: { password: hashed, mustResetPwd: true } });
+
+  await logAudit({
+    user: actor,
+    action: "PASSWORD_RESET_BY_ADMIN",
+    module: "users",
+    entityType: "User",
+    entityId: id,
+    newValue: { email: before.email },
+  });
 }
