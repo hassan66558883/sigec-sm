@@ -9,6 +9,9 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { COMPLAINT_STATUS_LABEL } from "@/components/municipal/complaint-actions";
+import { AttachmentList } from "@/components/municipal/attachment-list";
+import { AttachmentUploader } from "@/components/municipal/attachment-uploader";
+import { ATTACHMENT_MAX_PER_COMPLAINT } from "@/lib/complaint-attachment-constants";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie", PROPRETE: "Proprete", ECLAIRAGE: "Eclairage", EAU: "Eau", SECURITE: "Securite", AUTRE: "Autre",
@@ -70,6 +73,15 @@ export default async function MyComplaintsPage() {
                   ))}
                 </ul>
               )}
+
+              <div className="mt-3 space-y-2 border-t border-[var(--color-border-subtle)] pt-3">
+                <div className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Pieces jointes</div>
+                <AttachmentList
+                  attachments={c.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, sizeBytes: a.sizeBytes }))}
+                  downloadBaseUrl={`/api/portal/complaints/${c.id}/attachments`}
+                />
+                {c.attachments.length < ATTACHMENT_MAX_PER_COMPLAINT && <AttachmentUploader uploadUrl={`/api/portal/complaints/${c.id}/attachments`} />}
+              </div>
 
               <CommentThread complaintId={c.id} comments={c.comments.map((cm) => ({ id: cm.id, authorType: cm.authorType, message: cm.message, createdAt: cm.createdAt.toISOString() }))} />
 

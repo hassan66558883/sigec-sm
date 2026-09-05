@@ -14,6 +14,10 @@ import {
   getComplaintsDashboardStats,
   findSimilarComplaints,
   mergeComplaints,
+  addComplaintAttachmentAsCitizen,
+  addComplaintAttachmentAsStaff,
+  getComplaintAttachmentForCitizen,
+  getComplaintAttachmentForStaff,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -259,6 +263,44 @@ describe("plaintes citoyennes — guichet numerique", () => {
     await expect(mergeComplaints(staff, first.id, second.id)).rejects.toMatchObject({ status: 400 });
     const similarAfterMerge = await findSimilarComplaints(staff, first.id);
     expect(similarAfterMerge.map((c) => c.id)).not.toContain(second.id);
+  });
+
+  it("pieces jointes : le citoyen ne peut en ajouter qu'a son propre dossier, jusqu'au quota ; l'agent est soumis a RBAC + perimetre", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const otherCitizen = await createTestCitizen(arrA);
+    const otherAccount = await createTestCitizenAccount(otherCitizen.id);
+    const complaint = await submitComplaint(account, { category: "AUTRE", description: "Test pieces jointes." });
+
+    const fakeFile = (n: number) => ({ fileName: `photo${n}.jpg`, storagePath: `${complaint.id}/fake-${n}.jpg`, mimeType: "image/jpeg", sizeBytes: 1024 });
+
+    // Un citoyen ne peut pas joindre un fichier au dossier d'un autre.
+    await expect(addComplaintAttachmentAsCitizen(otherAccount, complaint.id, fakeFile(0))).rejects.toMatchObject({ status: 403 });
+
+    for (let i = 0; i < 5; i++) {
+      await addComplaintAttachmentAsCitizen(account, complaint.id, fakeFile(i));
+    }
+    // Quota (5 pieces jointes max par dossier) atteint.
+    await expect(addComplaintAttachmentAsCitizen(account, complaint.id, fakeFile(5))).rejects.toMatchObject({ status: 400 });
+
+    const noPerm = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view"] });
+    await expect(addComplaintAttachmentAsStaff(noPerm, complaint.id, fakeFile(6))).rejects.toMatchObject({ status: 403 });
+
+    const outOfScopeCity = await createTestCity();
+    const arrB = (await createTestArrondissement(outOfScopeCity.id, 1)).id;
+    const outOfScopeStaff = await createTestUser({ arrondissementIds: [arrB], permissions: ["complaints:view", "complaints:update"] });
+    await expect(addComplaintAttachmentAsStaff(outOfScopeStaff, complaint.id, fakeFile(6))).rejects.toMatchObject({ status: 403 });
+    // Quota deja atteint (5) empeche aussi le staff dans le perimetre d'en ajouter une 6e.
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:update"] });
+    await expect(addComplaintAttachmentAsStaff(staff, complaint.id, fakeFile(6))).rejects.toMatchObject({ status: 400 });
+
+    // Telechargement : le proprietaire et l'agent dans le perimetre peuvent lire les metadonnees, pas les autres.
+    const attachments = await testPrisma.complaintAttachment.findMany({ where: { complaintId: complaint.id } });
+    const first = attachments[0];
+    await expect(getComplaintAttachmentForCitizen(account, complaint.id, first.id)).resolves.toMatchObject({ id: first.id });
+    await expect(getComplaintAttachmentForCitizen(otherAccount, complaint.id, first.id)).rejects.toMatchObject({ status: 403 });
+    await expect(getComplaintAttachmentForStaff(staff, complaint.id, first.id)).resolves.toMatchObject({ id: first.id });
+    await expect(getComplaintAttachmentForStaff(outOfScopeStaff, complaint.id, first.id)).rejects.toMatchObject({ status: 403 });
   });
 });
 

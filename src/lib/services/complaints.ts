@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api";
 import { can, recordScopeWhere, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateRecordNumber } from "@/lib/ids";
+import { ATTACHMENT_MAX_PER_COMPLAINT } from "@/lib/complaint-attachment-constants";
 
 const CATEGORIES = ["VOIRIE", "PROPRETE", "ECLAIRAGE", "EAU", "SECURITE", "AUTRE"];
 
@@ -85,6 +86,7 @@ export async function listMyComplaints(account: CitizenAccountWithCitizen) {
     include: {
       updates: { orderBy: { createdAt: "asc" } },
       comments: { orderBy: { createdAt: "asc" } },
+      attachments: { orderBy: { createdAt: "asc" } },
       categoryRef: true,
       satisfaction: true,
     },
@@ -682,4 +684,96 @@ export async function mergeComplaints(actor: CurrentUser, keepId: string, mergeI
   });
 
   return updated;
+}
+
+// --- Pieces jointes (section 9) ----------------------------------------------
+// Metadonnees uniquement ici — l'ecriture/lecture du fichier sur disque vit
+// dans lib/complaint-attachments.ts (validation mime/taille, generation du
+// nom de fichier). Ces fonctions ne font que l'autorisation + la ligne DB.
+
+type AttachmentFileMeta = { fileName: string; storagePath: string; mimeType: string; sizeBytes: number };
+
+async function assertAttachmentQuota(complaintId: string) {
+  const count = await prisma.complaintAttachment.count({ where: { complaintId } });
+  if (count >= ATTACHMENT_MAX_PER_COMPLAINT) {
+    throw new ApiError(400, `Maximum ${ATTACHMENT_MAX_PER_COMPLAINT} pieces jointes par dossier.`);
+  }
+}
+
+// Appelee AVANT d'ecrire le fichier sur disque (voir la route d'upload) —
+// evite d'ecrire un fichier orphelin si l'autorisation echoue ensuite.
+export async function assertCanAttachToComplaintAsCitizen(account: CitizenAccountWithCitizen, complaintId: string) {
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (complaint.citizenAccountId !== account.id) throw new ApiError(403, "Ce dossier ne vous appartient pas.");
+  await assertAttachmentQuota(complaintId);
+  return complaint;
+}
+
+export async function assertCanAttachToComplaintAsStaff(actor: CurrentUser, complaintId: string) {
+  if (!can(actor, "complaints", "update")) throw new ApiError(403, "Permission insuffisante.");
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (!canAccessArrondissement(actor, complaint.arrondissementId)) throw new ApiError(403, "Plainte hors de votre perimetre.");
+  await assertAttachmentQuota(complaintId);
+  return complaint;
+}
+
+export async function addComplaintAttachmentAsCitizen(account: CitizenAccountWithCitizen, complaintId: string, file: AttachmentFileMeta) {
+  const complaint = await assertCanAttachToComplaintAsCitizen(account, complaintId);
+
+  const created = await prisma.complaintAttachment.create({
+    data: { complaintId, uploadedByCitizenAccountId: account.id, ...file },
+  });
+
+  await logAudit({
+    user: null,
+    action: "ATTACHMENT_ADD",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: complaintId,
+    arrondissementId: complaint.arrondissementId,
+    newValue: { fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, citizenAccountId: account.id },
+  });
+
+  return created;
+}
+
+export async function addComplaintAttachmentAsStaff(actor: CurrentUser, complaintId: string, file: AttachmentFileMeta) {
+  const complaint = await assertCanAttachToComplaintAsStaff(actor, complaintId);
+
+  const created = await prisma.complaintAttachment.create({
+    data: { complaintId, uploadedByUserId: actor.id, ...file },
+  });
+
+  await logAudit({
+    user: actor,
+    action: "ATTACHMENT_ADD",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: complaintId,
+    arrondissementId: complaint.arrondissementId,
+    newValue: { fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes },
+  });
+
+  return created;
+}
+
+export async function getComplaintAttachmentForCitizen(account: CitizenAccountWithCitizen, complaintId: string, attachmentId: string) {
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (complaint.citizenAccountId !== account.id) throw new ApiError(403, "Ce dossier ne vous appartient pas.");
+  const attachment = await prisma.complaintAttachment.findUnique({ where: { id: attachmentId } });
+  if (!attachment || attachment.complaintId !== complaintId) throw new ApiError(404, "Piece jointe introuvable.");
+  return attachment;
+}
+
+export async function getComplaintAttachmentForStaff(actor: CurrentUser, complaintId: string, attachmentId: string) {
+  if (!can(actor, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const complaint = await prisma.complaint.findUnique({ where: { id: complaintId } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (!canAccessArrondissement(actor, complaint.arrondissementId)) throw new ApiError(403, "Plainte hors de votre perimetre.");
+  const attachment = await prisma.complaintAttachment.findUnique({ where: { id: attachmentId } });
+  if (!attachment || attachment.complaintId !== complaintId) throw new ApiError(404, "Piece jointe introuvable.");
+  return attachment;
 }

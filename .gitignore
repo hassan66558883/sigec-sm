@@ -39,3 +39,8 @@ next-env.d.ts
 
 # prisma (regenerated automatically via postinstall: "prisma generate")
 /src/generated/
+
+# pieces jointes des plaintes (module Plaintes & Doleances, Phase 8) —
+# stockage disque local, jamais servi statiquement (voir
+# src/lib/complaint-attachments.ts) ; contenu utilisateur, pas du code.
+/storage/

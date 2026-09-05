@@ -8,6 +8,9 @@ import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { ComplaintActions, COMPLAINT_STATUS_LABEL, DuplicateMergeButton } from "@/components/municipal/complaint-actions";
 import { LocationMap } from "@/components/municipal/location-map-loader";
+import { AttachmentList } from "@/components/municipal/attachment-list";
+import { AttachmentUploader } from "@/components/municipal/attachment-uploader";
+import { ATTACHMENT_MAX_PER_COMPLAINT } from "@/lib/complaint-attachment-constants";
 import { PageHeading } from "@/components/ui/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -109,6 +112,16 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
             <div className="text-sm text-[var(--color-danger)]">{complaint.rejectionReason}</div>
           </>
         )}
+        <div className="mt-3 space-y-2">
+          <div className="text-xs font-medium uppercase text-[var(--color-text-muted)]">Pieces jointes</div>
+          <AttachmentList
+            attachments={complaint.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, sizeBytes: a.sizeBytes }))}
+            downloadBaseUrl={`/api/complaints/${complaint.id}/attachments`}
+          />
+          {can(user, "complaints", "update") && complaint.attachments.length < ATTACHMENT_MAX_PER_COMPLAINT && (
+            <AttachmentUploader uploadUrl={`/api/complaints/${complaint.id}/attachments`} />
+          )}
+        </div>
       </Card>
 
       <Card>

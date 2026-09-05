@@ -93,10 +93,11 @@ export function ComplaintForm({ categories, quartiers }: { categories: Category[
     router.refresh();
   }
 
-  // Etape 6 ("Pieces jointes", section 35) volontairement absente ici :
-  // aucun mecanisme de stockage de fichiers n'existe encore cote backend
-  // (voir Phase 2 — ComplaintAttachment ne stocke que des metadonnees, pas
-  // de route d'upload). A ajouter dans une phase ulterieure.
+  // Etape "Pieces jointes" (section 35) volontairement absente de cet
+  // assistant : un fichier ne peut etre rattache qu'a un dossier deja cree
+  // (ComplaintAttachment.complaintId est une FK reelle), donc pas avant la
+  // soumission. L'ajout de pieces jointes se fait apres coup, depuis la
+  // liste "Mes plaintes" ci-dessous (voir AttachmentUploader dans page.tsx).
 
   if (step === 4 && confirmedCase) {
     return (
