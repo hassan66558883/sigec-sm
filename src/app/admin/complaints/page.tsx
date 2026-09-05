@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { Pagination } from "@/components/ui/pagination";
+import { COMPLAINT_STATUS_LABEL } from "@/components/municipal/complaint-actions";
 
 const CATEGORY_LABEL: Record<string, string> = {
   VOIRIE: "Voirie",
@@ -16,23 +17,35 @@ const CATEGORY_LABEL: Record<string, string> = {
   SECURITE: "Securite",
   AUTRE: "Autre",
 };
+// Ancien vocabulaire (NEW/ASSIGNED/PENDING) conserve pour les rares
+// plaintes creees avant le workflow a 13 etats (module Plaintes &
+// Doleances) — COMPLAINT_STATUS_LABEL (complaint-actions.tsx) est la
+// reference pour toute nouvelle plainte, fusionnee ici pour l'affichage.
 const STATUS_LABEL: Record<string, string> = {
   NEW: "Nouveau",
   RECEIVED: "Recu",
   ASSIGNED: "Affecte",
-  IN_PROGRESS: "En traitement",
+  IN_PROGRESS: "En cours",
   PENDING: "En attente",
   RESOLVED: "Resolu",
   CLOSED: "Cloture",
+  ...COMPLAINT_STATUS_LABEL,
 };
 const STATUS_TONE: Record<string, StatusTone> = {
   NEW: "warning",
   RECEIVED: "warning",
   ASSIGNED: "warning",
-  IN_PROGRESS: "warning",
-  PENDING: "neutral",
   RESOLVED: "success",
   CLOSED: "success",
+  SUBMITTED: "warning",
+  VERIFYING: "warning",
+  NEEDS_INFO: "warning",
+  ASSIGNED_DEPT: "warning",
+  ASSIGNED_AGENT: "warning",
+  IN_PROGRESS: "warning",
+  WAITING: "neutral",
+  VALIDATING: "warning",
+  REJECTED: "danger",
 };
 
 type ComplaintRow = Awaited<ReturnType<typeof listComplaintsForStaffPage>>["rows"][number];

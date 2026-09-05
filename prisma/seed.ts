@@ -48,7 +48,7 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   payments: ["view", "create", "export", "cancel", "refund"],
   // Phase 6 — Services municipaux
   associations: ["view", "create", "edit"],
-  complaints: ["view", "assign", "update"],
+  complaints: ["view", "assign", "update", "resolve", "reject", "manage_categories"],
   infrastructure: ["view", "update"],
   // Phase 7 — Recettes municipales : recensement, tarification, agents
   // collecteurs, obligations, reçus (chaine complete section "recettes
@@ -296,7 +296,7 @@ const ROLES: {
       "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
       "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
-      "complaints:view", "complaints:assign", "complaints:update",
+      "complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject",
       "infrastructure:view", "infrastructure:update",
       "tariffs:view", "tariffs:create", "tariffs:edit",
       "obligations:view", "obligations:create", "obligations:cancel",
@@ -344,7 +344,7 @@ const ROLES: {
       "businesses:view", "businesses:create", "businesses:edit", "markets:view", "markets:create", "markets:edit",
       "payments:view", "payments:create", "payments:export", "payments:cancel", "payments:refund",
       "associations:view", "associations:create", "associations:edit",
-      "complaints:view", "complaints:assign", "complaints:update",
+      "complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject",
       "infrastructure:view", "infrastructure:update",
       "tariffs:view",
       "obligations:view", "obligations:create", "obligations:cancel",
@@ -371,7 +371,7 @@ const ROLES: {
       "applications:view", "applications:approve", "applications:reject",
       "land:view", "urbanism:view", "urbanism:review", "urbanism:inspect",
       "associations:view", "associations:edit",
-      "complaints:view", "complaints:assign", "complaints:update",
+      "complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject",
       "infrastructure:view", "infrastructure:update",
     ],
   },
@@ -456,7 +456,7 @@ const ROLES: {
     code: "COMPLAINTS_AGENT",
     name: "Agent plaintes",
     description: "Traitement des plaintes et doleances citoyennes.",
-    permissions: ["complaints:view", "complaints:assign", "complaints:update"],
+    permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve", "complaints:reject", "complaints:manage_categories"],
   },
   {
     code: "ROADS_AGENT",

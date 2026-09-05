@@ -5,8 +5,9 @@ import {
   listMyComplaints,
   listComplaintsForStaff,
   getComplaintForStaff,
-  updateComplaintStatus,
-  assignComplaint,
+  transitionComplaint,
+  assignComplaintToDepartment,
+  assignComplaintToAgent,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -16,6 +17,7 @@ import {
   createTestCitizen,
   createTestCitizenAccount,
   closeTestDb,
+  testPrisma,
 } from "./helpers/fixtures";
 
 describe("associations & ONG", () => {
@@ -63,13 +65,13 @@ describe("plaintes citoyennes — guichet numerique", () => {
     const complaint = await submitComplaint(account, { category: "ECLAIRAGE", description: "Lampadaire casse rue principale." });
     expect(complaint.caseNumber).toMatch(/^PLT-/);
     expect(complaint.updates).toHaveLength(1);
-    expect(complaint.updates[0].status).toBe("NEW");
+    expect(complaint.updates[0].status).toBe("SUBMITTED");
 
     const mine = await listMyComplaints(account);
     expect(mine.map((c) => c.id)).toContain(complaint.id);
   });
 
-  it("un agent affecte puis fait progresser une plainte ; chaque etape journalise un update ; l'isolation territoriale s'applique", async () => {
+  it("un agent fait progresser une plainte a travers le workflow complet (13 etats) ; chaque etape journalise un update ; l'isolation territoriale et les transitions invalides sont refusees", async () => {
     const citizen = await createTestCitizen(arrA);
     const account = await createTestCitizenAccount(citizen.id);
     const complaint = await submitComplaint(account, { category: "VOIRIE", description: "Nid de poule." });
@@ -77,22 +79,74 @@ describe("plaintes citoyennes — guichet numerique", () => {
     const noPerm = await createTestUser({ arrondissementIds: [arrA], permissions: [] });
     await expect(listComplaintsForStaff(noPerm)).rejects.toMatchObject({ status: 403 });
 
-    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign", "complaints:update"] });
-    const assigned = await assignComplaint(staff, complaint.id, staff.id);
-    expect(assigned.status).toBe("ASSIGNED");
+    const staff = await createTestUser({
+      arrondissementIds: [arrA],
+      permissions: ["complaints:view", "complaints:assign", "complaints:update", "complaints:resolve"],
+    });
 
-    const resolved = await updateComplaintStatus(staff, complaint.id, "RESOLVED", "Reparation effectuee.");
+    // Une transition incoherente (sauter des etapes) est refusee.
+    await expect(transitionComplaint(staff, complaint.id, "RESOLVED")).rejects.toMatchObject({ status: 400 });
+
+    const received = await transitionComplaint(staff, complaint.id, "RECEIVED");
+    expect(received.status).toBe("RECEIVED");
+    expect(received.receivedAt).not.toBeNull();
+
+    const verifying = await transitionComplaint(staff, complaint.id, "VERIFYING");
+    expect(verifying.status).toBe("VERIFYING");
+
+    const department = await testPrisma.department.create({ data: { name: `Direction Technique ${complaint.id}`, code: `DT-${complaint.id}` } });
+    const assignedDept = await assignComplaintToDepartment(staff, complaint.id, department.id);
+    expect(assignedDept.status).toBe("ASSIGNED_DEPT");
+    expect(assignedDept.assignedDepartmentId).toBe(department.id);
+
+    const assignedAgent = await assignComplaintToAgent(staff, complaint.id, staff.id);
+    expect(assignedAgent.status).toBe("ASSIGNED_AGENT");
+    expect(assignedAgent.assignedToId).toBe(staff.id);
+    expect(assignedAgent.dueAt).not.toBeNull();
+    expect(assignedAgent.slaHours).toBe(240); // NORMAL = 10 jours = 240h
+
+    const inProgress = await transitionComplaint(staff, complaint.id, "IN_PROGRESS");
+    expect(inProgress.status).toBe("IN_PROGRESS");
+    expect(inProgress.startedAt).not.toBeNull();
+
+    const resolved = await transitionComplaint(staff, complaint.id, "RESOLVED", { resolutionNotes: "Reparation effectuee." });
     expect(resolved.status).toBe("RESOLVED");
     expect(resolved.resolvedAt).not.toBeNull();
 
+    const validating = await transitionComplaint(staff, complaint.id, "VALIDATING");
+    expect(validating.status).toBe("VALIDATING");
+
+    const closed = await transitionComplaint(staff, complaint.id, "CLOSED");
+    expect(closed.status).toBe("CLOSED");
+    expect(closed.closedAt).not.toBeNull();
+
     const detail = await getComplaintForStaff(staff, complaint.id);
-    expect(detail.updates.length).toBeGreaterThanOrEqual(3); // NEW + ASSIGNED + RESOLVED
+    // SUBMITTED + RECEIVED + VERIFYING + ASSIGNED_DEPT + ASSIGNED_AGENT + IN_PROGRESS + RESOLVED + VALIDATING + CLOSED
+    expect(detail.updates.length).toBeGreaterThanOrEqual(9);
 
     const otherCity = await createTestCity();
     const arrOther = (await createTestArrondissement(otherCity.id, 5)).id;
     const outOfScope = await createTestUser({ arrondissementIds: [arrOther], permissions: ["complaints:view", "complaints:update"] });
     await expect(getComplaintForStaff(outOfScope, complaint.id)).rejects.toMatchObject({ status: 403 });
-    await expect(updateComplaintStatus(outOfScope, complaint.id, "CLOSED")).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("le rejet d'une plainte exige un motif, et n'est autorise que depuis EN VERIFICATION", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const complaint = await submitComplaint(account, { category: "AUTRE", description: "Signalement test rejet." });
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:update", "complaints:reject"] });
+
+    // REJETE n'est pas atteignable depuis SOUMIS (seulement depuis EN VERIFICATION).
+    await expect(transitionComplaint(staff, complaint.id, "REJECTED", { rejectionReason: "Hors competence." })).rejects.toMatchObject({ status: 400 });
+
+    await transitionComplaint(staff, complaint.id, "RECEIVED");
+    await transitionComplaint(staff, complaint.id, "VERIFYING");
+
+    await expect(transitionComplaint(staff, complaint.id, "REJECTED")).rejects.toMatchObject({ status: 400 });
+
+    const rejected = await transitionComplaint(staff, complaint.id, "REJECTED", { rejectionReason: "Hors competence municipale." });
+    expect(rejected.status).toBe("REJECTED");
+    expect(rejected.rejectionReason).toBe("Hors competence municipale.");
   });
 });
 

@@ -978,7 +978,7 @@ model Complaint {
   title            String? // "Objet" (section 8) — optionnel : absent sur les plaintes anterieures a cette migration
   description      String
   priority         String    @default("NORMAL") // FAIBLE | NORMAL | IMPORTANT | URGENT | CRITIQUE
-  status           String    @default("NEW")
+  status           String    @default("SUBMITTED")
   arrondissementId String
   quartierId       String?
   address          String?
