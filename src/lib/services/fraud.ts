@@ -14,6 +14,8 @@ const ALERT_TITLE: Record<string, string> = {
   OUT_OF_ZONE: "Collecte hors zone",
   SUSPICIOUS_VOLUME: "Volume de transactions suspect",
   OFF_HOURS: "Paiement hors horaires",
+  QR_INVALID_REUSE: "Reutilisation de QR invalide",
+  QR_SCAN_ANOMALY: "Volume de scans QR anormal",
 };
 
 // Seuils configurables (section 23 : "Les seuils doivent etre
@@ -33,6 +35,12 @@ const DEFAULT_THRESHOLDS = {
   riskAlertsMedium: 1,
   riskAlertsHigh: 3,
   riskAlertsCritical: 5,
+  qrInvalidScanWindowHours: 24,
+  qrInvalidScanMedium: 3,
+  qrInvalidScanHigh: 6,
+  qrScanVolumeWindowMinutes: 60,
+  qrScanVolumeMedium: 20,
+  qrScanVolumeHigh: 50,
 };
 
 async function getThresholds() {
@@ -48,6 +56,7 @@ type RaiseAlertInput = {
   agentId?: string | null;
   paymentId?: string | null;
   caisseId?: string | null;
+  qrCodeId?: string | null;
   arrondissementId?: string | null;
 };
 
@@ -62,6 +71,7 @@ async function raiseFraudAlert(input: RaiseAlertInput) {
       agentId: input.agentId ?? null,
       paymentId: input.paymentId ?? null,
       caisseId: input.caisseId ?? null,
+      qrCodeId: input.qrCodeId ?? null,
       arrondissementId: input.arrondissementId ?? null,
     },
   });
@@ -176,6 +186,52 @@ export async function detectOffHours(paymentId: string, agentId: string | null, 
     description: `Paiement enregistre hors plage horaire habituelle (${hour}h).`,
     agentId,
     paymentId,
+    arrondissementId,
+  });
+}
+
+// Detecteurs QR (section 23) : QrCodeEvent trace deja chaque scan (public ET
+// agent), y compris sur un QR invalide (voir resolveQrToken()/
+// resolveQrForCollection()) — jusqu'ici ces evenements n'etaient jamais
+// relus pour de l'analyse, uniquement journalises. Ces deux detecteurs
+// ferment ce manque explicitement signale par le code lui-meme.
+
+// Reutilisation d'un QR revoque/remplace (sticker vole/perdu toujours
+// scanne apres remplacement, ou tentative de fraude delibere) : plusieurs
+// scans d'un QR non-ACTIVE sur une fenetre glissante.
+export async function detectInvalidQrScan(qrCodeId: string, entityLabel: string, arrondissementId: string | null) {
+  const thresholds = await getThresholds();
+  const since = new Date(Date.now() - thresholds.qrInvalidScanWindowHours * 60 * 60 * 1000);
+  const count = await prisma.qrCodeEvent.count({
+    where: { qrCodeId, event: { in: ["SCANNED", "SCANNED_BY_AGENT"] }, createdAt: { gte: since } },
+  });
+  if (count < thresholds.qrInvalidScanMedium) return;
+  const severity = count >= thresholds.qrInvalidScanHigh ? "HIGH" : "MEDIUM";
+  await raiseFraudAlert({
+    type: "QR_INVALID_REUSE",
+    severity,
+    description: `QR invalide (revoque/remplace) scanne ${count} fois en ${thresholds.qrInvalidScanWindowHours}h pour "${entityLabel}".`,
+    qrCodeId,
+    arrondissementId,
+  });
+}
+
+// Volume de scans anormal sur un QR par ailleurs valide (sticker duplique,
+// sonde/bot, ou simple curiosite repetee sur un solde) : ne bloque jamais
+// le scan, journalise seulement pour investigation.
+export async function detectQrScanVolumeAnomaly(qrCodeId: string, entityLabel: string, arrondissementId: string | null) {
+  const thresholds = await getThresholds();
+  const since = new Date(Date.now() - thresholds.qrScanVolumeWindowMinutes * 60 * 1000);
+  const count = await prisma.qrCodeEvent.count({
+    where: { qrCodeId, event: { in: ["SCANNED", "SCANNED_BY_AGENT"] }, createdAt: { gte: since } },
+  });
+  if (count < thresholds.qrScanVolumeMedium) return;
+  const severity = count >= thresholds.qrScanVolumeHigh ? "HIGH" : "MEDIUM";
+  await raiseFraudAlert({
+    type: "QR_SCAN_ANOMALY",
+    severity,
+    description: `${count} scans du QR de "${entityLabel}" en ${thresholds.qrScanVolumeWindowMinutes} minutes.`,
+    qrCodeId,
     arrondissementId,
   });
 }

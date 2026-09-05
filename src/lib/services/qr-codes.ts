@@ -7,6 +7,7 @@ import { can, canAccessArrondissement } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { generateVerificationToken } from "@/lib/ids";
 import { withBalance } from "@/lib/services/obligations";
+import { detectInvalidQrScan, detectQrScanVolumeAnomaly } from "@/lib/services/fraud";
 
 // Systeme QR reutilisable (module paiement QR, section 3) : entityType/
 // entityId est une reference polymorphe deliberee vers n'importe quelle
@@ -231,6 +232,8 @@ export async function resolveQrToken(token: string): Promise<QrScanResult> {
   if (qr.entityType === "BUSINESS") {
     const business = await prisma.business.findUnique({ where: { id: qr.entityId }, include: { arrondissement: true, quartier: true } });
     if (!business) return { found: false };
+    if (qr.status !== "ACTIVE") await detectInvalidQrScan(qr.id, business.name, business.arrondissementId);
+    await detectQrScanVolumeAnomaly(qr.id, business.name, business.arrondissementId);
     return buildScanResult(qr, {
       entityType: "BUSINESS",
       reference: business.code ?? business.id,
@@ -248,10 +251,13 @@ export async function resolveQrToken(token: string): Promise<QrScanResult> {
       include: { market: { include: { arrondissement: true, quartier: true } } },
     });
     if (!stall) return { found: false };
+    const label = `${stall.market.name} — Emplacement ${stall.code}`;
+    if (qr.status !== "ACTIVE") await detectInvalidQrScan(qr.id, label, stall.market.arrondissementId);
+    await detectQrScanVolumeAnomaly(qr.id, label, stall.market.arrondissementId);
     return buildScanResult(qr, {
       entityType: "MARKET_STALL",
       reference: `${stall.market.code ?? ""}-${stall.code}`,
-      name: `${stall.market.name} — Emplacement ${stall.code}`,
+      name: label,
       arrondissementName: stall.market.arrondissement.name,
       quartierName: stall.market.quartier?.name,
       operatingStatus: stall.status,
@@ -283,7 +289,10 @@ export async function resolveQrForCollection(actor: CurrentUser, token: string):
   if (!can(actor, "payments", "create")) throw new ApiError(403, "Permission insuffisante.");
   const qr = await prisma.qrCode.findUnique({ where: { token } });
   if (!qr) throw new ApiError(404, "QR introuvable.");
-  if (qr.status !== "ACTIVE") throw new ApiError(400, "Ce QR n'est plus valide.");
+
+  // Journalise le scan meme si le QR n'est plus actif (meme regle que
+  // resolveQrToken() — utile pour la detection d'usage frauduleux, section 23).
+  await recordEvent(qr.id, "SCANNED_BY_AGENT", actor.id);
 
   let citizen: { id: string; firstName: string; lastName: string; uniqueNumber: string; phone: string | null };
   let entityLabel: string;
@@ -309,6 +318,11 @@ export async function resolveQrForCollection(actor: CurrentUser, token: string):
     throw new ApiError(400, "Type d'entite QR invalide.");
   }
 
+  if (qr.status !== "ACTIVE") {
+    await detectInvalidQrScan(qr.id, entityLabel, arrondissementId);
+    throw new ApiError(400, "Ce QR n'est plus valide.");
+  }
+
   if (!canAccessArrondissement(actor, arrondissementId)) throw new ApiError(403, "Hors de votre perimetre.");
 
   const obligations = await prisma.obligationPaiement.findMany({
@@ -317,7 +331,7 @@ export async function resolveQrForCollection(actor: CurrentUser, token: string):
     orderBy: { dueDate: "asc" },
   });
 
-  await recordEvent(qr.id, "SCANNED_BY_AGENT", actor.id);
+  await detectQrScanVolumeAnomaly(qr.id, entityLabel, arrondissementId);
 
   return {
     entityType: qr.entityType as QrEntityType,

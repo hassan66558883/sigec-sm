@@ -1514,7 +1514,8 @@ model PaymentRefund {
 // Alerte generee par le moteur de controle anti-fraude (section 22/23).
 // type: DOUBLE_PAYMENT | DOUBLE_RECEIPT | FORBIDDEN_MODIFICATION |
 //   EXCESSIVE_CANCELLATIONS | CASH_DISCREPANCY | OUT_OF_ZONE |
-//   UNKNOWN_DEVICE | SUSPICIOUS_VOLUME | OFF_HOURS | SUSPICIOUS_RECEIPT
+//   UNKNOWN_DEVICE | SUSPICIOUS_VOLUME | OFF_HOURS | SUSPICIOUS_RECEIPT |
+//   QR_INVALID_REUSE | QR_SCAN_ANOMALY
 // severity: LOW | MEDIUM | HIGH | CRITICAL — seuils configurables, voir
 // services/fraud.ts. status: OUVERTE | RESOLUE | IGNOREE
 model FraudAlert {
@@ -1525,6 +1526,7 @@ model FraudAlert {
   agentId          String?
   paymentId        String?
   caisseId         String?
+  qrCodeId         String?
   arrondissementId String?
   status           String    @default("OUVERTE")
   resolvedById     String?
@@ -1535,6 +1537,7 @@ model FraudAlert {
   agent          AgentCollecteur? @relation(fields: [agentId], references: [id])
   payment        Payment?         @relation(fields: [paymentId], references: [id])
   caisse         CashRegister?    @relation(fields: [caisseId], references: [id])
+  qrCode         QrCode?          @relation(fields: [qrCodeId], references: [id])
   arrondissement Arrondissement?  @relation(fields: [arrondissementId], references: [id])
 
   @@index([status])
@@ -1570,9 +1573,10 @@ model QrCode {
   installGpsLng Float?
   createdAt     DateTime  @default(now())
 
-  replaces   QrCode?       @relation("QrReplacement", fields: [replacesId], references: [id])
-  replacedBy QrCode?       @relation("QrReplacement")
-  events     QrCodeEvent[]
+  replaces    QrCode?       @relation("QrReplacement", fields: [replacesId], references: [id])
+  replacedBy  QrCode?       @relation("QrReplacement")
+  events      QrCodeEvent[]
+  fraudAlerts FraudAlert[]
 
   @@index([entityType, entityId])
   @@index([status])

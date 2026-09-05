@@ -237,4 +237,35 @@ describe("module paiement QR — generation, revocation, remplacement, scan publ
     const qrStall = await generateQrCode(admin, "MARKET_STALL", stallNoOccupant.id);
     await expect(resolveQrForCollection(agent, qrStall.token)).rejects.toMatchObject({ status: 400 });
   });
+
+  it("detecte le volume de scans anormal sur un QR valide et la reutilisation d'un QR revoque (section 23)", async () => {
+    await testPrisma.systemSetting.upsert({
+      where: { key: "fraud_thresholds" },
+      update: { value: { qrScanVolumeMedium: 2, qrInvalidScanMedium: 2 } },
+      create: { key: "fraud_thresholds", value: { qrScanVolumeMedium: 2, qrInvalidScanMedium: 2 } },
+    });
+
+    const admin = await createTestUser({
+      organizationLevel: "CENTRAL",
+      permissions: ["businesses:create", "qr_codes:generate", "qr_codes:revoke"],
+    });
+    const owner = await createTestCitizen(arrA);
+    const business = await createBusiness(admin, { name: "Boutique Fraude QR", ownerId: owner.id, arrondissementId: arrA });
+    const qr = await generateQrCode(admin, "BUSINESS", business.id);
+
+    // Volume de scans anormal sur un QR par ailleurs valide.
+    await resolveQrToken(qr.token);
+    await resolveQrToken(qr.token);
+    const volumeAlert = await testPrisma.fraudAlert.findFirst({ where: { type: "QR_SCAN_ANOMALY", qrCodeId: qr.id } });
+    expect(volumeAlert).not.toBeNull();
+    expect(volumeAlert?.description).toContain("Boutique Fraude QR");
+
+    // Reutilisation d'un QR revoque (sticker vole/perdu toujours scanne).
+    await revokeQrCode(admin, qr.id, "Test fraude.");
+    await resolveQrToken(qr.token);
+    const invalidAlert = await testPrisma.fraudAlert.findFirst({ where: { type: "QR_INVALID_REUSE", qrCodeId: qr.id } });
+    expect(invalidAlert).not.toBeNull();
+
+    await testPrisma.systemSetting.delete({ where: { key: "fraud_thresholds" } });
+  });
 });
