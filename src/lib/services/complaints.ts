@@ -38,6 +38,20 @@ export async function submitComplaint(
     },
     include: { updates: true },
   });
+
+  // user: null — meme convention que online-payments.ts (voir audit
+  // 2026-09-04) : le depot d'une plainte n'avait jusqu'ici aucune trace
+  // d'audit, seuls son traitement/son affectation cote agent l'etaient.
+  await logAudit({
+    user: null,
+    action: "CREATE",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: created.id,
+    arrondissementId: created.arrondissementId,
+    newValue: { caseNumber: created.caseNumber, category: created.category, citizenAccountId: account.id },
+  });
+
   return created;
 }
 

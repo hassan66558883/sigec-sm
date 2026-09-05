@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api";
+import { logAudit } from "@/lib/audit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,7 +38,23 @@ export async function registerCitizenAccount(input: RegisterCitizenInput) {
   if (existingEmail) throw new ApiError(409, "Cet email est deja utilise.");
 
   const hashed = await bcrypt.hash(input.password, 12);
-  return prisma.citizenAccount.create({
+  const account = await prisma.citizenAccount.create({
     data: { citizenId: citizen.id, email, password: hashed },
   });
+
+  // user: null — voir online-payments.ts pour la convention (AuditLog.userId
+  // ne peut pas referencer un CitizenAccount). Un compte portail donne acces
+  // aux propres donnees du citoyen : action sensible, jusqu'ici sans aucune
+  // trace d'audit (voir audit 2026-09-04).
+  await logAudit({
+    user: null,
+    action: "REGISTER",
+    module: "citizen_portal",
+    entityType: "CitizenAccount",
+    entityId: account.id,
+    arrondissementId: citizen.arrondissementId,
+    newValue: { email, citizenId: citizen.id, citizenUniqueNumber: uniqueNumber },
+  });
+
+  return account;
 }

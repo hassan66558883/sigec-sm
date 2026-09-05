@@ -93,6 +93,19 @@ export async function createApplication(account: CitizenAccountWithCitizen, inpu
     },
   });
 
+  // user: null — meme convention que online-payments.ts (voir audit
+  // 2026-09-04) : une demande citoyenne n'avait jusqu'ici aucune trace
+  // d'audit, seules son approbation/son rejet l'etaient.
+  await logAudit({
+    user: null,
+    action: "CREATE",
+    module: "applications",
+    entityType: "Application",
+    entityId: created.id,
+    arrondissementId: created.arrondissementId,
+    newValue: { applicationNumber: created.applicationNumber, type: created.type, citizenAccountId: account.id },
+  });
+
   return created;
 }
 

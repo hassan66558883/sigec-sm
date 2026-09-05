@@ -20,7 +20,7 @@ export async function listMyReports(account: CitizenAccountWithCitizen) {
 export async function reportIssue(account: CitizenAccountWithCitizen, input: { type: string; description: string; location?: string }) {
   if (!TYPES.includes(input.type)) throw new ApiError(400, "Type invalide.");
   if (!input.description?.trim()) throw new ApiError(400, "Description requise.");
-  return prisma.infrastructure.create({
+  const created = await prisma.infrastructure.create({
     data: {
       reportNumber: generateRecordNumber("VOI"),
       type: input.type,
@@ -30,6 +30,21 @@ export async function reportIssue(account: CitizenAccountWithCitizen, input: { t
       reportedById: account.id,
     },
   });
+
+  // user: null — meme convention que online-payments.ts (voir audit
+  // 2026-09-04) : le signalement n'avait jusqu'ici aucune trace d'audit,
+  // seul son traitement cote agent l'etait.
+  await logAudit({
+    user: null,
+    action: "CREATE",
+    module: "infrastructure",
+    entityType: "Infrastructure",
+    entityId: created.id,
+    arrondissementId: created.arrondissementId,
+    newValue: { reportNumber: created.reportNumber, type: created.type, citizenAccountId: account.id },
+  });
+
+  return created;
 }
 
 // Utilisee par la page /admin/infrastructure ET par /api/infrastructure —
