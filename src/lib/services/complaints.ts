@@ -176,9 +176,40 @@ const DEFAULT_PAGE_SIZE = 25;
 
 // Pagination reelle cote base (skip/take + count) pour l'ecran de liste
 // /admin/complaints uniquement (voir audit performance 2026-09-02).
-export async function listComplaintsForStaffPage(user: CurrentUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+// Vues du tableau de bord agent (section 21) : chaque vue traduit un
+// libelle metier ("Plaintes en retard", "A traiter aujourd'hui"...) en
+// filtre Prisma applique cote base — jamais en filtrant une liste deja
+// chargee en memoire (section 41 : "ne jamais charger des milliers de
+// plaintes simultanement dans le navigateur").
+export const COMPLAINT_DASHBOARD_VIEWS = ["all", "mine", "new", "urgent", "late", "today", "waiting", "resolved"] as const;
+export type ComplaintDashboardView = (typeof COMPLAINT_DASHBOARD_VIEWS)[number];
+
+const OPEN_STATUSES = { notIn: ["CLOSED", "REJECTED"] };
+const ACTIVE_STATUSES = { notIn: ["CLOSED", "REJECTED", "RESOLVED", "VALIDATING"] };
+
+function dashboardViewWhere(view: ComplaintDashboardView, userId: string, now: Date) {
+  const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  switch (view) {
+    case "mine": return { assignedToId: userId };
+    case "new": return { status: "SUBMITTED" };
+    case "urgent": return { priority: { in: ["URGENT", "CRITIQUE"] }, status: OPEN_STATUSES };
+    case "late": return { dueAt: { lt: now }, status: ACTIVE_STATUSES };
+    case "today": return { dueAt: { gte: startOfDay, lte: endOfDay }, status: OPEN_STATUSES };
+    case "waiting": return { status: "WAITING" };
+    case "resolved": return { status: { in: ["RESOLVED", "VALIDATING", "CLOSED"] } };
+    default: return {};
+  }
+}
+
+export async function listComplaintsForStaffPage(
+  user: CurrentUser,
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE,
+  view: ComplaintDashboardView = "all",
+) {
   if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
-  const where = { ...recordScopeWhere(user), deletedAt: null };
+  const where = { ...recordScopeWhere(user), deletedAt: null, ...dashboardViewWhere(view, user.id, new Date()) };
   const [rows, total] = await Promise.all([
     prisma.complaint.findMany({
       where,
@@ -190,6 +221,28 @@ export async function listComplaintsForStaffPage(user: CurrentUser, page = 1, pa
     prisma.complaint.count({ where }),
   ]);
   return { rows, total, page, pageSize };
+}
+
+// KPI du tableau de bord agent/superviseur (section 21/23) — 8 requetes
+// COUNT paralleles, jamais un fetch de toutes les lignes suivi d'un
+// comptage cote application.
+export async function getComplaintsDashboardStats(user: CurrentUser) {
+  if (!can(user, "complaints", "view")) throw new ApiError(403, "Permission insuffisante.");
+  const base = { ...recordScopeWhere(user), deletedAt: null };
+  const now = new Date();
+
+  const [total, mine, newCount, urgent, late, today, waiting, resolved] = await Promise.all([
+    prisma.complaint.count({ where: base }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("mine", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("new", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("urgent", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("late", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("today", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("waiting", user.id, now) } }),
+    prisma.complaint.count({ where: { ...base, ...dashboardViewWhere("resolved", user.id, now) } }),
+  ]);
+
+  return { total, mine, new: newCount, urgent, late, today, waiting, resolved };
 }
 
 export async function getComplaintForStaff(user: CurrentUser, id: string) {
@@ -508,5 +561,44 @@ export async function addComplaintCommentAsStaff(actor: CurrentUser, complaintId
     arrondissementId: complaint.arrondissementId,
     newValue: { message: message.trim() },
   });
+  return created;
+}
+
+// --- Escalade (section 27) ---------------------------------------------------
+
+export const ESCALATION_LEVELS = ["AGENT", "SUPERVISOR", "DIRECTOR", "CENTRAL_ADMIN"] as const;
+
+// Trace un saut de niveau, independamment du statut/workflow du dossier
+// (un dossier peut etre escalade sans changer de statut — l'escalade
+// concerne QUI est responsable de le debloquer, pas ou il en est dans le
+// cycle de vie). Le niveau de depart est deduis de la derniere escalade
+// enregistree, ou "AGENT" par defaut (premier niveau).
+export async function escalateComplaint(actor: CurrentUser, id: string, toLevel: string, reason?: string) {
+  if (!can(actor, "complaints", "assign")) throw new ApiError(403, "Permission insuffisante.");
+  if (!ESCALATION_LEVELS.includes(toLevel as (typeof ESCALATION_LEVELS)[number])) throw new ApiError(400, "Niveau invalide.");
+
+  const complaint = await prisma.complaint.findUnique({ where: { id } });
+  if (!complaint || complaint.deletedAt) throw new ApiError(404, "Plainte introuvable.");
+  if (!canAccessArrondissement(actor, complaint.arrondissementId)) throw new ApiError(403, "Plainte hors de votre perimetre.");
+
+  const lastEscalation = await prisma.complaintEscalation.findFirst({ where: { complaintId: id }, orderBy: { createdAt: "desc" } });
+  const fromLevel = lastEscalation?.toLevel ?? "AGENT";
+  if (fromLevel === toLevel) throw new ApiError(400, "Ce dossier est deja a ce niveau.");
+
+  const created = await prisma.complaintEscalation.create({
+    data: { complaintId: id, fromLevel, toLevel, reason: reason?.trim(), createdById: actor.id },
+  });
+
+  await logAudit({
+    user: actor,
+    action: "ESCALATE",
+    module: "complaints",
+    entityType: "Complaint",
+    entityId: id,
+    arrondissementId: complaint.arrondissementId,
+    oldValue: { level: fromLevel },
+    newValue: { level: toLevel, reason: reason?.trim() },
+  });
+
   return created;
 }

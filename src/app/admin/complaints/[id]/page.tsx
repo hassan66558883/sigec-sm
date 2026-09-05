@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
-import { getComplaintForStaff } from "@/lib/services/complaints";
+import { getComplaintForStaff, computeSlaStatus } from "@/lib/services/complaints";
 import { listUsers } from "@/lib/services/users";
 import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
@@ -16,6 +16,10 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 const PRIORITY_LABEL: Record<string, string> = {
   FAIBLE: "Faible", NORMAL: "Normal", IMPORTANT: "Important", URGENT: "Urgent", CRITIQUE: "Critique",
+};
+const SLA_LABEL: Record<string, string> = { ON_TIME: "Dans les delais", AT_RISK: "Attention", LATE: "En retard" };
+const ESCALATION_LEVEL_LABEL: Record<string, string> = {
+  AGENT: "Agent", SUPERVISOR: "Superviseur", DIRECTOR: "Directeur", CENTRAL_ADMIN: "Administration centrale",
 };
 
 export default async function ComplaintDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +41,8 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
     listUsers(user),
   ]);
 
+  const sla = complaint.dueAt ? computeSlaStatus(complaint.dueAt, complaint.resolvedAt, complaint.slaHours) : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -48,7 +54,12 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
       <PageHeading
         title={complaint.caseNumber}
         description={`${CATEGORY_LABEL[complaint.category] ?? complaint.category} — ${PRIORITY_LABEL[complaint.priority] ?? complaint.priority}`}
-        action={<StatusBadge label={COMPLAINT_STATUS_LABEL[complaint.status] ?? complaint.status} tone={complaint.status === "REJECTED" ? "danger" : complaint.status === "CLOSED" ? "success" : "warning"} />}
+        action={
+          <div className="flex items-center gap-2">
+            {sla && <StatusBadge label={SLA_LABEL[sla]} tone={sla === "ON_TIME" ? "success" : sla === "AT_RISK" ? "warning" : "danger"} dot={false} />}
+            <StatusBadge label={COMPLAINT_STATUS_LABEL[complaint.status] ?? complaint.status} tone={complaint.status === "REJECTED" ? "danger" : complaint.status === "CLOSED" ? "success" : "warning"} />
+          </div>
+        }
       />
 
       <Card>
@@ -110,6 +121,23 @@ export default async function ComplaintDetailPage({ params }: { params: Promise<
           ))}
         </ul>
       </Card>
+
+      {complaint.escalations.length > 0 && (
+        <Card padding="p-0">
+          <CardHeader title="Escalades" />
+          <ul className="divide-y divide-[var(--color-border-subtle)]">
+            {complaint.escalations.map((esc) => (
+              <li key={esc.id} className="px-5 py-3 text-sm">
+                <div className="font-medium">
+                  {ESCALATION_LEVEL_LABEL[esc.fromLevel] ?? esc.fromLevel} → {ESCALATION_LEVEL_LABEL[esc.toLevel] ?? esc.toLevel}
+                </div>
+                {esc.reason && <div className="text-[var(--color-text-muted)]">{esc.reason}</div>}
+                <div className="mt-1 text-xs text-[var(--color-text-muted)]">{new Date(esc.createdAt).toLocaleString("fr-FR")}</div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

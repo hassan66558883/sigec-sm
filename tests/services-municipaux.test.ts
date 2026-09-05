@@ -4,10 +4,14 @@ import {
   submitComplaint,
   listMyComplaints,
   listComplaintsForStaff,
+  listComplaintsForStaffPage,
   getComplaintForStaff,
   transitionComplaint,
   assignComplaintToDepartment,
   assignComplaintToAgent,
+  requalifyComplaintPriority,
+  escalateComplaint,
+  getComplaintsDashboardStats,
 } from "../src/lib/services/complaints";
 import { reportIssue, listMyReports, listInfrastructureForStaff, updateInfrastructureStatus } from "../src/lib/services/infrastructure";
 import {
@@ -147,6 +151,49 @@ describe("plaintes citoyennes — guichet numerique", () => {
     const rejected = await transitionComplaint(staff, complaint.id, "REJECTED", { rejectionReason: "Hors competence municipale." });
     expect(rejected.status).toBe("REJECTED");
     expect(rejected.rejectionReason).toBe("Hors competence municipale.");
+  });
+
+  it("l'escalade trace chaque saut de niveau independamment du statut, et refuse un niveau deja atteint", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const complaint = await submitComplaint(account, { category: "SECURITE", description: "Test escalade." });
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign"] });
+
+    await expect(escalateComplaint(staff, complaint.id, "INVALIDE")).rejects.toMatchObject({ status: 400 });
+
+    const escalated = await escalateComplaint(staff, complaint.id, "SUPERVISOR", "Delai depasse.");
+    expect(escalated.fromLevel).toBe("AGENT");
+    expect(escalated.toLevel).toBe("SUPERVISOR");
+
+    // Escalader vers le meme niveau que le niveau courant est refuse.
+    await expect(escalateComplaint(staff, complaint.id, "SUPERVISOR")).rejects.toMatchObject({ status: 400 });
+
+    const escalatedAgain = await escalateComplaint(staff, complaint.id, "DIRECTOR");
+    expect(escalatedAgain.fromLevel).toBe("SUPERVISOR");
+    expect(escalatedAgain.toLevel).toBe("DIRECTOR");
+  });
+
+  it("le tableau de bord agent (KPI) compte correctement nouvelles/urgentes/mes-plaintes, et la vue filtree ne renvoie que les dossiers correspondants", async () => {
+    const citizen = await createTestCitizen(arrA);
+    const account = await createTestCitizenAccount(citizen.id);
+    const staff = await createTestUser({ arrondissementIds: [arrA], permissions: ["complaints:view", "complaints:assign", "complaints:update"] });
+
+    const newOne = await submitComplaint(account, { category: "AUTRE", description: "Nouvelle plainte KPI." });
+    const urgentOne = await submitComplaint(account, { category: "AUTRE", description: "Plainte urgente KPI." });
+    await requalifyComplaintPriority(staff, urgentOne.id, "CRITIQUE");
+
+    const statsBefore = await getComplaintsDashboardStats(staff);
+    expect(statsBefore.new).toBeGreaterThanOrEqual(2);
+    expect(statsBefore.urgent).toBeGreaterThanOrEqual(1);
+    expect(statsBefore.mine).toBe(0); // rien n'est encore assigne a `staff`
+
+    const { rows: newView } = await listComplaintsForStaffPage(staff, 1, 25, "new");
+    expect(newView.every((c) => c.status === "SUBMITTED")).toBe(true);
+    expect(newView.map((c) => c.id)).toEqual(expect.arrayContaining([newOne.id, urgentOne.id]));
+
+    const { rows: urgentView } = await listComplaintsForStaffPage(staff, 1, 25, "urgent");
+    expect(urgentView.map((c) => c.id)).toContain(urgentOne.id);
+    expect(urgentView.map((c) => c.id)).not.toContain(newOne.id);
   });
 });
 

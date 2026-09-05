@@ -7,6 +7,7 @@ import {
   assignComplaintToDepartment,
   assignComplaintToAgent,
   requalifyComplaintPriority,
+  escalateComplaint,
 } from "@/lib/services/complaints";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +45,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (body.action === "requalify_priority") {
       return NextResponse.json({ data: await requalifyComplaintPriority(user, id, body.priority) });
+    }
+    if (body.action === "escalate") {
+      return NextResponse.json({ data: await escalateComplaint(user, id, body.toLevel, body.reason) });
     }
     throw new ApiError(400, "Action invalide.");
   } catch (error) {
