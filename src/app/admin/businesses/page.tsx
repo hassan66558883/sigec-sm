@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -45,8 +46,28 @@ export default async function BusinessesPage({ searchParams }: { searchParams: P
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const columns: Column<BusinessRow>[] = [
-    { key: "code", header: "Code", render: (b) => <span className="text-xs text-[var(--color-text-muted)]">{b.code ?? "—"}</span>, sortable: true, sortValue: (b) => b.code ?? "" },
-    { key: "name", header: "Nom", render: (b) => <span className="font-medium">{b.name}</span>, sortable: true, sortValue: (b) => b.name },
+    {
+      key: "code",
+      header: "Code",
+      render: (b) => (
+        <Link href={`/admin/businesses/${b.id}`} className="text-xs text-[var(--color-primary)] hover:underline">
+          {b.code ?? "—"}
+        </Link>
+      ),
+      sortable: true,
+      sortValue: (b) => b.code ?? "",
+    },
+    {
+      key: "name",
+      header: "Nom",
+      render: (b) => (
+        <Link href={`/admin/businesses/${b.id}`} className="font-medium hover:underline">
+          {b.name}
+        </Link>
+      ),
+      sortable: true,
+      sortValue: (b) => b.name,
+    },
     { key: "activity", header: "Activite", render: (b) => <span className="text-[var(--color-text-muted)]">{b.activityRef?.name ?? b.activity ?? "—"}</span>, sortable: true, sortValue: (b) => b.activityRef?.name ?? b.activity ?? "" },
     { key: "owner", header: "Proprietaire", render: (b) => <>{b.owner.firstName} {b.owner.lastName}</>, sortable: true, sortValue: (b) => `${b.owner.lastName} ${b.owner.firstName}` },
     { key: "arrondissement", header: "Arrondissement", render: (b) => <span className="text-[var(--color-text-muted)]">{b.arrondissement.name}</span>, sortable: true, sortValue: (b) => b.arrondissement.name },

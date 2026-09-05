@@ -62,6 +62,9 @@ const MODULES_ACTIONS: Record<string, string[]> = {
   versements: ["view", "create", "validate"],
   mobile_money: ["view", "confirm"],
   fraud: ["view", "resolve"],
+  // Phase 9 — QR paiement & recette numerique (systeme QR reutilisable,
+  // section 3 du module paiement QR).
+  qr_codes: ["view", "generate", "revoke", "replace", "verify_install", "bulk_generate"],
 };
 
 // Permissions commerciales de l'editeur TECHNOTCHAD (gestion des abonnements
@@ -306,6 +309,7 @@ const ROLES: {
       "versements:view", "versements:create", "versements:validate",
       "mobile_money:view", "mobile_money:confirm",
       "fraud:view", "fraud:resolve",
+      "qr_codes:view", "qr_codes:generate", "qr_codes:revoke", "qr_codes:replace", "qr_codes:verify_install", "qr_codes:bulk_generate",
     ],
   },
   {
@@ -323,6 +327,7 @@ const ROLES: {
       "associations:view", "complaints:view", "complaints:export", "infrastructure:view",
       "tariffs:view", "obligations:view", "collectors:view", "receipts:view",
       "caisses:view", "versements:view", "mobile_money:view", "fraud:view",
+      "qr_codes:view",
     ],
   },
   {
@@ -354,6 +359,7 @@ const ROLES: {
       "versements:view", "versements:validate",
       "mobile_money:view", "mobile_money:confirm",
       "fraud:view", "fraud:resolve",
+      "qr_codes:view", "qr_codes:generate", "qr_codes:revoke", "qr_codes:replace", "qr_codes:verify_install", "qr_codes:bulk_generate",
     ],
   },
   {
@@ -429,6 +435,7 @@ const ROLES: {
       "caisses:view", "caisses:create", "caisses:edit",
       "versements:view", "versements:create",
       "mobile_money:view", "mobile_money:confirm",
+      "qr_codes:view", "qr_codes:generate", "qr_codes:verify_install",
     ],
   },
   {
@@ -444,6 +451,7 @@ const ROLES: {
       "caisses:view", "caisses:create", "caisses:edit",
       "versements:view", "versements:create",
       "mobile_money:view", "mobile_money:confirm",
+      "qr_codes:view", "qr_codes:generate", "qr_codes:verify_install",
     ],
   },
   {

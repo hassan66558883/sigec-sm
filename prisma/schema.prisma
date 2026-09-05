@@ -849,7 +849,9 @@ model MarketStall {
 // reste l'ID brut de l'acteur (retro-compatible) : un UserId pour une
 // collecte agent/caisse, un CitizenAccount.id pour un paiement en ligne
 // initie par le contribuable lui-meme (module paiement en ligne, section 9).
-// agentId est la relation forte vers sa fiche AgentCollecteur quand la collecte passe par
+// NULL = paiement QR anonyme (module paiement QR, section 41 : aucun compte
+// requis) — aucun acteur identifie ne collecte ce paiement, voir
+// services/qr-payments.ts. agentId est la relation forte vers sa fiche AgentCollecteur quand la collecte passe par
 // l'app de terrain plutot qu'un enregistrement direct par un agent central.
 // gpsLat/gpsLng : capture passive de la position lors d'une collecte mobile
 // (section 25) — jamais bloquant, uniquement informatif/controle a posteriori.
@@ -869,7 +871,7 @@ model Payment {
   agentId          String?
   caisseId         String?
   arrondissementId String?
-  collectedById    String
+  collectedById    String?
   gpsLat           Float?
   gpsLng           Float?
   // PAID | PENDING | OVERDUE | ANNULE | ECHEC | REMBOURSE — un paiement
@@ -1456,9 +1458,10 @@ model Versement {
 // status: INITIATED | PENDING | SUCCESS | FAILED | CANCELLED | REFUNDED
 // Sert de table `PaymentTransaction` generique (module paiement en ligne,
 // section 11) pour tout paiement mediatise par un prestataire : collecte
-// Mobile Money par un agent sur le terrain (channel=AGENT, historique) ET
+// Mobile Money par un agent sur le terrain (channel=AGENT, historique),
 // paiement en ligne initie par le contribuable depuis /portail
-// (channel=ONLINE, voir services/payment-provider.ts). Le nom du modele est
+// (channel=ONLINE), et paiement anonyme depuis un scan QR public (channel=QR,
+// module paiement QR, section 41 — voir services/qr-payments.ts). Le nom du modele est
 // conserve pour ne pas casser l'existant (regle absolue : ne pas
 // reconstruire inutilement) ; `provider` reste une chaine libre, jamais un
 // operateur code en dur. externalReference reste l'idempotence prestataire ;
@@ -1469,7 +1472,7 @@ model MobileMoneyTransaction {
   id                 String    @id @default(cuid())
   paymentId          String    @unique
   provider           String    @default("MANUAL")
-  channel            String    @default("AGENT") // AGENT | ONLINE
+  channel            String    @default("AGENT") // AGENT | ONLINE | QR
   internalReference  String?   @unique
   externalReference  String?   @unique
   phoneNumber        String?
@@ -1537,6 +1540,60 @@ model FraudAlert {
   @@index([status])
   @@index([severity])
   @@index([arrondissementId])
+}
+
+// --- PHASE 9 : QR PAIEMENT & RECETTE NUMERIQUE ------------------------------
+// Systeme QR reutilisable (module paiement QR, section 3) : entityType/
+// entityId forme une reference polymorphe DELIBEREE (pas de FK Prisma stricte
+// possible vers plusieurs modeles a la fois) plutot qu'un champ qrToken pose
+// sur chaque table cible (Business, MarketStall, et toute autre a l'avenir) —
+// ajouter un nouveau type d'entite QR-able ne touche jamais ce modele ni le
+// moteur de paiement (section 3 : "without modifying the core payment
+// architecture"). La validite de entityType/entityId est verifiee en code
+// service (qr-codes.ts) au moment de la generation, jamais en base.
+// status: ACTIVE | REVOKED | REPLACED
+model QrCode {
+  id            String    @id @default(cuid())
+  token         String    @unique // valeur encodee dans le QR (URL /pay/<token>) — public, non devinable, ne contient jamais le montant (regle absolue section 2)
+  entityType    String // BUSINESS | MARKET_STALL
+  entityId      String
+  status        String    @default("ACTIVE")
+  issuedAt      DateTime  @default(now())
+  issuedById    String?
+  revokedAt     DateTime?
+  revokedById   String?
+  revokedReason String?
+  replacesId    String?   @unique // QR precedent que celui-ci remplace (section 25 : perte/vol/degradation)
+  installedAt   DateTime?
+  installedById String?
+  installGpsLat Float?
+  installGpsLng Float?
+  createdAt     DateTime  @default(now())
+
+  replaces   QrCode?       @relation("QrReplacement", fields: [replacesId], references: [id])
+  replacedBy QrCode?       @relation("QrReplacement")
+  events     QrCodeEvent[]
+
+  @@index([entityType, entityId])
+  @@index([status])
+}
+
+// Journal d'evenements QR (section 35/39) — GENERATED | PRINTED | INSTALLED |
+// SCANNED | REVOKED | REPLACED. Une ligne par evenement, jamais modifiee ni
+// supprimee (meme regle que AuditLog) ; distinct de QrCode qui ne porte que
+// l'etat courant.
+model QrCodeEvent {
+  id        String   @id @default(cuid())
+  qrCodeId  String
+  event     String
+  actorId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  qrCode QrCode @relation(fields: [qrCodeId], references: [id])
+
+  @@index([qrCodeId])
+  @@index([event])
 }
 
 // --- Parametres systeme -----------------------------------------------------
