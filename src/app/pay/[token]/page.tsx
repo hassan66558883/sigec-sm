@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { resolveQrToken } from "@/lib/services/qr-codes";
+import { listProviderCodes } from "@/lib/services/payment-provider";
 import { isRateLimited } from "@/lib/rate-limit";
+import { QrPaymentForm } from "@/components/municipal/qr-payment-form";
 
 function formatFcfa(amount: number) {
   return `${amount.toLocaleString("fr-FR")} FCFA`;
@@ -15,10 +17,12 @@ const SCAN_MAX_ATTEMPTS = 20;
 // Page de scan QR publique (module paiement QR, section 8) : AUCUNE
 // authentification requise (section 41 — payer sans compte). Identifie
 // l'entite et affiche le solde calcule a la volee, jamais un montant fige
-// dans le QR (regle absolue section 2). L'initiation reelle du paiement
-// arrive dans une phase ulterieure (section 53, Phase 3) — volontairement
-// aucun bouton de paiement ici tant qu'il ne ferait rien (regle section 54 :
-// "every button shown in production must work").
+// dans le QR (regle absolue section 2). Le paiement passe par le meme
+// fournisseur pluggable que le portail citoyen (payment-provider.ts) —
+// avec seulement MANUAL enregistre a ce jour, "Payer" enregistre une
+// intention reelle (PENDING) en attente de confirmation par un agent,
+// jamais un faux succes instantane (regle absolue : ne jamais simuler une
+// confirmation prestataire).
 export default async function PayPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const hdrs = await headers();
@@ -36,6 +40,7 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
   }
 
   const result = await resolveQrToken(token);
+  const providerCodes = listProviderCodes();
 
   return (
     <div
@@ -98,11 +103,14 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
                 <p className="mt-2 text-sm text-[var(--color-text-muted)]">Aucune facture en attente pour cet emplacement.</p>
               ) : (
                 <>
-                  <ul className="mt-2 space-y-1.5 text-sm">
+                  <ul className="mt-2 space-y-3 text-sm">
                     {result.outstanding.obligations.map((o) => (
-                      <li key={o.id} className="flex justify-between">
-                        <span className="text-[var(--color-text-muted)]">{o.number} ({o.period})</span>
-                        <span className="font-medium text-[var(--color-text)]">{formatFcfa(o.balance)}</span>
+                      <li key={o.id} className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[var(--color-text-muted)]">{o.number} ({o.period})</div>
+                          <div className="font-medium text-[var(--color-text)]">{formatFcfa(o.balance)}</div>
+                        </div>
+                        <QrPaymentForm token={token} obligation={o} providerCodes={providerCodes} />
                       </li>
                     ))}
                   </ul>
@@ -113,11 +121,6 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
                 </>
               )}
             </div>
-
-            <p className="mt-4 text-center text-xs text-[var(--color-text-muted)]">
-              Le paiement en ligne depuis cette page arrive prochainement. Pour regler cette facture des maintenant,
-              rendez-vous au guichet municipal ou aupres d&apos;un agent collecteur autorise.
-            </p>
           </div>
         )}
       </div>

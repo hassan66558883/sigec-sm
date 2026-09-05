@@ -1579,9 +1579,9 @@ model QrCode {
 }
 
 // Journal d'evenements QR (section 35/39) — GENERATED | PRINTED | INSTALLED |
-// SCANNED | REVOKED | REPLACED. Une ligne par evenement, jamais modifiee ni
-// supprimee (meme regle que AuditLog) ; distinct de QrCode qui ne porte que
-// l'etat courant.
+// SCANNED | PAYMENT_INITIATED | REVOKED | REPLACED. Une ligne par
+// evenement, jamais modifiee ni supprimee (meme regle que AuditLog) ;
+// distinct de QrCode qui ne porte que l'etat courant.
 model QrCodeEvent {
   id        String   @id @default(cuid())
   qrCodeId  String
