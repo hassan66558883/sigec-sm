@@ -79,6 +79,7 @@ const fr = {
     integrationApiTester: "API Tester",
     integrationMapping: "Data Mapping",
     integrationImportExport: "Import / Export",
+    integrationHealth: "Integration Health",
     technotchadDashboard: "Tableau de bord",
     technotchadClients: "Clients",
     technotchadSubscriptions: "Abonnements",

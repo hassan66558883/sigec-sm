@@ -6,6 +6,7 @@ import {
   setIntegrationSystemEnabled,
   testIntegrationSystemConnection,
 } from "@/lib/services/integration-systems";
+import { runHealthCheckNow } from "@/lib/services/integration-health";
 
 // Chaque action requiert une permission differente (test vs update) —
 // verifiee individuellement DANS chaque fonction de service, pas ici, pour
@@ -20,6 +21,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (body.action === "test_connection") {
       const result = await testIntegrationSystemConnection(user, id);
+      return NextResponse.json({ data: result });
+    }
+    if (body.action === "run_health_check") {
+      const result = await runHealthCheckNow(user, id);
       return NextResponse.json({ data: result });
     }
     if (body.action === "set_enabled") {

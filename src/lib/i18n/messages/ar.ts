@@ -78,6 +78,7 @@ const ar: Dictionary = {
     integrationApiTester: "API Tester",
     integrationMapping: "Data Mapping",
     integrationImportExport: "Import / Export",
+    integrationHealth: "Integration Health",
     technotchadDashboard: "لوحة القيادة",
     technotchadClients: "العملاء",
     technotchadSubscriptions: "الاشتراكات",

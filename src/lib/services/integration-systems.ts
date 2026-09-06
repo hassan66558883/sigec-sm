@@ -129,22 +129,27 @@ const TEST_TIMEOUT_MS = 5000;
 // Une requete HTTP reelle est tentee vers baseUrl ; toute reponse HTTP recue
 // (meme 4xx/5xx) prouve que l'hote est joignable, seule une erreur reseau/
 // timeout est traitee comme une vraie panne de connexion.
+// Ping HTTP reel partage par le Test Connection manuel (ci-dessous) ET par
+// le Health Monitoring periodique (integration-health.ts) — un seul et
+// meme mecanisme de verification, jamais deux implementations qui
+// pourraient diverger.
+export async function pingUrl(url: string, timeoutMs = TEST_TIMEOUT_MS): Promise<{ ok: boolean; message: string; latencyMs: number }> {
+  const start = Date.now();
+  try {
+    const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(timeoutMs) });
+    return { ok: true, message: `Reponse HTTP ${res.status} recue.`, latencyMs: Date.now() - start };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Echec de connexion.", latencyMs: Date.now() - start };
+  }
+}
+
 export async function testIntegrationSystemConnection(actor: CurrentUser, id: string) {
   if (!can(actor, "integration", "test")) throw new ApiError(403, "Permission insuffisante.");
   const system = await prisma.integrationSystem.findUnique({ where: { id } });
   if (!system) throw new ApiError(404, "Systeme introuvable.");
   if (!system.baseUrl) throw new ApiError(400, "Aucune URL de base configuree pour ce systeme.");
 
-  let ok: boolean;
-  let message: string;
-  try {
-    const res = await fetch(system.baseUrl, { method: "GET", signal: AbortSignal.timeout(TEST_TIMEOUT_MS) });
-    ok = true;
-    message = `Reponse HTTP ${res.status} recue.`;
-  } catch (error) {
-    ok = false;
-    message = error instanceof Error ? error.message : "Echec de connexion.";
-  }
+  const { ok, message } = await pingUrl(system.baseUrl);
 
   const updated = await prisma.integrationSystem.update({
     where: { id },
