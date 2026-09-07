@@ -32,6 +32,7 @@ export default async function IntegrationSystemsPage() {
     { key: "code", header: "Code", render: (s) => <span className="font-mono text-xs text-[var(--color-text-muted)]">{s.code}</span> },
     { key: "type", header: "Type", render: (s) => s.type, sortable: true, sortValue: (s) => s.type },
     { key: "environment", header: "Environment", render: (s) => s.environment },
+    { key: "protocol", header: "Protocol", render: (s) => s.protocol },
     { key: "status", header: "Status", render: (s) => <StatusBadge label={s.status} tone={STATUS_TONE[s.status] ?? "neutral"} />, sortable: true, sortValue: (s) => s.status },
     { key: "apiKeys", header: "API Keys", render: (s) => s._count.apiKeys },
     {

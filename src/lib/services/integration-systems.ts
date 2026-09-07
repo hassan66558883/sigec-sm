@@ -15,6 +15,7 @@ export const SYSTEM_TYPES = [
 
 export const SYSTEM_STATUSES = ["CONNECTED", "WARNING", "OFFLINE", "DISABLED", "TESTING"] as const;
 export const ENVIRONMENTS = ["DEVELOPMENT", "STAGING", "PRODUCTION"] as const;
+export const PROTOCOLS = ["REST", "SOAP"] as const;
 
 export async function listIntegrationSystems(actor: CurrentUser) {
   if (!can(actor, "integration", "view")) throw new ApiError(403, "Permission insuffisante.");
@@ -42,6 +43,7 @@ export type IntegrationSystemInput = {
   description?: string | null;
   baseUrl?: string | null;
   authType: string;
+  protocol?: string;
   environment: string;
   contact?: string | null;
   rateLimitPerMinute?: number;
@@ -53,6 +55,7 @@ export async function createIntegrationSystem(actor: CurrentUser, input: Integra
   if (!can(actor, "integration", "create")) throw new ApiError(403, "Permission insuffisante.");
   if (!SYSTEM_TYPES.includes(input.type as (typeof SYSTEM_TYPES)[number])) throw new ApiError(400, "Type de systeme invalide.");
   if (!ENVIRONMENTS.includes(input.environment as (typeof ENVIRONMENTS)[number])) throw new ApiError(400, "Environnement invalide.");
+  if (input.protocol && !PROTOCOLS.includes(input.protocol as (typeof PROTOCOLS)[number])) throw new ApiError(400, "Protocole invalide.");
 
   const existing = await prisma.integrationSystem.findUnique({ where: { code: input.code } });
   if (existing) throw new ApiError(409, "Ce code systeme est deja utilise.");
@@ -66,6 +69,7 @@ export async function createIntegrationSystem(actor: CurrentUser, input: Integra
       description: input.description ?? null,
       baseUrl: input.baseUrl ?? null,
       authType: input.authType,
+      protocol: input.protocol ?? "REST",
       environment: input.environment,
       contact: input.contact ?? null,
       rateLimitPerMinute: input.rateLimitPerMinute ?? 100,

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { isRateLimited } from "@/lib/rate-limit";
 import { ApiError } from "@/lib/api";
 import { verifyAccessToken, looksLikeJwt } from "@/lib/integration/oauth";
+import { buildSoapFault } from "@/lib/integration/soap";
 
 // API Gateway (Integration & Interoperability Center, section 2/6/38) —
 // point d'entree UNIQUE pour tout systeme externe. Aucune route /api/v1/*
@@ -130,7 +131,12 @@ async function recordError(input: { systemId: string | null; endpoint: string; e
   });
 }
 
-function jsonError(status: number, message: string, correlationId: string) {
+type ResponseFormat = "json" | "xml";
+
+function errorResponse(format: ResponseFormat, status: number, message: string, correlationId: string) {
+  if (format === "xml") {
+    return new NextResponse(buildSoapFault(message), { status, headers: { "Content-Type": "text/xml; charset=utf-8", "X-Correlation-Id": correlationId } });
+  }
   const res = NextResponse.json({ error: message, correlationId }, { status });
   res.headers.set("X-Correlation-Id", correlationId);
   return res;
@@ -139,12 +145,18 @@ function jsonError(status: number, message: string, correlationId: string) {
 // Point d'entree unique pour une route /api/v1/*. `requiredScope` doit
 // figurer dans les scopes accordes (cle API ou jeton OAuth2) pour que
 // `handler` s'execute. Toute issue (succes ou echec, a quelque etape que
-// ce soit) est journalisee.
+// ce soit) est journalisee. format="xml" (adapter SOAP, section 15) :
+// `handler` renvoie directement une chaine XML complete (pas un objet a
+// serialiser), et toute erreur (auth/scope/quota/handler) est renvoyee
+// comme un SOAP Fault plutot qu'un JSON — un appelant SOAP ne doit jamais
+// recevoir autre chose que du XML, meme en cas d'echec.
 export async function runGatewayRequest<T>(
   req: NextRequest,
   requiredScope: string,
   handler: (ctx: GatewayContext) => Promise<T>,
+  options: { format?: ResponseFormat } = {},
 ): Promise<NextResponse> {
+  const format = options.format ?? "json";
   const start = Date.now();
   const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? null;
   const requestId = randomBytes(8).toString("hex");
@@ -156,13 +168,13 @@ export async function runGatewayRequest<T>(
   if (!auth.ok) {
     await recordLog({ systemId: auth.systemId, endpoint, method, statusCode: auth.status, responseTimeMs: Date.now() - start, success: false, errorMessage: auth.message, ipAddress, correlationId, requestId });
     await recordError({ systemId: auth.systemId, endpoint, errorType: auth.errorType, message: auth.message });
-    return jsonError(auth.status, auth.message, correlationId);
+    return errorResponse(format, auth.status, auth.message, correlationId);
   }
 
   if (!auth.scopes.includes(requiredScope)) {
     await recordLog({ systemId: auth.systemId, endpoint, method, statusCode: 403, responseTimeMs: Date.now() - start, success: false, errorMessage: `Scope manquant: ${requiredScope}`, ipAddress, correlationId, requestId });
     await recordError({ systemId: auth.systemId, endpoint, errorType: "GATEWAY_SCOPE_DENIED", message: `Scope manquant: ${requiredScope}` });
-    return jsonError(403, `Permission insuffisante (scope requis: ${requiredScope}).`, correlationId);
+    return errorResponse(format, 403, `Permission insuffisante (scope requis: ${requiredScope}).`, correlationId);
   }
 
   const rateLimitKey = auth.apiKeyId ? `gateway:${auth.apiKeyId}` : `gateway:oauth:${auth.systemId}`;
@@ -171,7 +183,7 @@ export async function runGatewayRequest<T>(
   if (isRateLimited(rateLimitKey, 60_000, maxPerMinute)) {
     await recordLog({ systemId: auth.systemId, endpoint, method, statusCode: 429, responseTimeMs: Date.now() - start, success: false, errorMessage: "Quota depasse.", ipAddress, correlationId, requestId });
     await recordError({ systemId: auth.systemId, endpoint, errorType: "GATEWAY_RATE_LIMITED", message: `Quota de ${maxPerMinute} requetes/minute depasse.` });
-    return jsonError(429, "Quota de requetes depasse.", correlationId);
+    return errorResponse(format, 429, "Quota de requetes depasse.", correlationId);
   }
 
   try {
@@ -180,6 +192,9 @@ export async function runGatewayRequest<T>(
       await prisma.integrationApiKey.update({ where: { id: auth.apiKeyId }, data: { lastUsedAt: new Date() } });
     }
     await recordLog({ systemId: auth.systemId, endpoint, method, statusCode: 200, responseTimeMs: Date.now() - start, success: true, ipAddress, correlationId, requestId });
+    if (format === "xml") {
+      return new NextResponse(result as string, { headers: { "Content-Type": "text/xml; charset=utf-8", "X-Correlation-Id": correlationId } });
+    }
     const res = NextResponse.json(result);
     res.headers.set("X-Correlation-Id", correlationId);
     return res;
@@ -190,6 +205,6 @@ export async function runGatewayRequest<T>(
     if (status >= 500) {
       await recordError({ systemId: auth.systemId, endpoint, errorType: "HANDLER_ERROR", message });
     }
-    return jsonError(status, message, correlationId);
+    return errorResponse(format, status, message, correlationId);
   }
 }

@@ -2001,6 +2001,7 @@ model IntegrationSystem {
   description        String?
   baseUrl            String?
   authType           String    @default("API_KEY") // API_KEY|OAUTH2|NONE
+  protocol           String    @default("REST") // REST|SOAP — SOAP (section 15) : les exports du Synchronization Engine vers ce systeme sont enveloppes en XML plutot qu'en JSON
   environment        String    @default("DEVELOPMENT") // DEVELOPMENT|STAGING|PRODUCTION
   status             String    @default("TESTING") // CONNECTED|WARNING|OFFLINE|DISABLED|TESTING
   contact            String?

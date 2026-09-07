@@ -9,7 +9,11 @@ import type { CurrentUser } from "@/lib/auth";
 // qu'aux ressources dont il a reellement besoin. Cette liste couvre les
 // endpoints /api/v1/* reellement exposes en Phase 1 (voir app/api/v1/) ;
 // elle s'etoffera au meme rythme que de nouveaux endpoints seront ajoutes.
-export const AVAILABLE_SCOPES = ["citizens:read", "documents:verify"] as const;
+// soap:legacy (section 15) : accorde l'acces a TOUT l'adapter SOAP
+// (/api/v1/soap), pas une operation precise — un pont vers un systeme
+// ancien est typiquement un lien unique tout-ou-rien pour ce systeme, pas
+// un consommateur REST moderne a qui on accorde des scopes fins.
+export const AVAILABLE_SCOPES = ["citizens:read", "documents:verify", "soap:legacy"] as const;
 
 // Credentials sensibles (cles API completes, secrets clients) : reservees
 // aux administrateurs autorises (section 31, integration.credentials) —

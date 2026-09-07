@@ -1,3 +1,5 @@
+import { AVAILABLE_SCOPES } from "@/lib/services/integration-api-keys";
+
 // Documentation automatique des APIs (section 22) — reflete UNIQUEMENT les
 // endpoints /api/v1/* qui existent reellement (voir src/app/api/v1/) et
 // fonctionnent via l'API Gateway. Jamais d'endpoint documente qui n'a pas
@@ -31,7 +33,7 @@ export function getOpenApiSpec(baseUrl: string) {
           flows: {
             clientCredentials: {
               tokenUrl: "/api/v1/oauth/token",
-              scopes: Object.fromEntries(["citizens:read", "documents:verify"].map((s) => [s, s])),
+              scopes: Object.fromEntries(AVAILABLE_SCOPES.map((s) => [s, s])),
             },
           },
           description: "Jeton d'acces obtenu via POST /api/v1/oauth/token (grant_type=client_credentials), duree de vie 1h.",
@@ -171,6 +173,45 @@ export function getOpenApiSpec(baseUrl: string) {
               },
             },
             "400": { description: "Champ 'token' manquant" },
+          },
+        },
+      },
+      "/api/v1/soap": {
+        post: {
+          summary: "Adaptateur SOAP/legacy (section 15) — un seul endpoint, plusieurs operations",
+          description:
+            "Scope requis : soap:legacy. Pas une API REST typee : accepte une enveloppe SOAP 1.1 " +
+            "(text/xml) dont l'unique element du <soapenv:Body> nomme l'operation demandee (convention " +
+            "document/literal wrapped), ses enfants sont les parametres. Repond toujours en XML " +
+            "(reponse SOAP ou <soapenv:Fault>, jamais JSON, y compris pour les erreurs). " +
+            "Traduit vers les memes services que /api/v1/citizens/{id} et /api/v1/qr/verify — jamais une logique metier separee.",
+          requestBody: {
+            required: true,
+            content: {
+              "text/xml": {
+                schema: { type: "string" },
+                examples: {
+                  GetCitizen: {
+                    summary: "Operation GetCitizen",
+                    value:
+                      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+                      "<soapenv:Body><GetCitizen><id>CIT-2026-7A925129</id></GetCitizen></soapenv:Body></soapenv:Envelope>",
+                  },
+                  VerifyDocument: {
+                    summary: "Operation VerifyDocument",
+                    value:
+                      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+                      "<soapenv:Body><VerifyDocument><token>...</token></VerifyDocument></soapenv:Body></soapenv:Envelope>",
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": { description: "OK — enveloppe SOAP contenant <GetCitizenResponse> ou <VerifyDocumentResponse>", content: { "text/xml": { schema: { type: "string" } } } },
+            "400": { description: "Enveloppe SOAP invalide, operation inconnue ou parametre manquant — <soapenv:Fault>", content: { "text/xml": { schema: { type: "string" } } } },
+            "401": { description: "Cle API/jeton absent ou invalide — <soapenv:Fault>", content: { "text/xml": { schema: { type: "string" } } } },
+            "403": { description: "Scope soap:legacy manquant — <soapenv:Fault>", content: { "text/xml": { schema: { type: "string" } } } },
           },
         },
       },

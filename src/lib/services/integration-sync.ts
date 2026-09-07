@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { encryptField, decryptField } from "@/lib/encryption";
 import { CITIZEN_SELECT } from "@/lib/services/integration-v1";
+import { buildSoapSyncBatch } from "@/lib/integration/soap";
 import type { CurrentUser } from "@/lib/auth";
 import type { IntegrationSyncJob } from "@/generated/prisma/client";
 
@@ -113,14 +114,25 @@ export async function runSyncJob(job: IntegrationSyncJob) {
   }
 
   const url = `${system.baseUrl}${job.endpointPath}`;
-  const payload = JSON.stringify({ entityType: job.entityType, records, syncedAt: new Date().toISOString() });
+  const syncedAt = new Date().toISOString();
+  // Le protocole du systeme cible (section 15) determine la serialisation
+  // du lot : XML/SOAP pour un systeme legacy, JSON sinon — meme contenu,
+  // meme signature HMAC sur le corps effectivement envoye.
+  const isSoap = system.protocol === "SOAP";
+  const payload = isSoap
+    ? buildSoapSyncBatch(job.entityType, records, syncedAt)
+    : JSON.stringify({ entityType: job.entityType, records, syncedAt });
   const secret = decryptField(job.secret)!;
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
 
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-SIGEC-Sync-Signature": signature, "X-SIGEC-Sync-Job-Id": job.id },
+      headers: {
+        "Content-Type": isSoap ? "text/xml; charset=utf-8" : "application/json",
+        "X-SIGEC-Sync-Signature": signature,
+        "X-SIGEC-Sync-Job-Id": job.id,
+      },
       body: payload,
       signal: AbortSignal.timeout(10_000),
     });

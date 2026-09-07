@@ -17,6 +17,7 @@ export function NewSystemForm() {
   const [type, setType] = useState("EXTERNAL_APPLICATION");
   const [environment, setEnvironment] = useState("DEVELOPMENT");
   const [authType, setAuthType] = useState("API_KEY");
+  const [protocol, setProtocol] = useState("REST");
   const [baseUrl, setBaseUrl] = useState("");
   const [organization, setOrganization] = useState("");
   const [contact, setContact] = useState("");
@@ -31,7 +32,7 @@ export function NewSystemForm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name, code, type, environment, authType,
+        name, code, type, environment, authType, protocol,
         baseUrl: baseUrl.trim() || null,
         organization: organization.trim() || null,
         contact: contact.trim() || null,
@@ -91,6 +92,13 @@ export function NewSystemForm() {
             <option value="API_KEY">API_KEY</option>
             <option value="OAUTH2">OAUTH2</option>
             <option value="NONE">NONE</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">Protocol</label>
+          <select value={protocol} onChange={(e) => setProtocol(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] px-2 py-1.5 text-sm">
+            <option value="REST">REST (JSON)</option>
+            <option value="SOAP">SOAP (legacy XML)</option>
           </select>
         </div>
         <div className="sm:col-span-2">
