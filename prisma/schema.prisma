@@ -2034,7 +2034,8 @@ model IntegrationCredential {
   systemId     String   @unique
   clientId     String?
   clientSecret String? // chiffre
-  oauthConfig  String? // JSON chiffre (scopes, token URL, etc.)
+  scopes       String[] @default([]) // scopes accordes au jeton OAuth2 (section 16/18), meme liste que IntegrationApiKey.scopes
+  oauthConfig  String? // JSON chiffre (parametres additionnels futurs)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { listIntegrationSystems } from "@/lib/services/integration-systems";
+import { AVAILABLE_SCOPES } from "@/lib/services/integration-api-keys";
 import { NewSystemForm } from "@/components/integration/new-system-form";
 import { TestConnectionButton, ToggleSystemEnabledButton } from "@/components/integration/system-actions";
+import { OAuthCredentialButton } from "@/components/integration/oauth-credential-button";
 import { PageHeading } from "@/components/ui/page-header";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -41,13 +43,15 @@ export default async function IntegrationSystemsPage() {
       key: "actions",
       header: "",
       align: "end",
-      render: (s) =>
-        can(user, "integration", "test") && (
-          <div className="flex items-center justify-end gap-2">
-            <TestConnectionButton systemId={s.id} />
-            {can(user, "integration", "update") && <ToggleSystemEnabledButton systemId={s.id} enabled={s.enabled} />}
-          </div>
-        ),
+      render: (s) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {can(user, "integration", "test") && <TestConnectionButton systemId={s.id} />}
+          {can(user, "integration", "update") && <ToggleSystemEnabledButton systemId={s.id} enabled={s.enabled} />}
+          {s.authType === "OAUTH2" && can(user, "integration", "credentials") && (
+            <OAuthCredentialButton systemId={s.id} hasCredential={Boolean(s.credential?.clientId)} scopes={AVAILABLE_SCOPES} />
+          )}
+        </div>
+      ),
     },
   ];
 

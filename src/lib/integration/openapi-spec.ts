@@ -13,10 +13,11 @@ export function getOpenApiSpec(baseUrl: string) {
       version: "1.0.0",
       description:
         "APIs versionnees exposees par l'API Gateway de SIGEC-SM aux systemes externes autorises (banques, mobile money, administrations, ERP...). " +
-        "Authentification par cle API (Authorization: Bearer <cle> ou X-API-Key). Voir /admin/integration/api-keys pour generer une cle.",
+        "Authentification par cle API (Authorization: Bearer <cle> ou X-API-Key, voir /admin/integration/api-keys) ou par jeton OAuth2 " +
+        "client_credentials (POST /api/v1/oauth/token, voir /admin/integration/systems pour generer des identifiants OAuth2).",
     },
     servers: [{ url: baseUrl }],
-    security: [{ ApiKeyAuth: [] }],
+    security: [{ ApiKeyAuth: [] }, { OAuth2ClientCredentials: [] }],
     components: {
       securitySchemes: {
         ApiKeyAuth: {
@@ -24,6 +25,16 @@ export function getOpenApiSpec(baseUrl: string) {
           scheme: "bearer",
           bearerFormat: "sigk_...",
           description: "Cle API generee depuis /admin/integration/api-keys. Alternative : en-tete X-API-Key.",
+        },
+        OAuth2ClientCredentials: {
+          type: "oauth2",
+          flows: {
+            clientCredentials: {
+              tokenUrl: "/api/v1/oauth/token",
+              scopes: Object.fromEntries(["citizens:read", "documents:verify"].map((s) => [s, s])),
+            },
+          },
+          description: "Jeton d'acces obtenu via POST /api/v1/oauth/token (grant_type=client_credentials), duree de vie 1h.",
         },
       },
       schemas: {
@@ -47,6 +58,51 @@ export function getOpenApiSpec(baseUrl: string) {
       },
     },
     paths: {
+      "/api/v1/oauth/token": {
+        post: {
+          summary: "Emet un jeton d'acces OAuth2 (grant_type=client_credentials)",
+          description: "Aucune authentification prealable requise (c'est cet endpoint qui authentifie). Accepte application/x-www-form-urlencoded (RFC 6749) ou application/json.",
+          security: [],
+          requestBody: {
+            required: true,
+            content: {
+              "application/x-www-form-urlencoded": {
+                schema: {
+                  type: "object",
+                  required: ["grant_type", "client_id", "client_secret"],
+                  properties: {
+                    grant_type: { type: "string", enum: ["client_credentials"] },
+                    client_id: { type: "string" },
+                    client_secret: { type: "string" },
+                    scope: { type: "string", description: "Scopes demandes, separes par des espaces. Omis = tous les scopes accordes au client." },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "OK",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      access_token: { type: "string" },
+                      token_type: { type: "string", example: "Bearer" },
+                      expires_in: { type: "integer", example: 3600 },
+                      scope: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+            "401": { description: "invalid_client — client_id/client_secret invalide ou systeme desactive" },
+            "400": { description: "invalid_request / unsupported_grant_type / invalid_scope" },
+            "429": { description: "temporarily_unavailable — trop de tentatives" },
+          },
+        },
+      },
       "/api/v1/citizens": {
         get: {
           summary: "Liste des citoyens (champs minimaux)",

@@ -30,7 +30,7 @@ export default async function ApiDocumentationPage() {
     <div className="space-y-6">
       <PageHeading
         title="API Documentation"
-        description="Endpoints /api/v1/* reellement exposes par l'API Gateway — authentification par cle API (voir Security & Credentials)."
+        description="Endpoints /api/v1/* reellement exposes par l'API Gateway — authentification par cle API (Security & Credentials) ou jeton OAuth2 (Connected Systems)."
         action={
           <a
             href="/api/v1/openapi.json"

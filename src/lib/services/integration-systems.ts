@@ -1,8 +1,10 @@
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { ApiError } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
 import { encryptField } from "@/lib/encryption";
+import { AVAILABLE_SCOPES } from "@/lib/services/integration-api-keys";
 import type { CurrentUser } from "@/lib/auth";
 
 export const SYSTEM_TYPES = [
@@ -164,4 +166,48 @@ export async function testIntegrationSystemConnection(actor: CurrentUser, id: st
 
   await logAudit({ user: actor, action: "INTEGRATION_TEST_CONNECTION", module: "integration", entityType: "IntegrationSystem", entityId: id, newValue: { ok, message } });
   return { ok, message, system: updated };
+}
+
+// OAuth2 client_credentials (section 16) — identifiants generes par
+// SIGEC-SM (jamais choisis par l'admin) : le secret n'est renvoye qu'ICI,
+// une seule fois, meme convention que les cles API (generateApiKeyMaterial)
+// et les codes de secours MFA. Requiert authType=OAUTH2 : un systeme
+// authentifie par cle API n'a pas besoin d'identifiants OAuth2 en plus.
+export async function generateOAuthCredential(actor: CurrentUser, systemId: string, scopes: string[]) {
+  if (!can(actor, "integration", "credentials")) throw new ApiError(403, "Permission insuffisante.");
+  const system = await prisma.integrationSystem.findUnique({ where: { id: systemId } });
+  if (!system) throw new ApiError(404, "Systeme introuvable.");
+  if (system.authType !== "OAUTH2") throw new ApiError(400, "Ce systeme n'est pas configure en authType OAUTH2.");
+
+  const invalidScopes = scopes.filter((s) => !AVAILABLE_SCOPES.includes(s as (typeof AVAILABLE_SCOPES)[number]));
+  if (invalidScopes.length > 0) throw new ApiError(400, `Scope(s) invalide(s): ${invalidScopes.join(", ")}`);
+
+  const clientId = `client_${randomBytes(8).toString("hex")}`;
+  const clientSecret = randomBytes(24).toString("hex");
+
+  await prisma.integrationCredential.upsert({
+    where: { systemId },
+    create: { systemId, clientId, clientSecret: encryptField(clientSecret), scopes },
+    update: { clientId, clientSecret: encryptField(clientSecret), scopes },
+  });
+
+  await logAudit({ user: actor, action: "OAUTH_CREDENTIAL_GENERATED", module: "integration", entityType: "IntegrationSystem", entityId: systemId, newValue: { clientId, scopes } });
+
+  return { clientId, clientSecret, scopes };
+}
+
+// Fait tourner uniquement le secret (le client_id reste stable — un
+// systeme externe reconfigure son secret sans avoir a re-saisir son
+// identifiant partout).
+export async function rotateOAuthCredential(actor: CurrentUser, systemId: string) {
+  if (!can(actor, "integration", "credentials")) throw new ApiError(403, "Permission insuffisante.");
+  const credential = await prisma.integrationCredential.findUnique({ where: { systemId } });
+  if (!credential?.clientId) throw new ApiError(404, "Aucun identifiant OAuth2 configure pour ce systeme.");
+
+  const clientSecret = randomBytes(24).toString("hex");
+  await prisma.integrationCredential.update({ where: { systemId }, data: { clientSecret: encryptField(clientSecret) } });
+
+  await logAudit({ user: actor, action: "OAUTH_CREDENTIAL_ROTATED", module: "integration", entityType: "IntegrationSystem", entityId: systemId, newValue: { clientId: credential.clientId } });
+
+  return { clientId: credential.clientId, clientSecret, scopes: credential.scopes };
 }

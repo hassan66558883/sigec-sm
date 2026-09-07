@@ -5,6 +5,8 @@ import {
   updateIntegrationSystem,
   setIntegrationSystemEnabled,
   testIntegrationSystemConnection,
+  generateOAuthCredential,
+  rotateOAuthCredential,
 } from "@/lib/services/integration-systems";
 import { runHealthCheckNow } from "@/lib/services/integration-health";
 
@@ -30,6 +32,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.action === "set_enabled") {
       const updated = await setIntegrationSystemEnabled(user, id, Boolean(body.enabled));
       return NextResponse.json({ data: updated });
+    }
+    if (body.action === "generate_oauth_credential") {
+      const result = await generateOAuthCredential(user, id, body.scopes ?? []);
+      return NextResponse.json({ data: result });
+    }
+    if (body.action === "rotate_oauth_credential") {
+      const result = await rotateOAuthCredential(user, id);
+      return NextResponse.json({ data: result });
     }
     if (body.action) throw new ApiError(400, "Action inconnue.");
 

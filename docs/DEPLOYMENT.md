@@ -52,7 +52,8 @@ Créer `/opt/sigec-sm/app/.env` (jamais commité — voir `.gitignore`) :
 DATABASE_URL="postgresql://sigec:CHANGEZ_MOI@localhost:5432/sigec_sm?schema=public"
 SESSION_SECRET="<sortie de: openssl rand -base64 48>"
 ENCRYPTION_KEY="<sortie de: openssl rand -base64 32>"   # chiffrement des champs sensibles (section 32)
-CRON_SECRET="<sortie de: openssl rand -base64 32>"      # protege /api/cron/relances, voir section 7 ci-dessous
+CRON_SECRET="<sortie de: openssl rand -base64 32>"      # protege /api/cron/*, voir section 7 ci-dessous
+OAUTH_TOKEN_SECRET="<sortie de: openssl rand -base64 32>"   # signature des jetons OAuth2 (Integration Center), distinct de SESSION_SECRET
 APP_BASE_URL="https://sigec.ndjamena.td"   # domaine reel de production
 NODE_ENV="production"
 ```
@@ -172,17 +173,21 @@ sudo systemctl restart sigec-sm
 
 Toujours exécuter une [sauvegarde](./BACKUP.md) avant une migration en production.
 
-## 7. Echeancier de relance (cron)
+## 7. Tâches périodiques (cron)
 
-Le module paiement en ligne envoie des rappels automatiques (section 19 : J-7, J-1 avant échéance ;
-J+1, J+7 après échéance — l'obligation passe alors `EN_RETARD`) via `POST /api/cron/relances`, un
-endpoint protégé par `CRON_SECRET` (pas une session utilisateur — voir `.env.example`). Idempotent :
-un déclenchement en double le même jour ne renvoie jamais deux fois la même relance
-(`ObligationReminder`, contrainte d'unicité `obligationId+type`), donc une fréquence horaire est sans
-risque.
+Trois endpoints, tous protégés par `CRON_SECRET` (pas une session utilisateur — voir
+`.env.example`), à appeler depuis un cron système externe :
+
+| Endpoint | Rôle | Fréquence recommandée |
+|---|---|---|
+| `POST /api/cron/relances` | Rappels d'échéance (section 19 : J-7, J-1 avant ; J+1, J+7 après — l'obligation passe alors `EN_RETARD`). Idempotent (`ObligationReminder`, contrainte `obligationId+type`) — un déclenchement en double le même jour ne renvoie jamais deux fois la même relance. | Horaire |
+| `POST /api/cron/webhook-retries` | Retente les livraisons de webhook en attente (Integration & Interoperability Center, section 10 — délais croissants 30s/2min/10min puis `FAILED`). Sans effet si aucune livraison n'est due (`{"data":{"processed":0}}`). | Toutes les minutes |
+| `POST /api/cron/health-checks` | Vérifie la santé de chaque système externe connecté (section 23) — ping HTTP réel, alerte (`IntegrationError`) uniquement au passage à l'état en panne, jamais à chaque échec répété. | Toutes les 5 minutes |
 
 ```cron
-0 * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/relances >> /var/log/sigec-sm-relances.log 2>&1
+0    * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/relances        >> /var/log/sigec-sm-relances.log 2>&1
+*    * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/webhook-retries >> /var/log/sigec-sm-webhook-retries.log 2>&1
+*/5  * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/health-checks   >> /var/log/sigec-sm-health-checks.log 2>&1
 ```
 
 Préférez charger `CRON_SECRET` depuis `/etc/sigec-sm/backup.env` (ou un fichier équivalent en mode
