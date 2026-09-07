@@ -2020,6 +2020,7 @@ model IntegrationSystem {
   errors     IntegrationError[]
   webhooks   IntegrationWebhook[]
   healthChecks IntegrationHealthCheck[]
+  syncJobs     IntegrationSyncJob[]
 
   @@index([status])
   @@index([enabled])
@@ -2249,4 +2250,55 @@ model IntegrationHealthCheck {
 
   @@index([systemId])
   @@index([createdAt])
+}
+
+// Synchronization Engine (section 13) — scope volontairement retreint a
+// l'EXPORT par lot (SIGEC-SM -> systeme externe) : "Real-time" et
+// "Event-based" sont deja couverts par le systeme de webhooks (livraison
+// par evenement), jamais reimplementes ici sous un autre nom. Ce moteur
+// couvre le cas complementaire — "Scheduled"/"Manual" — un lot periodique
+// ou declenche a la main, pas un evenement isole. Aucun mecanisme d'IMPORT
+// depuis un systeme externe n'existe reellement (aucun vrai systeme tiers
+// ne pousse de donnees vers SIGEC-SM a ce jour) : recordsReceived n'est
+// donc jamais renseigne cote UI, volontairement absent plutot qu'affiche a
+// zero comme s'il s'agissait d'une vraie mesure.
+model IntegrationSyncJob {
+  id              String    @id @default(cuid())
+  systemId        String
+  entityType      String    @default("CITIZENS")
+  syncType        String // SCHEDULED|MANUAL
+  intervalMinutes Int? // requis si syncType=SCHEDULED
+  endpointPath    String // chemin ajoute a system.baseUrl pour recevoir le lot, ex: "/sync/citizens"
+  secret          String // chiffre — signe chaque lot (HMAC-SHA256), meme mecanisme que les webhooks
+  status          String    @default("ACTIVE") // ACTIVE|DISABLED
+  lastSyncAt      DateTime?
+  nextSyncAt      DateTime?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  system IntegrationSystem    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  runs   IntegrationSyncRun[]
+
+  @@index([status])
+  @@index([nextSyncAt])
+}
+
+// Une ligne par EXECUTION reelle (declenchee par le cron ou manuellement) —
+// jamais un resultat simule : recordsSent/recordsFailed refletent l'issue
+// HTTP reelle du lot envoye.
+model IntegrationSyncRun {
+  id            String    @id @default(cuid())
+  jobId         String
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  recordsSent   Int       @default(0)
+  recordsFailed Int       @default(0)
+  status        String    @default("RUNNING") // RUNNING|SUCCESS|FAILED
+  errorMessage  String?
+
+  job IntegrationSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
 }

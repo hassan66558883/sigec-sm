@@ -175,7 +175,7 @@ Toujours exécuter une [sauvegarde](./BACKUP.md) avant une migration en producti
 
 ## 7. Tâches périodiques (cron)
 
-Trois endpoints, tous protégés par `CRON_SECRET` (pas une session utilisateur — voir
+Quatre endpoints, tous protégés par `CRON_SECRET` (pas une session utilisateur — voir
 `.env.example`), à appeler depuis un cron système externe :
 
 | Endpoint | Rôle | Fréquence recommandée |
@@ -183,11 +183,13 @@ Trois endpoints, tous protégés par `CRON_SECRET` (pas une session utilisateur 
 | `POST /api/cron/relances` | Rappels d'échéance (section 19 : J-7, J-1 avant ; J+1, J+7 après — l'obligation passe alors `EN_RETARD`). Idempotent (`ObligationReminder`, contrainte `obligationId+type`) — un déclenchement en double le même jour ne renvoie jamais deux fois la même relance. | Horaire |
 | `POST /api/cron/webhook-retries` | Retente les livraisons de webhook en attente (Integration & Interoperability Center, section 10 — délais croissants 30s/2min/10min puis `FAILED`). Sans effet si aucune livraison n'est due (`{"data":{"processed":0}}`). | Toutes les minutes |
 | `POST /api/cron/health-checks` | Vérifie la santé de chaque système externe connecté (section 23) — ping HTTP réel, alerte (`IntegrationError`) uniquement au passage à l'état en panne, jamais à chaque échec répété. | Toutes les 5 minutes |
+| `POST /api/cron/sync-jobs` | Exécute les synchronisations `SCHEDULED` échues (section 13 — export par lot vers un système externe). Sans effet si aucun job n'est dû. | Toutes les minutes |
 
 ```cron
 0    * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/relances        >> /var/log/sigec-sm-relances.log 2>&1
 *    * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/webhook-retries >> /var/log/sigec-sm-webhook-retries.log 2>&1
 */5  * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/health-checks   >> /var/log/sigec-sm-health-checks.log 2>&1
+*    * * * * curl -sf -X POST -H "Authorization: Bearer $(grep CRON_SECRET /opt/sigec-sm/app/.env | cut -d= -f2- | tr -d '"')" https://sigec.ndjamena.td/api/cron/sync-jobs       >> /var/log/sigec-sm-sync-jobs.log 2>&1
 ```
 
 Préférez charger `CRON_SECRET` depuis `/etc/sigec-sm/backup.env` (ou un fichier équivalent en mode

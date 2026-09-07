@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 // (section 41 — "limiter les donnees partagees a ce qui est strictement
 // necessaire").
 
-const CITIZEN_SELECT = {
+export const CITIZEN_SELECT = {
   id: true,
   uniqueNumber: true,
   firstName: true,

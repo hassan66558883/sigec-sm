@@ -100,6 +100,7 @@ const NAV_SECTIONS: {
       { href: "/admin/integration/mapping", labelKey: "sidebar.integrationMapping", module: "integration" },
       { href: "/admin/integration/import", labelKey: "sidebar.integrationImportExport", module: "integration" },
       { href: "/admin/integration/health", labelKey: "sidebar.integrationHealth", module: "integration" },
+      { href: "/admin/integration/sync", labelKey: "sidebar.integrationSync", module: "integration" },
     ],
   },
   {

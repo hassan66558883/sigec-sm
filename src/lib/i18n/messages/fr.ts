@@ -80,6 +80,7 @@ const fr = {
     integrationMapping: "Data Mapping",
     integrationImportExport: "Import / Export",
     integrationHealth: "Integration Health",
+    integrationSync: "Synchronization",
     technotchadDashboard: "Tableau de bord",
     technotchadClients: "Clients",
     technotchadSubscriptions: "Abonnements",
